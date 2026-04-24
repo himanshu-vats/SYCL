@@ -232,6 +232,16 @@
     .issue-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
     .issue-detail { font-size: 12px; color: var(--text-secondary); margin-top: 2px; line-height: 1.5; }
     .btn-ghost.active { background: var(--z-1000); color: var(--bg-100); border-color: var(--z-1000); opacity: 1; }
+
+    /* ── Editor sort/filter ── */
+    .th-inner { display: flex; align-items: center; gap: 3px; }
+    .th-sort { background: none; border: none; cursor: pointer; padding: 0 1px; color: var(--text-muted); font-size: 10px; line-height: 1; font-family: 'JetBrains Mono', monospace; }
+    .th-sort:hover { color: var(--text-primary); }
+    .th-filt { background: none; border: none; cursor: pointer; padding: 0 2px; font-size: 9px; color: var(--text-muted); line-height: 1; opacity: 0.5; }
+    .th-filt:hover, .th-filt.on { opacity: 1; color: var(--clr-warn); }
+    .filter-popup { display: none; position: fixed; z-index: 3000; background: var(--bg-100); border: 1px solid var(--border); border-radius: 8px; padding: 12px; min-width: 180px; max-height: 280px; box-shadow: 0 6px 24px rgba(0,0,0,0.15); overflow-y: auto; }
+    .fp-row { display: flex; align-items: center; gap: 7px; padding: 3px 0; font-size: 12px; }
+    .fp-row label { cursor: pointer; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   </style>
 </head>
 <body>
@@ -429,28 +439,14 @@
             <span id="changedBadge" style="font-size:11px;font-weight:600;color:var(--clr-warn);padding:2px 8px;background:var(--clr-warn-bg);border-radius:999px"></span>
             <button id="showChangedBtn" class="btn btn-ghost" style="display:none;font-size:11px;color:var(--clr-warn)"
               onclick="this.classList.toggle('active');renderEditorTable()">Show changed only</button>
-            <select id="editorDivFilter" onchange="renderEditorTable()"
-              style="height:26px;padding:0 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg-100);font-size:12px;font-family:'Inter',sans-serif;color:var(--text-primary);cursor:pointer">
-              <option value="">All divisions</option>
-            </select>
+            <button id="clearFiltersBtn" class="btn btn-ghost" style="display:none;font-size:11px;color:var(--clr-warn)" onclick="clearAllFilters()">✕ Filters</button>
             <button class="btn btn-ghost" onclick="addFixtureRow()">+ Add row</button>
           </div>
         </div>
         <div id="editorMsg" class="msg" style="margin:0 18px 0"></div>
         <div class="scroll-x">
           <table id="editorTable">
-            <thead><tr>
-              <th style="width:44px" title="Match ID from CricClubs">#</th>
-              <th title="Age/skill division (e.g. U11A, U13B)">Division</th>
-              <th title="Match date — MM/DD/YYYY">Date</th>
-              <th title="Start time (e.g. 9:00 AM, 1:00 PM)">Time</th>
-              <th title="Home team — sets up the field">Home Team</th>
-              <th title="Away team — visiting side">Away Team</th>
-              <th title="Ground / venue name">Ground</th>
-              <th title="Umpire 1 — typically the home team provides">Umpire 1</th>
-              <th title="Umpire 2 — typically the away team provides">Umpire 2</th>
-              <th style="width:32px"></th>
-            </tr></thead>
+            <thead id="editorHead"></thead>
             <tbody id="editorBody">
               <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text-muted)">Loading…</td></tr>
             </tbody>
@@ -953,6 +949,7 @@ function renderPropagateSection() {
         ? `<a href="${updateUrl}" target="_blank" class="btn" style="font-size:12px;text-decoration:none;white-space:nowrap">Open in CricClubs →</a>`
         : `<span style="font-size:12px;color:var(--clr-bad)">⚠ No CricClubs ID — re-sync first</span>`;
 
+    const matchKey = isNew ? ('new_' + m.team1 + m.team2) : m.id;
     return `<div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;gap:16px;align-items:flex-start">
       <div style="min-width:36px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);padding-top:2px">#${isNew?'new':m.id}</div>
       <div style="flex:1">
@@ -963,9 +960,25 @@ function renderPropagateSection() {
         </div>
         ${isNew ? '<div style="font-size:12px;color:var(--text-muted)">All fields new</div>' : diffRows}
       </div>
-      <div style="flex-shrink:0;display:flex;align-items:center">${actionBtn}</div>
+      <div style="flex-shrink:0;display:flex;align-items:center;gap:8px">
+        ${actionBtn}
+        <button class="btn btn-ghost" style="font-size:11px;color:var(--text-muted)" title="Remove from this list" onclick="dismissPropagateItem('${matchKey}')">✕</button>
+      </div>
     </div>`;
   }).join('');
+}
+
+function dismissPropagateItem(key) {
+  // Remove from _savedForPropagation
+  _savedForPropagation = _savedForPropagation.filter(m => {
+    const isNew = String(m.id).startsWith('new_');
+    const mk = isNew ? ('new_' + m.team1 + m.team2) : m.id;
+    return mk !== key;
+  });
+  // Remove from _changedIds if key is a numeric id
+  if (!key.startsWith('new_')) _changedIds.delete(key);
+  updateChangedBadge();
+  renderPropagateSection();
 }
 
 // ── Status ────────────────────────────────────────────────────
@@ -1041,6 +1054,10 @@ let _editorRows = [];
 let _originalRows = {};  // keyed by match id, stores original field values
 let _changedIds = new Set();
 let _savedForPropagation = []; // snapshot of changed matches captured at save time
+let _editorSort = { col: null, dir: 'asc' };
+let _editorFilters = {}; // field -> Set of selected values (empty = all)
+let _filterField = null;
+let _filterPending = new Set();
 
 function parseEditorDate(s) {
   if (!s) return null;
@@ -1092,7 +1109,7 @@ function buildDataLists() {
 }
 
 async function loadFixtures(fromSave = false) {
-  if (!fromSave) _savedForPropagation = [];
+  if (!fromSave) { _savedForPropagation = []; _editorFilters = {}; }
   try {
     const r = await fetch('/api/schedule?_t=' + Date.now());
     if (!r.ok) { renderEditorEmpty('No schedule data yet. Sync from CricClubs or upload an Excel file first.'); return; }
@@ -1112,12 +1129,6 @@ async function loadFixtures(fromSave = false) {
     buildDataLists();
     populateAnalyticsSelectors();
     renderIssues();
-
-    const divs = [...new Set(_allMatches.map(m => m.division))];
-    const sel = document.getElementById('editorDivFilter');
-    while (sel.options.length > 1) sel.remove(1);
-    divs.forEach(d => { const o = document.createElement('option'); o.value = d; o.textContent = d; sel.appendChild(o); });
-
     renderEditorTable();
   } catch(e) {
     renderEditorEmpty('Failed to load: ' + e.message);
@@ -1166,15 +1177,68 @@ function updateChangedBadge() {
   if (navBadge) { const total = n || np; navBadge.textContent = total; navBadge.style.display = total > 0 ? '' : 'none'; }
 }
 
+function renderEditorHead() {
+  const thead = document.getElementById('editorHead');
+  if (!thead) return;
+  const mkTh = (field, label, width) => {
+    const s = _editorSort.col === field;
+    const sortIcon = s ? (_editorSort.dir === 'asc' ? '↑' : '↓') : '↕';
+    const hasFilter = (_editorFilters[field]?.size || 0) > 0;
+    const w = width ? ` style="width:${width}"` : '';
+    return `<th${w}><div class="th-inner">
+      <span style="cursor:pointer;flex:1" onclick="toggleEditorSort('${field}')">${label}</span>
+      <button class="th-sort" onclick="toggleEditorSort('${field}')" title="Sort">${sortIcon}</button>
+      <button class="th-filt ${hasFilter?'on':''}" onclick="event.stopPropagation();openColFilter('${field}',this)" title="Filter">▼</button>
+    </div></th>`;
+  };
+  thead.innerHTML = `<tr>
+    <th style="width:44px">#</th>
+    ${mkTh('division','Division')}
+    ${mkTh('date','Date')}
+    ${mkTh('time','Time')}
+    ${mkTh('team1','Home Team')}
+    ${mkTh('team2','Away Team')}
+    ${mkTh('ground','Ground')}
+    ${mkTh('umpire1','Umpire 1')}
+    ${mkTh('umpire2','Umpire 2')}
+    <th style="width:32px"></th>
+  </tr>`;
+}
+
 function renderEditorTable() {
+  renderEditorHead();
   const tbody = document.getElementById('editorBody');
-  const divFilter = document.getElementById('editorDivFilter').value;
   const changedOnly = document.getElementById('showChangedBtn')?.classList.contains('active');
-  let rows = divFilter ? _editorRows.filter(m => m.division === divFilter) : _editorRows;
+  let rows = [..._editorRows];
+
+  // Apply column filters
+  Object.entries(_editorFilters).forEach(([field, vals]) => {
+    if (vals?.size > 0) rows = rows.filter(m => vals.has(m[field] || ''));
+  });
+
+  // Apply changed-only filter
   if (changedOnly) rows = rows.filter(m => String(m.id).startsWith('new_') || _changedIds.has(m.id));
 
+  // Apply sort
+  if (_editorSort.col) {
+    const {col, dir} = _editorSort;
+    rows.sort((a, b) => {
+      const va = a[col] || '', vb = b[col] || '';
+      if (col === 'date') {
+        const da = parseEditorDate(va), db = parseEditorDate(vb);
+        if (da && db) return dir === 'asc' ? da - db : db - da;
+      }
+      return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+  }
+
+  // Update "clear filters" button visibility
+  const activeFilters = Object.values(_editorFilters).filter(s => s?.size > 0).length;
+  const clearBtn = document.getElementById('clearFiltersBtn');
+  if (clearBtn) clearBtn.style.display = activeFilters > 0 ? '' : 'none';
+
   if (!rows.length) {
-    renderEditorEmpty(changedOnly ? 'No changes yet in this view.' : 'No upcoming fixtures' + (divFilter ? ' for ' + divFilter : '') + '.');
+    renderEditorEmpty(changedOnly ? 'No changes yet in this view.' : activeFilters > 0 ? 'No rows match the active filters.' : 'No upcoming fixtures.');
     return;
   }
 
@@ -1219,6 +1283,63 @@ function renderEditorTable() {
     `;
     tbody.appendChild(tr);
   });
+}
+
+function toggleEditorSort(field) {
+  if (_editorSort.col === field) {
+    if (_editorSort.dir === 'asc') { _editorSort.dir = 'desc'; }
+    else { _editorSort.col = null; _editorSort.dir = 'asc'; }
+  } else {
+    _editorSort = { col: field, dir: 'asc' };
+  }
+  renderEditorTable();
+}
+
+function openColFilter(field, btn) {
+  _filterField = field;
+  const current = _editorFilters[field];
+  const allVals = [...new Set(_editorRows.map(m => m[field] || ''))].sort();
+  _filterPending = (current && current.size > 0) ? new Set(current) : new Set(allVals);
+  const label = {division:'Division',date:'Date',time:'Time',team1:'Home Team',team2:'Away Team',ground:'Ground',umpire1:'Umpire 1',umpire2:'Umpire 2'}[field] || field;
+  const popup = document.getElementById('filterPopup');
+  document.getElementById('fpTitle').textContent = label;
+  document.getElementById('fpList').innerHTML = allVals.map((v,i) => {
+    const id = 'fp_' + i;
+    return `<div class="fp-row">
+      <input type="checkbox" id="${id}" value="${esc(v)}" ${_filterPending.has(v)?'checked':''}
+        onchange="_filterPending[this.checked?'add':'delete'](this.value)">
+      <label for="${id}">${esc(v) || '<em style="opacity:0.5">empty</em>'}</label>
+    </div>`;
+  }).join('');
+  const rect = btn.getBoundingClientRect();
+  popup.style.top  = Math.min(rect.bottom + 4, window.innerHeight - 300) + 'px';
+  popup.style.left = Math.min(rect.left, window.innerWidth - 200) + 'px';
+  popup.style.display = 'block';
+}
+
+function applyColFilter() {
+  if (!_filterField) return;
+  const allVals = new Set(_editorRows.map(m => m[_filterField] || ''));
+  if (_filterPending.size === 0 || _filterPending.size >= allVals.size) delete _editorFilters[_filterField];
+  else _editorFilters[_filterField] = new Set(_filterPending);
+  closeColFilter();
+  renderEditorTable();
+}
+
+function clearColFilter() {
+  const allVals = [...new Set(_editorRows.map(m => m[_filterField] || ''))];
+  _filterPending = new Set(allVals);
+  document.getElementById('fpList').querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
+}
+
+function closeColFilter() {
+  document.getElementById('filterPopup').style.display = 'none';
+  _filterField = null;
+}
+
+function clearAllFilters() {
+  _editorFilters = {};
+  renderEditorTable();
 }
 
 function updateTeamLists(idx) {
@@ -1558,6 +1679,23 @@ function showMsg(id, text, type) {
 
 // ── Init ──────────────────────────────────────────────────────
 if (getPassword()) showAdminShell();
+document.addEventListener('click', function(e) {
+  const popup = document.getElementById('filterPopup');
+  if (popup && popup.style.display !== 'none' && !popup.contains(e.target) && !e.target.classList.contains('th-filt')) closeColFilter();
+});
 </script>
+
+<!-- Column filter popup -->
+<div id="filterPopup" class="filter-popup">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <span id="fpTitle" style="font-weight:600;font-size:12px;color:var(--text-primary)"></span>
+    <button onclick="clearColFilter()" style="font-size:11px;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:0">Select all</button>
+  </div>
+  <div id="fpList" style="max-height:200px;overflow-y:auto"></div>
+  <div style="margin-top:10px;display:flex;gap:6px">
+    <button class="btn btn-ghost" onclick="closeColFilter()" style="flex:1;height:26px;font-size:11px">Cancel</button>
+    <button class="btn" onclick="applyColFilter()" style="flex:1;height:26px;font-size:11px">Apply</button>
+  </div>
+</div>
 </body>
 </html>
