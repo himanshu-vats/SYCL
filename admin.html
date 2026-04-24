@@ -278,6 +278,9 @@
       <button class="nav-item" onclick="showSection('sync',this)">
         <span class="nav-icon">↓</span> Sync from CricClubs
       </button>
+      <button class="nav-item" onclick="showSection('standings-sync',this)">
+        <span class="nav-icon">↓</span> Sync Standings
+      </button>
       <button class="nav-item" onclick="showSection('upload',this)">
         <span class="nav-icon">↑</span> Upload Excel
       </button>
@@ -395,6 +398,31 @@
         </div>
         <div class="card-footer">
           <span style="font-size:12px;color:var(--text-muted)">Bookmarklet is tied to this domain and your session password. Re-drag after signing out/in.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Standings Sync section -->
+    <div id="section-standings-sync" class="section">
+      <div class="section-title">Sync Standings from CricClubs</div>
+      <div class="section-desc">Pull the official points table into the dashboard. Run once per division — each sync merges that division without touching others.</div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-icon">◎</span><span class="card-title">Bookmarklet setup</span></div>
+        <div class="card-body">
+          <ol class="steps">
+            <li>Drag the button below into your browser's bookmarks bar <em>(do this once)</em></li>
+            <li>Open the <a href="https://cricclubs.com/SYCLYouth/viewPointsTable.do?year=2026&clubId=10669" target="_blank" style="color:var(--text-primary);font-weight:500">CricClubs Points Table ↗</a></li>
+            <li>Select a division from the dropdown</li>
+            <li>Click the bookmarklet — repeat for each division</li>
+          </ol>
+          <div class="bookmarklet-wrap">
+            <a id="standingsBookmarkletLink" class="bookmarklet-link" href="#">Sync Standings to SYCL</a>
+            <div class="bookmarklet-hint">Drag to bookmarks bar · Click once per division on the CricClubs Points Table page</div>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span style="font-size:12px;color:var(--text-muted)">Standings are merged per division — syncing Emerging Stars does not overwrite Premier, etc.</span>
         </div>
       </div>
     </div>
@@ -669,6 +697,7 @@ function showAdminShell() {
   document.getElementById('adminShell').style.display = 'flex';
   buildBookmarklet();
   buildAutoFillBookmarklet();
+  buildStandingsBookmarklet();
   loadStatus();
   loadFixtures();
 }
@@ -934,6 +963,75 @@ fetch('${origin}/api/schedule?_t='+Date.now())
 })();`;
 
   document.getElementById('autofillBookmarkletLink').href = 'javascript:' + encodeURIComponent(code);
+}
+
+// ── Standings bookmarklet ─────────────────────────────────────
+function buildStandingsBookmarklet() {
+  const origin = window.location.origin;
+  const password = getPassword();
+
+  const code = `(function(){
+// Detect division from the page select dropdowns (try each select, prefer non-year, non-"All" option)
+var divisionName='';
+var selects=Array.from(document.querySelectorAll('select'));
+for(var i=selects.length-1;i>=0;i--){
+  var sel=selects[i];
+  var chosen=sel.options[sel.selectedIndex];
+  if(!chosen)continue;
+  var t=chosen.text.trim();
+  // Skip year-only selects, blank, and "All"/"Select" placeholder options
+  if(!t||/^\\d{4}$/.test(t)||t.toLowerCase()==='all'||t.toLowerCase().startsWith('select')){continue;}
+  divisionName=t;break;
+}
+// Fallback: extract from page heading "(Division Name)"
+if(!divisionName){
+  var hdg=document.querySelector('h2,h3,.title');
+  var m2=(hdg?hdg.textContent:'').match(/\\(([^)]+)\\)/);
+  if(m2)divisionName=m2[1].trim();
+}
+if(!divisionName){alert('Could not detect the selected division.\\nPlease select a division from the dropdown first.');return;}
+
+// Find standings table — must have MAT and WON and PTS in its header row
+var tables=Array.from(document.querySelectorAll('table'));
+var standingsTable=null;
+for(var ti=0;ti<tables.length;ti++){
+  var hdrEl=tables[ti].querySelector('thead tr,tr');
+  if(!hdrEl)continue;
+  var hLow=hdrEl.textContent.toLowerCase();
+  if(hLow.includes('mat')&&hLow.includes('won')&&hLow.includes('pts')){standingsTable=tables[ti];break;}
+}
+if(!standingsTable){alert('Could not find the standings table.\\nMake sure you are on the CricClubs Points Table page with a division selected.');return;}
+
+// Map header columns to indices by text
+var headerCells=Array.from((standingsTable.querySelector('thead tr')||standingsTable.querySelector('tr')).querySelectorAll('th,td'));
+var colIdx={};
+var colMap={'rank':'#','team':'team','played':'mat','won':'won','lost':'lost','nr':'n/r','tie':'tie','pts':'pts','winPct':'win','nrr':'net rr','runsFor':'for','runsAgainst':'against'};
+headerCells.forEach(function(th,idx){
+  var t=th.textContent.trim().toLowerCase();
+  Object.keys(colMap).forEach(function(k){if(t===colMap[k]||t.startsWith(colMap[k]))colIdx[k]=idx;});
+});
+
+// Extract rows
+var rows=[];
+Array.from(standingsTable.querySelectorAll('tbody tr')).forEach(function(tr){
+  var cells=Array.from(tr.querySelectorAll('td'));
+  if(cells.length<4)return;
+  function get(k){var i=colIdx[k];return(i!=null&&i<cells.length)?cells[i].textContent.replace(/\\s+/g,' ').trim():'';}
+  var team=get('team');
+  if(!team)return;
+  rows.push({rank:parseInt(get('rank'))||0,team:team,played:parseInt(get('played'))||0,won:parseInt(get('won'))||0,lost:parseInt(get('lost'))||0,nr:parseInt(get('nr'))||0,tie:parseInt(get('tie'))||0,pts:parseInt(get('pts'))||0,winPct:get('winPct'),nrr:get('nrr'),runsFor:get('runsFor'),runsAgainst:get('runsAgainst')});
+});
+if(!rows.length){alert('No team rows found in the standings table.');return;}
+
+if(!confirm('Sync standings for "'+divisionName+'" ('+rows.length+' teams)?\\n\\n'+rows.map(function(r,i){return(i+1)+'. '+r.team+' — '+r.pts+' pts';}).join('\\n'))){return;}
+
+fetch('${origin}/api/standings',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Password':'${password}'},body:JSON.stringify({division:divisionName,rows:rows})})
+.then(function(r){return r.json();})
+.then(function(d){alert(d.error?('Error: '+d.error):d.message);})
+.catch(function(e){alert('Error: '+e.message);});
+})();`;
+
+  document.getElementById('standingsBookmarkletLink').href = 'javascript:' + encodeURIComponent(code);
 }
 
 // ── Propagate section ─────────────────────────────────────────

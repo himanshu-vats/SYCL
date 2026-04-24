@@ -504,38 +504,93 @@ function ScheduleView({ matches, division }) {
   );
 }
 
-function StandingsView({ matches, division }) {
+function StandingsView({ matches, division, standings }) {
+  // Use CricClubs synced standings if available for this division
+  const ccRows = standings?.[division]?.rows;
+  if (ccRows?.length > 0) {
+    const ts = standings[division].updatedAt;
+    return (
+      <div>
+        <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:10}}>
+          Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})} at {new Date(ts).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}
+        </div>
+        <div className="scroll-x">
+          <table>
+            <thead><tr>
+              <th style={{width:32}}>#</th>
+              <th>Team</th>
+              <th style={{textAlign:"center"}} title="Matches played">P</th>
+              <th style={{textAlign:"center"}} title="Wins">W</th>
+              <th style={{textAlign:"center"}} title="Losses">L</th>
+              <th style={{textAlign:"center"}} title="No result">N/R</th>
+              <th style={{textAlign:"center"}} title="Ties">Tie</th>
+              <th style={{textAlign:"center"}} title="Points">Pts</th>
+              <th style={{textAlign:"center"}} title="Win percentage">Win%</th>
+              <th style={{textAlign:"center"}} title="Net Run Rate">NRR</th>
+              <th style={{textAlign:"center"}} title="Runs scored / overs">For</th>
+              <th style={{textAlign:"center"}} title="Runs conceded / overs">Agst</th>
+            </tr></thead>
+            <tbody>
+              {ccRows.map((s, i) => (
+                <tr key={s.team}>
+                  <td className="num-cell" style={{color:"var(--text-muted)"}}>{s.rank || i+1}</td>
+                  <td className="team-name">{s.team}</td>
+                  <td className="num-cell">{s.played}</td>
+                  <td className="num-cell">{s.won}</td>
+                  <td className="num-cell">{s.lost}</td>
+                  <td className="num-cell">{s.nr}</td>
+                  <td className="num-cell">{s.tie}</td>
+                  <td className="num-cell points-cell">{s.pts}</td>
+                  <td className="num-cell">{s.winPct}</td>
+                  <td className="num-cell" style={{fontWeight:600}}>{s.nrr}</td>
+                  <td className="num-cell" style={{fontSize:11}}>{s.runsFor}</td>
+                  <td className="num-cell" style={{fontSize:11}}>{s.runsAgainst}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback: derive standings from match results in the schedule
   const dm = matches.filter(m => m.division === division);
   const teams = [...new Set(dm.flatMap(m => [m.team1, m.team2]))].sort();
-  const standings = computeStandings(dm, teams);
-  if (!standings.some(s => s.played > 0)) return (
+  const computed = computeStandings(dm, teams);
+  if (!computed.some(s => s.played > 0)) return (
     <div className="empty-state">No results recorded yet for this division.</div>
   );
   return (
-    <div className="scroll-x">
-      <table>
-        <thead><tr>
-          <th style={{width:32}}>#</th><th>Team</th>
-          <th style={{textAlign:"center"}} title="Matches played">P</th>
-          <th style={{textAlign:"center"}} title="Wins">W</th>
-          <th style={{textAlign:"center"}} title="Losses">L</th>
-          <th style={{textAlign:"center"}} title="Abandoned / No result">Abd</th>
-          <th style={{textAlign:"center"}} title="Forfeited">Fft</th>
-          <th style={{textAlign:"center"}} title="Points (Win=2, Abandoned=1, Forfeit Win=2)">Pts</th>
-        </tr></thead>
-        <tbody>
-          {standings.map((s, i) => (
-            <tr key={s.team}>
-              <td className="num-cell" style={{color:"var(--text-muted)"}}>{i+1}</td>
-              <td className="team-name">{s.team}</td>
-              <td className="num-cell">{s.played}</td><td className="num-cell">{s.won}</td>
-              <td className="num-cell">{s.lost}</td><td className="num-cell">{s.abandoned}</td>
-              <td className="num-cell">{s.forfeited}</td>
-              <td className="num-cell points-cell">{s.points}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div>
+      <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:10}}>
+        Computed from match results — sync from CricClubs for official standings with NRR
+      </div>
+      <div className="scroll-x">
+        <table>
+          <thead><tr>
+            <th style={{width:32}}>#</th><th>Team</th>
+            <th style={{textAlign:"center"}} title="Matches played">P</th>
+            <th style={{textAlign:"center"}} title="Wins">W</th>
+            <th style={{textAlign:"center"}} title="Losses">L</th>
+            <th style={{textAlign:"center"}} title="Abandoned / No result">Abd</th>
+            <th style={{textAlign:"center"}} title="Forfeited">Fft</th>
+            <th style={{textAlign:"center"}} title="Points">Pts</th>
+          </tr></thead>
+          <tbody>
+            {computed.map((s, i) => (
+              <tr key={s.team}>
+                <td className="num-cell" style={{color:"var(--text-muted)"}}>{i+1}</td>
+                <td className="team-name">{s.team}</td>
+                <td className="num-cell">{s.played}</td><td className="num-cell">{s.won}</td>
+                <td className="num-cell">{s.lost}</td><td className="num-cell">{s.abandoned}</td>
+                <td className="num-cell">{s.forfeited}</td>
+                <td className="num-cell points-cell">{s.points}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -563,7 +618,7 @@ function SYCLDashboard() {
       .then(d => {
         if (d?.matches?.length) {
           const divisions = [...new Set(d.matches.map(m => m.division))];
-          setData({ matches: d.matches, divisions });
+          setData({ matches: d.matches, divisions, standings: d.standings || {} });
           setSelectedDivision(divisions[0]);
           setLastRefresh(d.updatedAt);
         }
@@ -669,7 +724,7 @@ function SYCLDashboard() {
               </div>
 
               {selectedDivision && activeTab==="schedule"  && <ScheduleView  matches={data.matches} division={selectedDivision}/>}
-              {selectedDivision && activeTab==="standings" && <StandingsView matches={data.matches} division={selectedDivision}/>}
+              {selectedDivision && activeTab==="standings" && <StandingsView matches={data.matches} division={selectedDivision} standings={data.standings}/>}
             </>
           </>
         )}
