@@ -300,6 +300,56 @@
     .filter-popup { display: none; position: fixed; z-index: 3000; background: var(--bg-100); border: 1.5px solid var(--border); border-radius: 10px; padding: 12px; min-width: 180px; max-height: 280px; box-shadow: 0 6px 24px rgba(0,0,0,0.12); overflow-y: auto; }
     .fp-row { display: flex; align-items: center; gap: 7px; padding: 3px 0; font-size: 12px; }
     .fp-row label { cursor: pointer; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Division tabs for editor ── */
+    #editorDivTabs { display: flex; border-bottom: 2px solid var(--border); margin: 0 18px; gap: 0; overflow-x: auto; scrollbar-width: none; }
+    #editorDivTabs::-webkit-scrollbar { display: none; }
+    .dtab-btn { padding: 0 14px; height: 38px; border: none; background: none;
+      color: var(--text-muted); font-size: 12px; font-weight: 600;
+      border-bottom: 3px solid transparent; margin-bottom: -2px;
+      cursor: pointer; font-family: 'Inter', sans-serif; white-space: nowrap;
+      transition: all 0.12s; display: inline-flex; align-items: center; gap: 5px; }
+    .dtab-btn:hover { color: var(--accent); }
+    .dtab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .dtab-badge { display: inline-flex; align-items: center; justify-content: center;
+      min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px;
+      font-size: 9px; font-weight: 800; }
+
+    /* ── Mobile sidebar ── */
+    .hamburger { display: none; background: none; border: none; cursor: pointer;
+      padding: 6px 8px; font-size: 22px; line-height: 1; color: var(--text-primary);
+      align-items: center; border-radius: 7px; }
+    .hamburger:hover { background: var(--bg-200); }
+    .mob-topbar { display: none; height: 50px; border-bottom: 1px solid var(--border);
+      align-items: center; padding: 0 10px; background: var(--bg-100);
+      position: sticky; top: 0; z-index: 6; gap: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+    .sidebar-backdrop { display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45); z-index: 15; }
+
+    @media (max-width: 768px) {
+      :root { --sidebar-w: 0px; }
+      .sidebar { transform: translateX(-100%); transition: transform 0.25s cubic-bezier(.4,0,.2,1); z-index: 20; width: 240px; }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-backdrop.open { display: block; }
+      .main-content { margin-left: 0 !important; }
+      .mob-topbar { display: flex; }
+      .hamburger { display: inline-flex; }
+      .section { padding: 12px; }
+      .section-title { font-size: 14px; }
+      .section-desc { font-size: 12px; margin-bottom: 14px; }
+      .stats-row { flex-wrap: wrap; }
+      .stat-cell { flex: 1 1 120px; }
+      .card-header { flex-wrap: wrap; row-gap: 6px; padding: 10px 12px; }
+      .card-body { padding: 12px; }
+      .card-footer { flex-wrap: wrap; gap: 6px; padding: 10px 12px; }
+      #editorDivTabs { margin: 0 12px; }
+      .edit-input { font-size: 16px !important; }
+      th { padding: 6px 6px; font-size: 9px; }
+      td { padding: 2px 4px; }
+      .btn { touch-action: manipulation; }
+      .login-card { padding: 24px; border-radius: 10px; }
+    }
   </style>
 </head>
 <body>
@@ -320,8 +370,10 @@
 <!-- ── Admin shell (shown after login) ── -->
 <div id="adminShell">
 
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
   <!-- Sidebar -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
     <div class="sidebar-top">
       <span class="sidebar-logo">🏏</span>
       <span class="sidebar-title">SYCL Admin</span>
@@ -370,6 +422,12 @@
 
   <!-- Main area -->
   <div class="main-content">
+
+    <!-- Mobile top bar (hidden on desktop) -->
+    <div class="mob-topbar">
+      <button class="hamburger" onclick="openSidebar()" title="Menu">☰</button>
+      <span style="font-size:14px;font-weight:700;letter-spacing:-0.2px">SYCL Admin</span>
+    </div>
 
     <!-- Overview section -->
     <div id="section-overview" class="section active">
@@ -523,6 +581,7 @@
           </div>
         </div>
         <div id="editorMsg" class="msg" style="margin:0 18px 0"></div>
+        <div id="editorDivTabs"></div>
         <div class="scroll-x">
           <table id="editorTable">
             <thead id="editorHead"></thead>
@@ -789,6 +848,7 @@ function switchAnalyticsTab(tab) {
 }
 
 function showSection(id, btn) {
+  closeSidebar();
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
   // Map old section ids to analytics tab
@@ -1451,6 +1511,7 @@ let _editorSort = { col: null, dir: 'asc' };
 let _editorFilters = {}; // field -> Set of selected values (empty = all)
 let _filterField = null;
 let _filterPending = new Set();
+let _activeDivisions = new Set(); // empty = All mode
 
 function parseEditorDate(s) {
   if (!s) return null;
@@ -1502,7 +1563,7 @@ function buildDataLists() {
 }
 
 async function loadFixtures(fromSave = false) {
-  if (!fromSave) { _savedForPropagation = []; _editorFilters = {}; }
+  if (!fromSave) { _savedForPropagation = []; _editorFilters = {}; _activeDivisions = new Set(); }
   try {
     const r = await fetch('/api/schedule?_t=' + Date.now());
     if (!r.ok) { renderEditorEmpty('No schedule data yet. Sync from CricClubs or upload an Excel file first.'); return; }
@@ -1522,6 +1583,7 @@ async function loadFixtures(fromSave = false) {
     buildDataLists();
     populateAnalyticsSelectors();
     renderIssues();
+    renderDivTabs();
     renderEditorTable();
   } catch(e) {
     renderEditorEmpty('Failed to load: ' + e.message);
@@ -1568,6 +1630,7 @@ function updateChangedBadge() {
   if (badge) badge.textContent = n > 0 ? `${n} changed` : '';
   if (filterBtn) filterBtn.style.display = n > 0 ? '' : 'none';
   if (navBadge) { const total = n || np; navBadge.textContent = total; navBadge.style.display = total > 0 ? '' : 'none'; }
+  renderDivTabs();
 }
 
 function renderEditorHead() {
@@ -1678,6 +1741,76 @@ function renderEditorTable() {
   });
 }
 
+// ── Division tabs ─────────────────────────────────────────────
+function renderDivTabs() {
+  const tabs = document.getElementById('editorDivTabs');
+  if (!tabs) return;
+  const divs = [...new Set(_editorRows.map(m => m.division).filter(Boolean))].sort();
+  if (!divs.length) { tabs.innerHTML = ''; return; }
+
+  if (_activeDivisions.size === 0 && divs.length > 0) {
+    _activeDivisions.add(divs[0]);
+    syncDivisionFilter();
+  }
+
+  const changedByDiv = {};
+  divs.forEach(d => { changedByDiv[d] = 0; });
+  _editorRows.forEach(m => {
+    if ((String(m.id).startsWith('new_') || _changedIds.has(m.id)) && m.division)
+      changedByDiv[m.division] = (changedByDiv[m.division] || 0) + 1;
+  });
+
+  const allMode = _activeDivisions.size === 0 || _activeDivisions.size === divs.length;
+  const totalChanged = Object.values(changedByDiv).reduce((a, b) => a + b, 0);
+  const badge = n => n > 0 ? `<span class="dtab-badge" style="background:var(--clr-warn-bg);color:var(--clr-warn)">${n}</span>` : '';
+
+  tabs.innerHTML = `<button class="dtab-btn ${allMode ? 'active' : ''}" onclick="setAllDivTabs()">All${badge(totalChanged)}</button>`
+    + divs.map(d => {
+      const isActive = _activeDivisions.has(d);
+      return `<button class="dtab-btn ${isActive ? 'active' : ''}" onclick="toggleDivTab(${JSON.stringify(d)})">${esc(d)}${badge(changedByDiv[d])}</button>`;
+    }).join('');
+}
+
+function syncDivisionFilter() {
+  const divs = [...new Set(_editorRows.map(m => m.division).filter(Boolean))];
+  if (_activeDivisions.size === 0 || _activeDivisions.size === divs.length)
+    delete _editorFilters.division;
+  else
+    _editorFilters.division = new Set(_activeDivisions);
+}
+
+function toggleDivTab(div) {
+  if (_activeDivisions.size === 0) {
+    _activeDivisions = new Set(_editorRows.map(m => m.division).filter(Boolean));
+    _activeDivisions.delete(div);
+  } else if (_activeDivisions.has(div)) {
+    _activeDivisions.delete(div);
+    if (_activeDivisions.size === 0) { syncDivisionFilter(); renderDivTabs(); renderEditorTable(); return; }
+  } else {
+    _activeDivisions.add(div);
+  }
+  syncDivisionFilter();
+  renderDivTabs();
+  renderEditorTable();
+}
+
+function setAllDivTabs() {
+  _activeDivisions = new Set();
+  delete _editorFilters.division;
+  renderDivTabs();
+  renderEditorTable();
+}
+
+// ── Mobile sidebar ────────────────────────────────────────────
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebarBackdrop').classList.add('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarBackdrop').classList.remove('open');
+}
+
 function toggleEditorSort(field) {
   if (_editorSort.col === field) {
     if (_editorSort.dir === 'asc') { _editorSort.dir = 'desc'; }
@@ -1732,6 +1865,8 @@ function closeColFilter() {
 
 function clearAllFilters() {
   _editorFilters = {};
+  syncDivisionFilter();
+  renderDivTabs();
   renderEditorTable();
 }
 
@@ -1745,11 +1880,11 @@ function updateTeamLists(idx) {
 }
 
 function addFixtureRow() {
-  const divFilter = document.getElementById('editorDivFilter').value;
-  const divs = [...new Set(_allMatches.map(m => m.division))];
+  const divs = [...new Set(_editorRows.map(m => m.division).filter(Boolean))].sort();
+  const defaultDiv = _activeDivisions.size === 1 ? [..._activeDivisions][0] : divs[0] || '';
   _editorRows.push({
     id: 'new_' + Date.now(),
-    division: divFilter || divs[0] || '',
+    division: defaultDiv,
     matchType: 'League', date: '', time: '',
     team1: '', team2: '', ground: '',
     umpire1: '', umpire2: '', result: '', winner: '', status: ''
