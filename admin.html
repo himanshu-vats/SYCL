@@ -874,6 +874,9 @@ fetch('${origin}/api/schedule?_t='+Date.now())
       if(!opt){console.warn('[SYCL] No SELECT option matching "'+val+'" in',el.name||el.id,'options:',[...el.options].map(function(o){return o.text;}).join('|'));return false;}
       el.value=opt.value;
       el.dispatchEvent(new Event('change',{bubbles:true}));
+      // Return early for SELECTs — el.value holds the numeric ID, not the text we passed in
+      console.log('[SYCL] fill SELECT '+(el.name||el.id)+'['+el.type+']: "'+before+'" -> matched "'+val+'" -> opt.value:'+opt.value+' -> DOM now "'+el.value+'"');
+      return el.value===opt.value;
     } else {
       try{var ns=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');if(ns)ns.set.call(el,val);}catch(e){el.value=val;}
       el.dispatchEvent(new Event('input',{bubbles:true}));
@@ -894,7 +897,9 @@ fetch('${origin}/api/schedule?_t='+Date.now())
     if(!el) console.warn('[SYCL]',f.name,'field not found by label',f.label,'or name',f.names);
     var ok=fill(el,f.val);
     var domVal=el?el.value:'';
-    var verified=ok&&domVal===f.val;
+    // For text inputs: verify DOM matches; for SELECTs: trust fill() return (el.value is numeric ID not text)
+    var isSelect=el&&el.tagName==='SELECT';
+    var verified=ok&&(isSelect||domVal===f.val);
     results.push({name:f.name,val:f.val||'—',domVal:domVal,ok:ok,verified:verified,elDesc:el?(el.tagName+'['+(el.name||el.id||'?')+']'):'(not found)'});
   });
 
