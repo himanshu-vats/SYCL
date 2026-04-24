@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1a0533">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
   <title>SYCL Schedule Dashboard</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏏</text></svg>">
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -341,7 +345,7 @@ const STYLES = `
   }
 
   /* ── App shell ── */
-  .app { max-width: 1200px; margin: 0 auto; padding: 0 0 48px; }
+  .app { max-width: 1200px; margin: 0 auto; padding: 0 0 48px; padding-bottom: max(48px, env(safe-area-inset-bottom)); }
 
   /* ── Header (Yahoo Sports dark purple bar) ── */
   .header {
@@ -374,14 +378,15 @@ const STYLES = `
   /* ── Division pill bar ── */
   .division-bar {
     display: flex; gap: 6px; align-items: center; padding: 14px 0 10px;
-    overflow-x: auto; scrollbar-width: none;
+    overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
   }
   .division-bar::-webkit-scrollbar { display: none; }
 
   /* ── Buttons ── */
-  .div-btn, .small-btn, .tab-btn, .filter-btn {
+  .div-btn, .small-btn, .tab-btn, .filter-btn, .sub-tab-btn {
     font-family: 'Inter', -apple-system, sans-serif;
     font-weight: 500; cursor: pointer; transition: all 0.12s; white-space: nowrap;
+    touch-action: manipulation; -webkit-tap-highlight-color: transparent;
   }
   .div-btn {
     padding: 0 14px; height: 30px; border-radius: 999px;
@@ -419,6 +424,7 @@ const STYLES = `
     display: flex; border-bottom: 2px solid var(--border);
     margin: 0 -16px 20px; padding: 0 16px;
     background: var(--bg-100); overflow-x: auto; scrollbar-width: none;
+    -webkit-overflow-scrolling: touch; position: sticky; top: 56px; z-index: 10;
   }
   .tab-bar::-webkit-scrollbar { display: none; }
   .tab-btn {
@@ -470,6 +476,7 @@ const STYLES = `
   .scroll-x {
     overflow-x: auto; border: 1.5px solid var(--border); border-radius: 10px;
     background: var(--bg-100); box-shadow: var(--table-shadow);
+    -webkit-overflow-scrolling: touch;
   }
 
   .num-cell { text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
@@ -556,11 +563,11 @@ const STYLES = `
   .loading-text { animation: pulse 1.5s ease-in-out infinite; }
 
   /* ── Stat leader cards ── */
-  .leader-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 22px; }
+  .leader-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 14px; }
   .leader-card {
-    background: var(--bg-100); border: 1.5px solid var(--border); border-radius: 12px;
-    padding: 16px 18px; position: relative; overflow: hidden;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    background: var(--bg-100); border: 1.5px solid var(--border); border-radius: 10px;
+    padding: 10px 12px; position: relative; overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     display: flex; flex-direction: column;
   }
   .leader-card::before {
@@ -570,12 +577,12 @@ const STYLES = `
   .leader-card.gold::before { background: linear-gradient(90deg, #c9a227, #f0d060); }
   .leader-card.silver::before { background: linear-gradient(90deg, #8e8e8e, #c0c0c0); }
   .leader-card.bronze::before { background: linear-gradient(90deg, #a0785a, #c8956a); }
-  .leader-label { font-size: 9.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 10px; }
-  .leader-medal { font-size: 14px; margin-right: 4px; }
-  .leader-stat { font-size: 32px; font-weight: 900; font-family: 'JetBrains Mono', monospace; color: var(--accent); line-height: 1; margin-bottom: 6px; }
-  .leader-name { font-size: 13px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .leader-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .leader-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 14px; }
+  .leader-label { font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 6px; display: flex; align-items: center; gap: 3px; }
+  .leader-medal { font-size: 12px; }
+  .leader-stat { font-size: 24px; font-weight: 900; font-family: 'JetBrains Mono', monospace; color: var(--accent); line-height: 1; margin-bottom: 4px; }
+  .leader-name { font-size: 12px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .leader-sub { font-size: 10px; color: var(--text-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .leader-bar { height: 2px; background: var(--border); border-radius: 2px; margin-top: 8px; }
   .leader-bar-fill { height: 100%; border-radius: 2px; background: var(--accent); transition: width 0.5s ease; }
   .leader-card.gold .leader-stat { color: #c9a227; }
   .leader-card.silver .leader-stat { color: #8e8e8e; }
@@ -620,9 +627,9 @@ const STYLES = `
   .nmc-count-lbl { font-size: 10px; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
 
   /* ── Result summary strip ── */
-  .result-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 20px; }
-  .rs-card { background: var(--bg-100); border: 1.5px solid var(--border); border-radius: 10px; padding: 14px 16px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
-  .rs-val { font-size: 30px; font-weight: 900; font-family: 'JetBrains Mono', monospace; line-height: 1; }
+  .result-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; margin-bottom: 14px; }
+  .rs-card { background: var(--bg-100); border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 12px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .rs-val { font-size: 24px; font-weight: 900; font-family: 'JetBrains Mono', monospace; line-height: 1; }
   .rs-lbl { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 6px; }
   .rs-played  { color: var(--accent); }
   .rs-wins    { color: #17bf63; }
@@ -638,13 +645,107 @@ const STYLES = `
   .section-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
   .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
+  /* ─────────────────────────────────────────────────────────────
+     MOBILE — optimized for phone use
+  ───────────────────────────────────────────────────────────── */
+  @media (max-width: 640px) {
+    /* Kill tap delay & highlight flicker on all interactive elements */
+    button, a, input, select, textarea {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* App shell — edge-to-edge */
+    .app { padding: 0 0 24px; }
+    .content-wrap {
+      margin: 8px 8px 0;
+      padding: 0 10px 14px;
+      border-radius: 8px;
+    }
+
+    /* Header — tighter on mobile */
+    .header { padding: 0 12px; min-height: 48px; }
+    .header-sub { display: none; }
+    .header-sep { display: none; }
+
+    /* Division pill bar — finger-friendly */
+    .division-bar { padding: 10px 0 8px; gap: 5px; }
+    .div-btn { height: 34px; padding: 0 12px; font-size: 11.5px; }
+
+    /* Tab bar — sticky below header, scrollable */
+    .tab-bar { margin: 0 -10px 14px; padding: 0 10px; top: 48px; }
+    .tab-btn { padding: 0 13px; height: 38px; font-size: 12px; flex-shrink: 0; }
+
+    /* Tables — tighter cells, smaller font */
+    table { font-size: 12px; }
+    th { padding: 6px 10px; font-size: 8.5px; }
+    td { padding: 8px 10px; }
+    .num-cell { font-size: 12px; padding: 8px 6px; }
+    th:first-child, td:first-child { padding-left: 10px; }
+
+    /* Leader cards — 3-col grid, stripped down */
+    .leader-row { grid-template-columns: repeat(3, 1fr) !important; gap: 5px; margin-bottom: 10px; }
+    .leader-card { padding: 7px 8px; border-radius: 8px; }
+    .leader-stat { font-size: 18px; margin-bottom: 3px; }
+    .leader-name { font-size: 10px; }
+    .leader-sub { display: none; }
+    .leader-label { font-size: 8px; margin-bottom: 4px; }
+    .leader-medal { font-size: 10px; }
+    .leader-bar { margin-top: 6px; }
+
+    /* Result strip — compact row */
+    .result-strip { gap: 5px; margin-bottom: 10px; }
+    .rs-card { padding: 8px 8px; border-radius: 8px; }
+    .rs-val { font-size: 20px; }
+    .rs-lbl { font-size: 9px; margin-top: 4px; }
+
+    /* Stat tiles in drilldown panel */
+    .stat-tile { padding: 7px 5px; border-radius: 8px; }
+    .stat-tile-val { font-size: 16px; }
+    .stat-tile-lbl { font-size: 8px; margin-top: 4px; }
+
+    /* Section label — less breathing room */
+    .section-label { margin-bottom: 8px; font-size: 9px; }
+
+    /* Sub-tab bar */
+    .sub-tab-bar { gap: 6px; margin-bottom: 12px; }
+    .sub-tab-btn { height: 32px; padding: 0 12px; font-size: 11.5px; }
+
+    /* Team select & filter inputs — ≥16px prevents iOS auto-zoom */
+    .team-select { height: 34px; font-size: 16px !important; }
+    input[type="text"] { font-size: 16px !important; height: 34px; }
+
+    /* Empty state — less padding */
+    .empty-state { padding: 32px 16px; font-size: 12px; }
+
+    /* Form dots — slightly tighter */
+    .form-guide { gap: 3px; }
+    .fd { width: 20px; height: 20px; font-size: 7.5px; }
+
+    /* Drilldown result/fixture rows — a bit tighter */
+    .result-row { padding: 8px 0; gap: 10px; }
+    .fixture-row { padding: 7px 0; gap: 8px; }
+
+    /* WhatsApp share button — keep icon + text, fine on mobile */
+    .sub-tab-bar button[style] { padding: 5px 10px !important; }
+  }
+
+  /* Tiny screens (SE, 320px) */
+  @media (max-width: 360px) {
+    .tab-btn { padding: 0 10px; font-size: 11px; }
+    .leader-stat { font-size: 16px; }
+    .content-wrap { margin: 6px 6px 0; padding: 0 8px 12px; }
+  }
+
   /* ── Drilldown panel ── */
   .panel-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.42); z-index: 200; }
   .panel-drawer {
-    position: fixed; top: 0; right: 0; width: min(480px, 100vw); height: 100vh;
+    position: fixed; top: 0; right: 0; width: min(480px, 100vw); height: 100%;
     background: var(--bg-100); overflow-y: auto; z-index: 201;
     box-shadow: -8px 0 40px rgba(0,0,0,0.22);
     animation: panelIn 0.22s cubic-bezier(.4,0,.2,1);
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: env(safe-area-inset-bottom, 0);
   }
   @keyframes panelIn { from { transform: translateX(100%); opacity:0; } to { transform: translateX(0); opacity:1; } }
   .panel-content { padding: 22px 20px 40px; }
@@ -1191,7 +1292,6 @@ function ScheduleView({ matches, division, onDrilldown }) {
 
   return (
     <div>
-      <NextMatchCard matches={matches} division={division}/>
       <div className="sub-tab-bar" style={{display:"flex",alignItems:"center",gap:6}}>
         <button className={`sub-tab-btn ${subTab==="upcoming"?"active":""}`} onClick={()=>setSubTab("upcoming")}>
           Upcoming <span className="sub-count">{upcoming.length}</span>
