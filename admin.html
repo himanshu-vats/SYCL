@@ -805,31 +805,34 @@ var fid=(window.location.href.match(/[?&]fixtureId=(\\d+)/)||[])[1];
 if(!fid){alert('Run this on a CricClubs Update Fixture page.\\nURL must contain: updateFixture.do?fixtureId=...');return;}
 var overlay=document.createElement('div');
 overlay.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;font-family:sans-serif';
-overlay.innerHTML='<div style="background:#fff;border-radius:10px;padding:24px;min-width:300px;text-align:center;font-size:14px;color:#333">🏏 SYCL Auto-fill<br><span style="font-size:12px;color:#666">Loading match data…</span></div>';
+overlay.innerHTML='<div style="background:#fff;border-radius:10px;padding:24px;min-width:300px;text-align:center;font-size:14px;color:#333">SYCL Auto-fill<br><span style="font-size:12px;color:#666">Loading match data…</span></div>';
 document.body.appendChild(overlay);
 fetch('${origin}/api/schedule?_t='+Date.now())
 .then(function(r){return r.json();})
 .then(function(data){
   overlay.remove();
-  var match=data.matches&&data.matches.find(function(m){return m.fixtureId===fid;});
+  console.log('[SYCL] API updatedAt:',data.updatedAt,'| total matches:',(data.matches&&data.matches.length));
+  // Coerce both to string — fixtureId in JSON might be stored as number
+  var match=data.matches&&data.matches.find(function(m){return String(m.fixtureId)===String(fid);});
   if(!match){
-    alert('Match with fixtureId '+fid+' not found in SYCL data.\\n\\nTip: Re-sync from CricClubs so fixture IDs are captured, then make your edits.');
+    var sample=(data.matches||[]).filter(function(m){return m.fixtureId;}).slice(0,5).map(function(m){return m.fixtureId;});
+    alert('Match fixtureId='+fid+' not found in SYCL data.\\nSample IDs in data: '+sample.join(', ')+'\\n\\nTip: Re-sync from CricClubs so fixture IDs are captured, then make your edits.');
     return;
   }
-  // Label-based field finder — works on CricClubs table-based form layout
+  console.log('[SYCL] Match found:',JSON.stringify({id:match.id,fixtureId:match.fixtureId,date:match.date,time:match.time,ground:match.ground,umpire1:match.umpire1,umpire2:match.umpire2}));
+
+  // Find input/select by label text in the same table row
   function findByLabel(texts){
     var all=Array.from(document.querySelectorAll('td,label,th'));
     for(var i=0;i<all.length;i++){
       var t=all[i].textContent.trim().toLowerCase();
       for(var j=0;j<texts.length;j++){
         if(t===texts[j]||t.startsWith(texts[j])){
-          // In a <tr>, the next <td> sibling holds the input
           var row=all[i].closest('tr');
           if(row){
             var tds=row.querySelectorAll('td');
             for(var k=0;k<tds.length;k++){
-              if(tds[k].contains(all[i])||tds[k]===all[i]) {
-                // check subsequent tds
+              if(tds[k].contains(all[i])||tds[k]===all[i]){
                 for(var l=k+1;l<tds.length;l++){
                   var inp=tds[l].querySelector('input:not([type=hidden]):not([type=radio]):not([type=checkbox]):not([type=submit]),select');
                   if(inp)return inp;
@@ -837,56 +840,89 @@ fetch('${origin}/api/schedule?_t='+Date.now())
               }
             }
           }
+          // Also try next sibling element
+          var sib=all[i].nextElementSibling;
+          while(sib){
+            var inp2=sib.tagName==='INPUT'||sib.tagName==='SELECT'?sib:sib.querySelector('input:not([type=hidden]),select');
+            if(inp2)return inp2;
+            sib=sib.nextElementSibling;
+          }
         }
       }
     }
     return null;
   }
+
+  // Fallback: find by common field name attributes
+  function findByName(names){
+    for(var i=0;i<names.length;i++){
+      var el=document.querySelector('input[name="'+names[i]+'"],select[name="'+names[i]+'"]');
+      if(el&&el.type!=='hidden')return el;
+    }
+    return null;
+  }
+
+  // React/framework-compatible fill; returns true only if DOM value matches after set
   function fill(el,val){
-    if(!el||!val)return false;
+    if(!el||val==null||val==='')return false;
+    var before=el.value;
     if(el.tagName==='SELECT'){
-      var v=val.toLowerCase();
-      var opt=Array.from(el.options).find(function(o){return o.text.toLowerCase().indexOf(v)>-1||o.value.toLowerCase()===v;});
-      if(!opt)return false;
+      var v=val.toLowerCase().trim();
+      var opt=Array.from(el.options).find(function(o){return o.text.toLowerCase().trim()===v;})
+             ||Array.from(el.options).find(function(o){return o.text.toLowerCase().indexOf(v)>-1;})
+             ||Array.from(el.options).find(function(o){return o.value.toLowerCase()===v;});
+      if(!opt){console.warn('[SYCL] No SELECT option matching "'+val+'" in',el.name||el.id,'options:',[...el.options].map(function(o){return o.text;}).join('|'));return false;}
       el.value=opt.value;
       el.dispatchEvent(new Event('change',{bubbles:true}));
-      return true;
+    } else {
+      try{var ns=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');if(ns)ns.set.call(el,val);}catch(e){el.value=val;}
+      el.dispatchEvent(new Event('input',{bubbles:true}));
+      el.dispatchEvent(new Event('change',{bubbles:true}));
     }
-    try{var ns=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');if(ns)ns.set.call(el,val);}catch(e){el.value=val;}
-    el.dispatchEvent(new Event('input',{bubbles:true}));
-    el.dispatchEvent(new Event('change',{bubbles:true}));
-    return true;
+    console.log('[SYCL] fill '+(el.name||el.id||el.tagName)+'['+el.type+']: "'+before+'" -> set "'+val+'" -> DOM now "'+el.value+'"');
+    return el.value===val||el.value!==before;
   }
+
   var results=[];
   var fields=[
-    {label:['match date'],val:match.date,name:'Date'},
-    {label:['time:','time'],val:match.time,name:'Time'},
-    {label:['ground:','ground','venue'],val:match.ground,name:'Ground'},
+    {label:['match date'],names:['matchDate','fixture_date','match_date','fixtureDate'],val:match.date,name:'Date'},
+    {label:['time:','time'],names:['matchTime','fixture_time','match_time','startTime','fixtureTime'],val:match.time,name:'Time'},
+    {label:['ground:','ground','venue'],names:['ground','venue','matchVenue','fixture_ground'],val:match.ground,name:'Ground'},
   ];
   fields.forEach(function(f){
-    var el=findByLabel(f.label);
+    var el=findByLabel(f.label)||findByName(f.names);
+    if(!el) console.warn('[SYCL]',f.name,'field not found by label',f.label,'or name',f.names);
     var ok=fill(el,f.val);
-    results.push({name:f.name,val:f.val||'—',ok:ok});
+    var domVal=el?el.value:'';
+    var verified=ok&&domVal===f.val;
+    results.push({name:f.name,val:f.val||'—',domVal:domVal,ok:ok,verified:verified,elDesc:el?(el.tagName+'['+(el.name||el.id||'?')+']'):'(not found)'});
   });
+
   var panel=document.createElement('div');
-  panel.style.cssText='position:fixed;top:16px;right:16px;z-index:2147483647;background:#fff;border:2px solid #16a34a;border-radius:10px;padding:18px;min-width:300px;font-family:sans-serif;font-size:13px;box-shadow:0 8px 32px rgba(0,0,0,0.18)';
+  panel.style.cssText='position:fixed;top:16px;right:16px;z-index:2147483647;background:#fff;border:2px solid #16a34a;border-radius:10px;padding:18px;min-width:320px;font-family:sans-serif;font-size:13px;box-shadow:0 8px 32px rgba(0,0,0,0.18)';
   var rows=results.map(function(r){
+    var color=r.verified?'#16a34a':r.ok?'#d97706':'#dc2626';
+    var icon=r.verified?'✓':r.ok?'~':'⚠';
+    // If ok but not verified, show what DOM actually has
+    var extra=r.verified?'':r.ok?' <span style="font-size:10px;color:#d97706">(DOM: '+r.domVal+')</span>':' <span style="font-size:10px;color:#dc2626">'+r.elDesc+'</span>';
     return '<div style="display:flex;gap:8px;align-items:center;padding:3px 0">'
-      +'<span style="color:'+(r.ok?'#16a34a':'#d97706')+'">'+( r.ok?'✓':'⚠')+'</span>'
+      +'<span style="color:'+color+'">'+icon+'</span>'
       +'<span style="color:#52525b;min-width:52px">'+r.name+':</span>'
       +'<span style="color:#09090b;font-weight:500">'+r.val+'</span>'
-      +(r.ok?'':'<span style="color:#d97706;font-size:11px;margin-left:4px">(set manually)</span>')
+      +extra
       +'</div>';
   }).join('');
-  panel.innerHTML='<div style="font-weight:700;font-size:14px;margin-bottom:4px;color:#09090b">🏏 SYCL Auto-fill · Match #'+match.id+'</div>'
-    +'<div style="font-size:11px;color:#71717a;margin-bottom:10px">'+match.team1+' v '+match.team2+'</div>'
+  panel.innerHTML='<div style="font-weight:700;font-size:14px;margin-bottom:2px;color:#09090b">SYCL Auto-fill - Match #'+match.id+'</div>'
+    +'<div style="font-size:11px;color:#71717a;margin-bottom:2px">'+match.team1+' v '+match.team2+'</div>'
+    +'<div style="font-size:10px;color:#a1a1aa;margin-bottom:10px">Data saved: '+data.updatedAt+'</div>'
     +rows
     +'<div style="margin-top:12px;padding-top:10px;border-top:1px solid #e4e4e7">'
     +'<div style="font-size:11px;font-weight:600;color:#52525b;margin-bottom:4px">SET MANUALLY:</div>'
     +'<div style="font-size:12px;color:#09090b">Umpire 1: <b>'+(match.umpire1||'—')+'</b></div>'
     +'<div style="font-size:12px;color:#09090b">Umpire 2: <b>'+(match.umpire2||'—')+'</b></div>'
     +'</div>'
-    +'<button onclick="this.parentNode.remove()" style="margin-top:12px;width:100%;padding:7px;background:#09090b;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600">Close</button>';
+    +'<div style="margin-top:8px;font-size:10px;color:#a1a1aa">Open browser console (F12) for detailed debug info</div>'
+    +'<button onclick="this.parentNode.remove()" style="margin-top:8px;width:100%;padding:7px;background:#09090b;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600">Close</button>';
   document.body.appendChild(panel);
 })
 .catch(function(e){overlay.remove();alert('Failed to load SYCL data: '+e.message);});
