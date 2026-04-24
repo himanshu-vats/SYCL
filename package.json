@@ -1,0 +1,7 @@
+{
+  "name": "sycl-dashboard",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "node test/sycl.test.js"
+  }
+}

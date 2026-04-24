@@ -1,0 +1,1552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SYCL Admin</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔧</text></svg>">
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-100: #ffffff; --bg-200: #fafafa; --bg-300: #f4f4f5;
+      --z-100: #f4f4f5; --z-200: #e4e4e7; --z-300: #d4d4d8;
+      --z-500: #71717a; --z-700: #52525b; --z-900: #18181b; --z-1000: #09090b;
+      --a-300: rgba(0,0,0,0.06); --a-400: rgba(0,0,0,0.10); --a-500: rgba(0,0,0,0.15);
+      --border: var(--a-400);
+      --text-primary: var(--z-1000); --text-secondary: var(--z-700); --text-muted: var(--z-500);
+      --clr-ok: #16a34a; --clr-ok-bg: #dcfce7;
+      --clr-bad: #dc2626; --clr-bad-bg: #fee2e2;
+      --clr-warn: #d97706; --clr-warn-bg: #fef3c7;
+      --sidebar-w: 220px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg-200); color: var(--text-primary); font-size: 13px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+
+    /* ── Shell ── */
+    #loginScreen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+    #adminShell   { display: none; height: 100vh; overflow: hidden; }
+
+    /* ── Login card ── */
+    .login-card {
+      background: var(--bg-100); border: 1px solid var(--border);
+      border-radius: 12px; padding: 32px; width: 100%; max-width: 380px;
+    }
+    .login-logo { font-size: 28px; margin-bottom: 16px; }
+    .login-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.2px; }
+    .login-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
+    .login-input {
+      width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 13px; font-family: 'JetBrains Mono', monospace; background: var(--bg-200);
+      color: var(--text-primary); outline: none; margin-bottom: 10px;
+    }
+    .login-input:focus { border-color: var(--z-500); }
+    .btn-primary {
+      width: 100%; padding: 9px; background: var(--z-1000); color: var(--bg-100);
+      border: none; border-radius: 6px; font-size: 13px; font-weight: 600;
+      cursor: pointer; font-family: 'Inter', sans-serif; transition: opacity 0.1s;
+    }
+    .btn-primary:hover { opacity: 0.88; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0; width: var(--sidebar-w);
+      background: var(--bg-100); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; z-index: 10;
+    }
+    .sidebar-top {
+      padding: 16px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px; height: 52px;
+    }
+    .sidebar-logo { font-size: 18px; }
+    .sidebar-title { font-size: 14px; font-weight: 600; letter-spacing: -0.2px; }
+    .sidebar-nav { flex: 1; padding: 8px; overflow-y: auto; }
+    .nav-section { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 8px 4px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 8px; width: 100%;
+      padding: 7px 10px; border-radius: 6px; border: none; background: none;
+      color: var(--text-secondary); font-size: 13px; font-weight: 500;
+      cursor: pointer; text-align: left; font-family: 'Inter', sans-serif;
+      text-decoration: none; transition: all 0.1s;
+    }
+    .nav-item:hover { background: var(--z-100); color: var(--text-primary); }
+    .nav-item.active { background: var(--z-100); color: var(--text-primary); font-weight: 600; }
+    .nav-item .nav-icon { font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
+    .sidebar-footer { padding: 12px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 2px; }
+
+    /* ── Main content ── */
+    .main-content {
+      margin-left: var(--sidebar-w); height: 100vh; overflow-y: auto;
+      display: flex; flex-direction: column;
+    }
+    .main-header {
+      height: 52px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 28px;
+      background: var(--bg-100); position: sticky; top: 0; z-index: 5;
+    }
+    .main-header-title { font-size: 14px; font-weight: 600; letter-spacing: -0.2px; }
+    .main-header-sub { font-size: 12px; color: var(--text-muted); margin-left: 10px; }
+
+    /* ── Sections ── */
+    .section { display: none; padding: 28px; }
+    .section.active { display: block; }
+    .section-title { font-size: 15px; font-weight: 700; letter-spacing: -0.2px; margin-bottom: 4px; }
+    .section-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
+
+    /* ── Cards ── */
+    .card { background: var(--bg-100); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
+    .card-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+    .card-icon { font-size: 15px; }
+    .card-title { font-size: 13px; font-weight: 600; }
+    .card-body { padding: 18px; }
+    .card-footer { padding: 12px 18px; border-top: 1px solid var(--border); background: var(--bg-200); display: flex; gap: 8px; align-items: center; }
+
+    /* ── Status stats ── */
+    .stats-row { display: flex; gap: 0; }
+    .stat-cell {
+      flex: 1; padding: 16px 20px; border-right: 1px solid var(--border);
+    }
+    .stat-cell:last-child { border-right: none; }
+    .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; margin-bottom: 4px; }
+    .stat-value { font-size: 20px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+    .stat-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── Steps list ── */
+    .steps { list-style: none; counter-reset: step; display: flex; flex-direction: column; gap: 10px; }
+    .steps li {
+      counter-increment: step; display: flex; gap: 12px; align-items: flex-start;
+      font-size: 13px; color: var(--text-secondary);
+    }
+    .steps li::before {
+      content: counter(step); min-width: 20px; height: 20px;
+      background: var(--z-100); border: 1px solid var(--border);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700; color: var(--text-muted); flex-shrink: 0; margin-top: 1px;
+    }
+
+    /* ── Bookmarklet ── */
+    .bookmarklet-wrap { margin-top: 16px; padding: 14px; background: var(--bg-200); border-radius: 7px; border: 1px solid var(--border); }
+    .bookmarklet-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 14px; border-radius: 6px; border: 1px dashed var(--z-300);
+      background: var(--bg-100); color: var(--text-primary);
+      font-size: 13px; font-weight: 600; cursor: grab; text-decoration: none; user-select: none;
+    }
+    .bookmarklet-link:active { cursor: grabbing; }
+    .bookmarklet-hint { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+
+    /* ── Upload zone ── */
+    .upload-zone {
+      display: block; border: 1px dashed var(--z-300); border-radius: 8px;
+      padding: 32px; text-align: center; cursor: pointer; transition: border-color 0.15s;
+    }
+    .upload-zone:hover { border-color: var(--z-500); }
+    .upload-zone input { display: none; }
+    .upload-zone-icon { font-size: 24px; margin-bottom: 8px; }
+    .upload-zone-label { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .upload-zone-sub { font-size: 12px; color: var(--text-muted); }
+
+    /* ── Warning banner ── */
+    .warn-banner {
+      display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px;
+      background: var(--clr-warn-bg); border: 1px solid #fde68a; border-radius: 7px;
+      font-size: 12px; color: #92400e; line-height: 1.5; margin-bottom: 16px;
+    }
+    .warn-banner-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+
+    /* ── Buttons (inline) ── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 0 12px; height: 30px; border-radius: 5px; border: none;
+      background: var(--z-1000); color: var(--bg-100); font-size: 12px; font-weight: 600;
+      cursor: pointer; font-family: 'Inter', sans-serif; white-space: nowrap; transition: opacity 0.1s;
+      gap: 5px;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-ghost {
+      background: var(--bg-100); color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--z-100); color: var(--text-primary); opacity: 1; border-color: var(--a-500); }
+
+    /* ── Msg ── */
+    .msg { padding: 9px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; margin-top: 10px; }
+    .msg.ok   { background: var(--clr-ok-bg);   color: var(--clr-ok); }
+    .msg.err  { background: var(--clr-bad-bg);  color: var(--clr-bad); }
+    .msg.info { background: var(--bg-300);       color: var(--text-secondary); }
+    .msg:empty { display: none; }
+
+    /* ── Editor table ── */
+    .editor-toolbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th {
+      text-align: left; padding: 8px 8px; color: var(--text-muted); font-weight: 600;
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px;
+      border-bottom: 1px solid var(--border); white-space: nowrap;
+      background: var(--bg-200); cursor: default;
+    }
+    th[title] { text-decoration: underline dotted; text-underline-offset: 2px; }
+    td { padding: 3px 6px; border-bottom: 1px solid var(--a-300); vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: var(--z-100); }
+
+    .edit-input {
+      border: 1px solid transparent; background: transparent;
+      padding: 4px 6px; font-size: 12px; font-family: 'Inter', sans-serif;
+      color: var(--text-primary); border-radius: 4px; width: 100%;
+    }
+    .edit-input:focus { outline: none; border-color: var(--z-500); background: var(--bg-100); }
+    tr:hover .edit-input { border-color: var(--border); background: var(--bg-100); }
+    .new-row td { background: #f0fdf4 !important; }
+    .changed-row td { background: #fffbeb !important; }
+    .changed-cell { position: relative; }
+    .changed-cell::after { content: ''; position: absolute; top: 4px; right: 4px; width: 5px; height: 5px; border-radius: 50%; background: var(--clr-warn); }
+    .del-btn {
+      color: var(--text-muted); background: none; border: none; cursor: pointer;
+      padding: 2px 6px; font-size: 16px; line-height: 1;
+    }
+    .del-btn:hover { color: var(--clr-bad); }
+    .scroll-x { overflow-x: auto; }
+
+    /* ── Divider ── */
+    .sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; flex-shrink: 0; }
+
+    /* Link style */
+    a.link { color: var(--text-secondary); font-size: 13px; }
+    a.link:hover { color: var(--text-primary); }
+
+    /* ── Issue cards ── */
+    .issue-card { border: 1px solid var(--border); border-radius: 7px; padding: 10px 14px; margin-bottom: 6px; background: var(--bg-100); border-left: 3px solid var(--border); }
+    .issue-card.error { border-left-color: var(--clr-bad); }
+    .issue-card.warn  { border-left-color: var(--clr-warn); }
+    .issue-card.info  { border-left-color: #2563eb; }
+    .issue-header { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+    .issue-sev { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 1px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; }
+    .issue-sev.error { background: var(--clr-bad-bg); color: var(--clr-bad); }
+    .issue-sev.warn  { background: var(--clr-warn-bg); color: var(--clr-warn); }
+    .issue-sev.info  { background: #dbeafe; color: #2563eb; }
+    .issue-div-badge { font-size: 10px; font-weight: 600; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; padding: 1px 6px; background: var(--z-100); border-radius: 4px; }
+    .issue-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+    .issue-detail { font-size: 12px; color: var(--text-secondary); margin-top: 2px; line-height: 1.5; }
+    .btn-ghost.active { background: var(--z-1000); color: var(--bg-100); border-color: var(--z-1000); opacity: 1; }
+  </style>
+</head>
+<body>
+
+<!-- ── Login screen ── -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">🏏</div>
+    <div class="login-title">SYCL Admin</div>
+    <div class="login-sub">Seattle Youth Cricket League · Schedule Management</div>
+    <input class="login-input" id="pwdInput" type="password" placeholder="Admin password"
+      onkeydown="if(event.key==='Enter')login()">
+    <button class="btn-primary" onclick="login()">Sign in</button>
+    <div id="loginMsg" class="msg" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<!-- ── Admin shell (shown after login) ── -->
+<div id="adminShell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <span class="sidebar-logo">🏏</span>
+      <span class="sidebar-title">SYCL Admin</span>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">Overview</div>
+      <button class="nav-item active" onclick="showSection('overview',this)">
+        <span class="nav-icon">◎</span> Dashboard
+      </button>
+
+      <div class="nav-section" style="margin-top:8px">Schedule Data</div>
+      <button class="nav-item" onclick="showSection('sync',this)">
+        <span class="nav-icon">↓</span> Sync from CricClubs
+      </button>
+      <button class="nav-item" onclick="showSection('upload',this)">
+        <span class="nav-icon">↑</span> Upload Excel
+      </button>
+
+      <div class="nav-section" style="margin-top:8px">Manage</div>
+      <button class="nav-item" onclick="showSection('editor',this)">
+        <span class="nav-icon">✎</span> Edit Fixtures
+      </button>
+      <button class="nav-item" onclick="showSection('propagate',this)" id="propagateNavBtn">
+        <span class="nav-icon">→</span> Propagate to CricClubs
+        <span id="propagateNavBadge" style="display:none;margin-left:auto;background:var(--clr-warn-bg);color:var(--clr-warn);font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px"></span>
+      </button>
+
+      <div class="nav-section" style="margin-top:8px">Analytics</div>
+      <button class="nav-item" onclick="showSection('balance',this)">
+        <span class="nav-icon">⚖</span> H/A Balance
+      </button>
+      <button class="nav-item" onclick="showSection('pairings',this)">
+        <span class="nav-icon">⊞</span> Pairings Matrix
+      </button>
+      <button class="nav-item" onclick="showSection('issues',this)" id="issuesNavBtn">
+        <span class="nav-icon">⚠</span> Issues
+        <span id="issuesNavBadge" style="display:none;margin-left:auto;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px"></span>
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="/" class="nav-item link">
+        <span class="nav-icon">←</span> View Dashboard
+      </a>
+      <button class="nav-item" onclick="logout()" style="color:var(--clr-bad)">
+        <span class="nav-icon">⊗</span> Sign out
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main area -->
+  <div class="main-content">
+
+    <!-- Overview section -->
+    <div id="section-overview" class="section active">
+      <div class="section-title">Dashboard</div>
+      <div class="section-desc">Current schedule status and quick actions.</div>
+
+      <!-- Status stats -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <span class="card-icon">📊</span>
+          <span class="card-title">Schedule status</span>
+          <button class="btn btn-ghost" style="margin-left:auto;height:26px;font-size:11px" onclick="loadStatus()">Refresh</button>
+        </div>
+        <div class="stats-row" id="statusRow">
+          <div class="stat-cell">
+            <div class="stat-label">Status</div>
+            <div class="stat-value" style="font-size:14px;color:var(--text-muted)">Loading…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick actions -->
+      <div class="card">
+        <div class="card-header"><span class="card-icon">⚡</span><span class="card-title">Quick actions</span></div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+            <div>
+              <div style="font-weight:600;font-size:13px">Sync from CricClubs</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Pull latest schedule using the bookmarklet</div>
+            </div>
+            <button class="btn" onclick="showSection('sync',document.querySelector('[onclick*=sync]'))">Go →</button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+            <div>
+              <div style="font-weight:600;font-size:13px">Edit upcoming fixtures</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Change dates, times, venues, umpires</div>
+            </div>
+            <button class="btn" onclick="showSection('editor',document.querySelector('[onclick*=editor]'))">Go →</button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0">
+            <div>
+              <div style="font-weight:600;font-size:13px">Export for CricClubs upload</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Download formatted Excel to bulk-upload</div>
+            </div>
+            <button class="btn btn-ghost" onclick="exportFixtures()">⬇ Export</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sync section -->
+    <div id="section-sync" class="section">
+      <div class="section-title">Sync from CricClubs</div>
+      <div class="section-desc">Use the bookmarklet to pull the full schedule directly from CricClubs — no download needed.</div>
+
+      <div class="warn-banner">
+        <span class="warn-banner-icon">⚠</span>
+        <span><b>Heads up:</b> Syncing replaces <em>all</em> schedule data, including any edits you've made in the fixture editor. Save an export first if you have unsaved edits.</span>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-icon">🔖</span><span class="card-title">Bookmarklet setup</span></div>
+        <div class="card-body">
+          <ol class="steps">
+            <li>Drag the button below into your browser's bookmarks bar <em>(do this once)</em></li>
+            <li>Open the <a href="https://cricclubs.com/SYCLYouth/fixtures.do?clubId=10669" target="_blank" style="color:var(--text-primary);font-weight:500">CricClubs fixtures page ↗</a></li>
+            <li>Click the bookmarklet — it reads the schedule table and pushes it to the dashboard</li>
+          </ol>
+          <div class="bookmarklet-wrap">
+            <a id="bookmarkletLink" class="bookmarklet-link" href="#">🏏 Sync to SYCL</a>
+            <div class="bookmarklet-hint">Drag to bookmarks bar · Click when on the CricClubs fixtures page</div>
+          </div>
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+            <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">Fixture ID debug tool</div>
+            <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">If IDs aren't being captured, run this on the CricClubs fixtures page to see what the bookmarklet can find.</p>
+            <a id="debugBookmarkletLink" class="bookmarklet-link" href="#" style="background:var(--bg-200);border-style:solid;font-size:12px">🔍 Debug fixture IDs</a>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span style="font-size:12px;color:var(--text-muted)">Bookmarklet is tied to this domain and your session password. Re-drag after signing out/in.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload section -->
+    <div id="section-upload" class="section">
+      <div class="section-title">Upload Excel</div>
+      <div class="section-desc">Fallback option — export the schedule from CricClubs and upload the file here.</div>
+
+      <div class="warn-banner">
+        <span class="warn-banner-icon">⚠</span>
+        <span><b>Heads up:</b> Uploading replaces <em>all</em> schedule data, including any edits you've made in the fixture editor.</span>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-icon">📁</span><span class="card-title">Upload .xlsx file</span></div>
+        <div class="card-body">
+          <label class="upload-zone">
+            <input type="file" id="xlsxInput" accept=".xlsx,.xls,.csv" onchange="handleUpload(event)">
+            <div class="upload-zone-icon">📊</div>
+            <div class="upload-zone-label">Click to choose file</div>
+            <div class="upload-zone-sub">From CricClubs → Schedule → Export</div>
+          </label>
+          <div id="uploadMsg" class="msg"></div>
+        </div>
+        <div class="card-footer">
+          <span style="font-size:12px;color:var(--text-muted)">Accepted: .xlsx · .xls · .csv exported from CricClubs</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Editor section -->
+    <div id="section-editor" class="section">
+      <div class="section-title">Edit Fixtures</div>
+      <div class="section-desc">Edit upcoming matches directly. Changes save to the dashboard. Export generates a CricClubs-ready Excel for bulk upload.</div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">✎</span>
+          <span class="card-title">Upcoming fixtures</span>
+          <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+            <span id="changedBadge" style="font-size:11px;font-weight:600;color:var(--clr-warn);padding:2px 8px;background:var(--clr-warn-bg);border-radius:999px"></span>
+            <button id="showChangedBtn" class="btn btn-ghost" style="display:none;font-size:11px;color:var(--clr-warn)"
+              onclick="this.classList.toggle('active');renderEditorTable()">Show changed only</button>
+            <select id="editorDivFilter" onchange="renderEditorTable()"
+              style="height:26px;padding:0 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg-100);font-size:12px;font-family:'Inter',sans-serif;color:var(--text-primary);cursor:pointer">
+              <option value="">All divisions</option>
+            </select>
+            <button class="btn btn-ghost" onclick="addFixtureRow()">+ Add row</button>
+          </div>
+        </div>
+        <div id="editorMsg" class="msg" style="margin:0 18px 0"></div>
+        <div class="scroll-x">
+          <table id="editorTable">
+            <thead><tr>
+              <th style="width:44px" title="Match ID from CricClubs">#</th>
+              <th title="Age/skill division (e.g. U11A, U13B)">Division</th>
+              <th title="Match date — MM/DD/YYYY">Date</th>
+              <th title="Start time (e.g. 9:00 AM, 1:00 PM)">Time</th>
+              <th title="Home team — sets up the field">Home Team</th>
+              <th title="Away team — visiting side">Away Team</th>
+              <th title="Ground / venue name">Ground</th>
+              <th title="Umpire 1 — typically the home team provides">Umpire 1</th>
+              <th title="Umpire 2 — typically the away team provides">Umpire 2</th>
+              <th style="width:32px"></th>
+            </tr></thead>
+            <tbody id="editorBody">
+              <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text-muted)">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card-footer">
+          <button class="btn btn-ghost" onclick="exportFixtures(false)">⬇ Export all</button>
+          <button class="btn btn-ghost" id="exportChangedBtn" onclick="exportFixtures(true)" style="color:var(--clr-warn)">⬇ Export changed only</button>
+          <div class="sep"></div>
+          <button class="btn" onclick="saveFixtures()">Save to dashboard</button>
+          <span style="font-size:11px;color:var(--text-muted);margin-left:auto">
+            Save → live dashboard · Export changed → CricClubs bulk-upload
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Propagate section -->
+    <div id="section-propagate" class="section">
+      <div class="section-title">Propagate to CricClubs</div>
+      <div class="section-desc">Push your fixture edits back to CricClubs. Step 1: drag the Auto-fill bookmarklet to your bookmarks bar once. Step 2: use the list below to open each changed fixture in CricClubs, then click the bookmarklet to auto-fill the form.</div>
+
+      <!-- Step 1: Auto-fill bookmarklet -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <span class="card-icon">🔖</span>
+          <span class="card-title">Step 1 — Install Auto-fill bookmarklet (once)</span>
+        </div>
+        <div class="card-body">
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Drag this to your browser's bookmarks bar. Then on any CricClubs "Update Fixture" page, click it to auto-fill your changes.</p>
+          <div class="bookmarklet-wrap">
+            <a id="autofillBookmarkletLink" href="#" class="bookmarklet-link" onclick="return false;">
+              <span>🏏</span> SYCL Auto-fill
+            </a>
+            <div class="bookmarklet-hint">Drag to bookmarks bar · Works on any CricClubs Update Fixture page</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Changed fixtures list -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">📋</span>
+          <span class="card-title">Step 2 — Changed fixtures</span>
+          <span id="propagateChangedCount" style="margin-left:8px;font-size:12px;color:var(--text-muted)"></span>
+          <button class="btn btn-ghost" style="margin-left:auto;font-size:11px" onclick="renderPropagateSection()">Refresh</button>
+        </div>
+        <div id="propagateBody">
+          <div style="text-align:center;padding:28px;color:var(--text-muted);font-size:13px">Save changes in the fixture editor first, then come back here.</div>
+        </div>
+        <div class="card-footer" style="font-size:12px;color:var(--text-muted)">
+          ⚠ If a fixture shows "No CricClubs ID" — re-sync from CricClubs first so we capture the fixture IDs.
+        </div>
+      </div>
+    </div>
+
+    <!-- Balance section -->
+    <div id="section-balance" class="section">
+      <div class="section-title">Home/Away Balance</div>
+      <div class="section-desc">Check whether each team has a fair share of home games, away games, AM/PM slots, and umpiring duties.</div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">⚖</span>
+          <span class="card-title">Balance by division</span>
+          <select id="balanceDivFilter" onchange="renderBalance()"
+            style="margin-left:auto;height:26px;padding:0 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg-100);font-size:12px;font-family:'Inter',sans-serif;color:var(--text-primary);cursor:pointer">
+          </select>
+        </div>
+        <div id="balanceSummary" class="stats-row" style="border-bottom:1px solid var(--border);padding:12px 18px;gap:0"></div>
+        <div class="scroll-x">
+          <table id="balanceTable">
+            <thead><tr>
+              <th>Team</th>
+              <th style="text-align:center" title="Games Played">GP</th>
+              <th style="text-align:center" title="Home matches — this team sets up the field">Home</th>
+              <th style="text-align:center" title="Away matches — this team is the visiting side">Away</th>
+              <th style="text-align:center" title="Morning matches (9 AM – 12 PM)">AM</th>
+              <th style="text-align:center" title="Afternoon/Evening matches (after 12 PM)">PM</th>
+              <th style="text-align:center" title="Matches umpired by this team">Ump</th>
+              <th style="text-align:center" title="Home/Away balance — ideal = even">H/A</th>
+              <th style="text-align:center" title="AM/PM time slot balance — ideal = even">Slot</th>
+            </tr></thead>
+            <tbody id="balanceBody">
+              <tr><td colspan="9" style="text-align:center;padding:28px;color:var(--text-muted)">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pairings section -->
+    <div id="section-pairings" class="section">
+      <div class="section-title">Pairings Matrix</div>
+      <div class="section-desc">Visual grid showing which team matchups have been scheduled. Every cell should be filled for a round-robin.</div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">⊞</span>
+          <span class="card-title">Matchup coverage</span>
+          <select id="pairingsDivFilter" onchange="renderPairings()"
+            style="margin-left:auto;height:26px;padding:0 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg-100);font-size:12px;font-family:'Inter',sans-serif;color:var(--text-primary);cursor:pointer">
+          </select>
+        </div>
+        <div id="pairingsSummary" class="stats-row" style="border-bottom:1px solid var(--border);padding:12px 18px;gap:0"></div>
+        <div class="scroll-x">
+          <div id="pairingsTableWrap"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Issues section -->
+    <div id="section-issues" class="section">
+      <div class="section-title">Schedule Issues</div>
+      <div class="section-desc">Automated checks for scheduling conflicts, imbalances, and missing data.</div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">⚠</span>
+          <span class="card-title">Issue scanner</span>
+          <div id="issuesSummaryRow" style="margin-left:auto;display:flex;gap:14px;align-items:center;font-size:12px;font-family:'JetBrains Mono',monospace"></div>
+        </div>
+        <div class="card-body">
+          <div class="editor-toolbar" style="margin-bottom:16px">
+            <button class="btn btn-ghost active" id="issLevelAll" onclick="setIssueFilter('all')">All</button>
+            <button class="btn btn-ghost" id="issLevelError" onclick="setIssueFilter('error')">Errors</button>
+            <button class="btn btn-ghost" id="issLevelWarn" onclick="setIssueFilter('warn')">Warnings</button>
+            <button class="btn btn-ghost" id="issLevelInfo" onclick="setIssueFilter('info')">Info</button>
+            <div class="sep"></div>
+            <select id="issuesDivFilter" onchange="renderIssues()"
+              style="height:26px;padding:0 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg-100);font-size:12px;font-family:'Inter',sans-serif;color:var(--text-primary);cursor:pointer">
+              <option value="">All divisions</option>
+            </select>
+          </div>
+          <div id="issuesBody">
+            <div style="text-align:center;padding:28px;color:var(--text-muted);font-size:13px">Load schedule data to scan for issues.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main-content -->
+</div><!-- /adminShell -->
+
+<!-- Hidden datalist container -->
+<div id="datalistContainer" style="display:none"></div>
+
+<script>
+// ── Known columns ──────────────────────────────────────────────
+const KNOWN_COLS = {
+  id:['#','no','number'], division:['division'], matchType:['match type','matchtype','type'],
+  date:['date'], time:['time'], team1:['team one','team 1','team1','teamone'],
+  team2:['team two','team 2','team2','teamtwo'], ground:['ground','venue'],
+  umpire1:['umpire one','umpire 1','umpire1'], umpire2:['umpire two','umpire 2','umpire2'],
+  result:['result','match result'], winner:['winner'], status:['status'],
+};
+
+function mapHeaders(headers) {
+  const h = headers.map(s => String(s||'').toLowerCase().replace(/[*()\/\\0-9.]/g,'').trim());
+  const col = {};
+  h.forEach((hdr, i) => {
+    for (const [key, aliases] of Object.entries(KNOWN_COLS)) {
+      if (!col[key] && aliases.some(a => hdr === a || hdr.includes(a))) col[key] = i;
+    }
+  });
+  return col;
+}
+
+function parseScheduleFromRaw(raw) {
+  let headerIdx = -1;
+  for (let i = 0; i < Math.min(raw.length, 10); i++) {
+    const row = raw[i].map(c => String(c||'').toLowerCase());
+    if (row.some(c => c.includes('division')) && row.some(c => c.includes('team'))) { headerIdx = i; break; }
+  }
+  if (headerIdx === -1) return null;
+  const col = mapHeaders(raw[headerIdx]);
+  const matches = [];
+  for (let i = headerIdx + 1; i < raw.length; i++) {
+    const row = raw[i];
+    if (!row || !row[col.division] || !row[col.team1] || !row[col.team2]) continue;
+    const div = String(row[col.division]).trim(), t1 = String(row[col.team1]).trim(), t2 = String(row[col.team2]).trim();
+    if (!div || !t1 || !t2) continue;
+    let dateStr = '';
+    const rd = row[col.date];
+    if (rd instanceof Date) { dateStr = `${String(rd.getMonth()+1).padStart(2,'0')}/${String(rd.getDate()).padStart(2,'0')}/${rd.getFullYear()}`; }
+    else if (typeof rd === 'number') { const d = new Date((rd-25569)*86400000); dateStr = `${String(d.getUTCMonth()+1).padStart(2,'0')}/${String(d.getUTCDate()).padStart(2,'0')}/${d.getUTCFullYear()}`; }
+    else { dateStr = String(rd||'').trim(); }
+    matches.push({
+      id: col.id !== undefined ? String(row[col.id]||'').trim() : String(i),
+      division: div, matchType: col.matchType !== undefined ? String(row[col.matchType]||'').trim() : '',
+      date: dateStr, time: col.time !== undefined ? String(row[col.time]||'').trim() : '',
+      team1: t1, team2: t2,
+      ground:   col.ground   !== undefined ? String(row[col.ground]  ||'').trim() : '',
+      umpire1:  col.umpire1  !== undefined ? String(row[col.umpire1] ||'').trim() : '',
+      umpire2:  col.umpire2  !== undefined ? String(row[col.umpire2] ||'').trim() : '',
+      result:   col.result   !== undefined ? String(row[col.result]  ||'').trim() : '',
+      winner:   col.winner   !== undefined ? String(row[col.winner]  ||'').trim() : '',
+      status:   col.status   !== undefined ? String(row[col.status]  ||'').trim() : '',
+    });
+  }
+  return matches.length ? matches : null;
+}
+
+// ── Auth ──────────────────────────────────────────────────────
+function getPassword() { return sessionStorage.getItem('sycl_admin_pwd') || ''; }
+
+function login() {
+  const pwd = document.getElementById('pwdInput').value.trim();
+  if (!pwd) { showMsg('loginMsg', 'Enter a password.', 'err'); return; }
+  sessionStorage.setItem('sycl_admin_pwd', pwd);
+  showAdminShell();
+}
+
+function logout() {
+  sessionStorage.removeItem('sycl_admin_pwd');
+  document.getElementById('adminShell').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('pwdInput').value = '';
+}
+
+function showAdminShell() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('adminShell').style.display = 'flex';
+  buildBookmarklet();
+  buildAutoFillBookmarklet();
+  loadStatus();
+  loadFixtures();
+}
+
+// ── Navigation ────────────────────────────────────────────────
+function showSection(id, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('section-' + id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'balance')   renderBalance();
+  if (id === 'pairings')  renderPairings();
+  if (id === 'propagate') renderPropagateSection();
+  if (id === 'issues')    renderIssues();
+}
+
+// ── Bookmarklet ───────────────────────────────────────────────
+function buildBookmarklet() {
+  const origin = window.location.origin;
+  const password = getPassword();
+  const confirmMsg = 'This will replace ALL schedule data, including any edits you made in the fixture editor.\\n\\nContinue?';
+
+  const clubId = '10669';
+  const leaguePath = 'SYCLYouth';
+
+  const code = `(function(){
+if(!confirm('${confirmMsg}'))return;
+var t=document.getElementById('attTable');
+if(!t){alert('Table not found. Are you on the CricClubs fixtures page?');return;}
+
+var ov=document.createElement('div');
+ov.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;font-family:sans-serif';
+ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:28px 32px;min-width:320px;text-align:center"><div style="font-size:15px;font-weight:700;margin-bottom:8px">🏏 Syncing SYCL…</div><div id="syclSyncMsg" style="font-size:13px;color:#71717a">Reading fixture IDs…</div></div>';
+document.body.appendChild(ov);
+function setMsg(m){var el=document.getElementById('syclSyncMsg');if(el)el.textContent=m;}
+
+// div[id^="deleteRow"] covers all 122 fixtures (upcoming + past) — already in DOM on page load
+var pageFixtureIds=[];
+var seen={};
+Array.from(document.querySelectorAll('div[id^="deleteRow"]')).forEach(function(el){
+  var m=el.id.match(/deleteRow(\\d+)/);
+  if(m&&!seen[m[1]]){seen[m[1]]=true;pageFixtureIds.push(m[1]);}
+});
+// Fallback: upcoming_selected inputs (upcoming only)
+if(!pageFixtureIds.length){
+  Array.from(document.querySelectorAll('input[name="upcoming_selected"]')).forEach(function(inp){
+    var v=inp.value;
+    if(v&&!seen[v]){seen[v]=true;pageFixtureIds.push(v);}
+  });
+}
+// Last resort: links with fixtureId=
+if(!pageFixtureIds.length){
+  Array.from(document.querySelectorAll('a[href*="fixtureId="]')).forEach(function(a){
+    var m=(a.href||'').match(/fixtureId=(\\d+)/i);
+    if(m&&!seen[m[1]]){seen[m[1]]=true;pageFixtureIds.push(m[1]);}
+  });
+}
+
+setMsg('Parsing schedule table…');
+var ths=t.querySelectorAll('thead th');
+if(!ths.length)ths=t.querySelectorAll('tr:first-child td,tr:first-child th');
+var h=Array.from(ths).map(function(c){return c.textContent.trim().toLowerCase().replace(/[*()\\/\\\\0-9.]/g,'').trim();});
+function fc(al){for(var i=0;i<h.length;i++)for(var j=0;j<al.length;j++)if(h[i]===al[j]||h[i].indexOf(al[j])>-1)return i;return -1;}
+var c={id:fc(['#','no','number']),dv:fc(['division']),mt:fc(['match type','matchtype','type']),dt:fc(['date']),tm:fc(['time']),t1:fc(['team one','team 1','team1','teamone']),t2:fc(['team two','team 2','team2','teamtwo']),gr:fc(['ground','venue']),u1:fc(['umpire one','umpire 1','umpire1']),u2:fc(['umpire two','umpire 2','umpire2']),rs:fc(['result','match result']),wn:fc(['winner']),st:fc(['status'])};
+if(c.dv<0||c.t1<0||c.t2<0){ov.remove();alert('Cannot map columns. Found: '+h.join(', '));return;}
+
+var ms=[];
+Array.from(t.querySelectorAll('tbody tr')).forEach(function(r){
+  var cs=Array.from(r.querySelectorAll('td')).map(function(x){return x.textContent.trim();});
+  if(!cs.length)return;
+  var dv=c.dv>=0?cs[c.dv]||'':'',a=c.t1>=0?cs[c.t1]||'':'',b=c.t2>=0?cs[c.t2]||'':'';
+  if(!dv||!a||!b)return;
+  var fid=pageFixtureIds[ms.length]||'';
+  var fixtureUpdateUrl=fid?'https://cricclubs.com/${leaguePath}/updateFixture.do?fixtureId='+fid+'&clubId=${clubId}':'';
+  ms.push({id:c.id>=0?cs[c.id]||'':'',division:dv,matchType:c.mt>=0?cs[c.mt]||'':'',date:c.dt>=0?cs[c.dt]||'':'',time:c.tm>=0?cs[c.tm]||'':'',team1:a,team2:b,ground:c.gr>=0?cs[c.gr]||'':'',umpire1:c.u1>=0?cs[c.u1]||'':'',umpire2:c.u2>=0?cs[c.u2]||'':'',result:c.rs>=0?cs[c.rs]||'':'',winner:c.wn>=0?cs[c.wn]||'':'',status:c.st>=0?cs[c.st]||'':'',fixtureId:fid,fixtureUpdateUrl:fixtureUpdateUrl});
+});
+
+if(!ms.length){ov.remove();alert('No match rows found.');return;}
+var captured=ms.filter(function(m){return m.fixtureId;}).length;
+setMsg('Uploading '+ms.length+' matches…');
+fetch('${origin}/api/refresh',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Password':'${password}'},body:JSON.stringify({matches:ms,source:'cricclubs'})})
+.then(function(r){return r.json();})
+.then(function(d){
+  ov.remove();
+  if(d.error)alert('Error: '+d.error);
+  else alert('Done! '+d.message+'\\n\\nFixture IDs captured: '+captured+'/'+ms.length+(captured===0?'\\n\\n⚠ Zero IDs found — try the debug tool on the fixtures page.':captured<ms.length?'\\n⚠ Partial capture ('+captured+'/'+ms.length+') — run debug tool to investigate':'\\n✓ All fixture IDs captured'));
+})
+.catch(function(e){ov.remove();alert('Failed: '+e.message);});
+})();`;
+
+  document.getElementById('bookmarkletLink').href = 'javascript:' + encodeURIComponent(code);
+
+  // Debug bookmarklet — shows what fixture IDs the page exposes, without syncing
+  const debugCode = `(function(){
+var lines=[];
+
+// Method 1: hidden inputs named upcoming_selected (most reliable)
+var upInputs=Array.from(document.querySelectorAll('input[name="upcoming_selected"]'));
+lines.push('=== input[name=upcoming_selected]: '+upInputs.length+' found ===');
+upInputs.slice(0,5).forEach(function(el){lines.push('  value='+el.value);});
+
+// Method 2: div IDs like deleteRow1963
+var delDivs=Array.from(document.querySelectorAll('[id^="deleteRow"]'));
+lines.push('\\n=== div[id^=deleteRow]: '+delDivs.length+' found ===');
+delDivs.slice(0,5).forEach(function(el){lines.push('  id='+el.id);});
+
+// Method 3: links with fixtureId in href
+var fidLinks=Array.from(document.querySelectorAll('a[href*="fixtureId="]'));
+lines.push('\\n=== a[href*=fixtureId]: '+fidLinks.length+' found ===');
+fidLinks.slice(0,5).forEach(function(a){var m=(a.href||'').match(/fixtureId=(\\d+)/);lines.push('  fixtureId='+( m?m[1]:'?')+' text="'+a.textContent.trim().substring(0,25)+'"');});
+
+// Table check
+var t=document.getElementById('attTable');
+lines.push('\\n=== #attTable rows: '+(t?t.querySelectorAll('tbody tr').length+' data rows':'NOT FOUND')+' ===');
+
+// Summary
+var best=upInputs.length||delDivs.length||fidLinks.length;
+lines.push('\\n=== RESULT ===');
+lines.push(best?'✓ Found '+best+' fixture IDs — re-drag and re-run the Sync bookmarklet':'✗ No fixture IDs found on this page');
+
+alert(lines.join('\\n'));
+})();`;
+  document.getElementById('debugBookmarkletLink').href = 'javascript:' + encodeURIComponent(debugCode);
+}
+
+// ── Auto-fill bookmarklet builder ─────────────────────────────
+function buildAutoFillBookmarklet() {
+  const origin = window.location.origin;
+
+  // This bookmarklet runs ON the CricClubs update fixture page.
+  // It fetches our schedule, finds the match by fixtureId, and fills the form.
+  const code = `(function(){
+var fid=(window.location.href.match(/[?&]fixtureId=(\\d+)/)||[])[1];
+if(!fid){alert('Run this on a CricClubs Update Fixture page.\\nURL must contain: updateFixture.do?fixtureId=...');return;}
+var overlay=document.createElement('div');
+overlay.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;font-family:sans-serif';
+overlay.innerHTML='<div style="background:#fff;border-radius:10px;padding:24px;min-width:300px;text-align:center;font-size:14px;color:#333">🏏 SYCL Auto-fill<br><span style="font-size:12px;color:#666">Loading match data…</span></div>';
+document.body.appendChild(overlay);
+fetch('${origin}/api/schedule')
+.then(function(r){return r.json();})
+.then(function(data){
+  overlay.remove();
+  var match=data.matches&&data.matches.find(function(m){return m.fixtureId===fid;});
+  if(!match){
+    alert('Match with fixtureId '+fid+' not found in SYCL data.\\n\\nTip: Re-sync from CricClubs so fixture IDs are captured, then make your edits.');
+    return;
+  }
+  // Label-based field finder — works on CricClubs table-based form layout
+  function findByLabel(texts){
+    var all=Array.from(document.querySelectorAll('td,label,th'));
+    for(var i=0;i<all.length;i++){
+      var t=all[i].textContent.trim().toLowerCase();
+      for(var j=0;j<texts.length;j++){
+        if(t===texts[j]||t.startsWith(texts[j])){
+          // In a <tr>, the next <td> sibling holds the input
+          var row=all[i].closest('tr');
+          if(row){
+            var tds=row.querySelectorAll('td');
+            for(var k=0;k<tds.length;k++){
+              if(tds[k].contains(all[i])||tds[k]===all[i]) {
+                // check subsequent tds
+                for(var l=k+1;l<tds.length;l++){
+                  var inp=tds[l].querySelector('input:not([type=hidden]):not([type=radio]):not([type=checkbox]):not([type=submit]),select');
+                  if(inp)return inp;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    return null;
+  }
+  function fill(el,val){
+    if(!el||!val)return false;
+    if(el.tagName==='SELECT'){
+      var v=val.toLowerCase();
+      var opt=Array.from(el.options).find(function(o){return o.text.toLowerCase().indexOf(v)>-1||o.value.toLowerCase()===v;});
+      if(!opt)return false;
+      el.value=opt.value;
+      el.dispatchEvent(new Event('change',{bubbles:true}));
+      return true;
+    }
+    try{var ns=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');if(ns)ns.set.call(el,val);}catch(e){el.value=val;}
+    el.dispatchEvent(new Event('input',{bubbles:true}));
+    el.dispatchEvent(new Event('change',{bubbles:true}));
+    return true;
+  }
+  var results=[];
+  var fields=[
+    {label:['match date'],val:match.date,name:'Date'},
+    {label:['time:','time'],val:match.time,name:'Time'},
+    {label:['ground:','ground','venue'],val:match.ground,name:'Ground'},
+  ];
+  fields.forEach(function(f){
+    var el=findByLabel(f.label);
+    var ok=fill(el,f.val);
+    results.push({name:f.name,val:f.val||'—',ok:ok});
+  });
+  var panel=document.createElement('div');
+  panel.style.cssText='position:fixed;top:16px;right:16px;z-index:2147483647;background:#fff;border:2px solid #16a34a;border-radius:10px;padding:18px;min-width:300px;font-family:sans-serif;font-size:13px;box-shadow:0 8px 32px rgba(0,0,0,0.18)';
+  var rows=results.map(function(r){
+    return '<div style="display:flex;gap:8px;align-items:center;padding:3px 0">'
+      +'<span style="color:'+(r.ok?'#16a34a':'#d97706')+'">'+( r.ok?'✓':'⚠')+'</span>'
+      +'<span style="color:#52525b;min-width:52px">'+r.name+':</span>'
+      +'<span style="color:#09090b;font-weight:500">'+r.val+'</span>'
+      +(r.ok?'':'<span style="color:#d97706;font-size:11px;margin-left:4px">(set manually)</span>')
+      +'</div>';
+  }).join('');
+  panel.innerHTML='<div style="font-weight:700;font-size:14px;margin-bottom:4px;color:#09090b">🏏 SYCL Auto-fill · Match #'+match.id+'</div>'
+    +'<div style="font-size:11px;color:#71717a;margin-bottom:10px">'+match.team1+' v '+match.team2+'</div>'
+    +rows
+    +'<div style="margin-top:12px;padding-top:10px;border-top:1px solid #e4e4e7">'
+    +'<div style="font-size:11px;font-weight:600;color:#52525b;margin-bottom:4px">SET MANUALLY:</div>'
+    +'<div style="font-size:12px;color:#09090b">Umpire 1: <b>'+(match.umpire1||'—')+'</b></div>'
+    +'<div style="font-size:12px;color:#09090b">Umpire 2: <b>'+(match.umpire2||'—')+'</b></div>'
+    +'</div>'
+    +'<button onclick="this.parentNode.remove()" style="margin-top:12px;width:100%;padding:7px;background:#09090b;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600">Close</button>';
+  document.body.appendChild(panel);
+})
+.catch(function(e){overlay.remove();alert('Failed to load SYCL data: '+e.message);});
+})();`;
+
+  document.getElementById('autofillBookmarkletLink').href = 'javascript:' + encodeURIComponent(code);
+}
+
+// ── Propagate section ─────────────────────────────────────────
+function renderPropagateSection() {
+  const container = document.getElementById('propagateBody');
+  const countEl = document.getElementById('propagateChangedCount');
+  const badge = document.getElementById('propagateNavBadge');
+
+  const changed = _editorRows.filter(m => String(m.id).startsWith('new_') || _changedIds.has(m.id));
+  const n = changed.length;
+
+  if (badge) { badge.textContent = n; badge.style.display = n > 0 ? '' : 'none'; }
+  if (countEl) countEl.textContent = n > 0 ? `${n} fixture${n>1?'s':''} to update` : 'No changes pending';
+
+  if (!n) {
+    container.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text-muted);font-size:13px">No changes pending. Make edits in the fixture editor, save them, then return here.</div>';
+    return;
+  }
+
+  const CRICCLUBS_LEAGUE = 'SYCLYouth';
+  const CRICCLUBS_CLUB = '10669';
+  const TRACKED = ['date','time','ground','umpire1','umpire2','division','team1','team2'];
+  const LABELS = {date:'Date',time:'Time',ground:'Ground',umpire1:'Umpire 1',umpire2:'Umpire 2',division:'Division',team1:'Team 1',team2:'Team 2'};
+
+  container.innerHTML = changed.map(m => {
+    const isNew = String(m.id).startsWith('new_');
+    const orig = _originalRows[m.id] || {};
+    const diffs = isNew ? [] : TRACKED.filter(f => (m[f]||'') !== (orig[f]||''));
+    const hasId = !isNew && m.fixtureId;
+    const updateUrl = hasId
+      ? (m.fixtureUpdateUrl || `https://cricclubs.com/${CRICCLUBS_LEAGUE}/updateFixture.do?fixtureId=${m.fixtureId}&clubId=${CRICCLUBS_CLUB}`)
+      : null;
+
+    const diffRows = diffs.map(f =>
+      `<div style="display:flex;gap:8px;font-size:12px;padding:2px 0;align-items:baseline">
+        <span style="color:var(--text-muted);min-width:64px">${LABELS[f]}</span>
+        <span style="color:var(--clr-bad);text-decoration:line-through">${esc(orig[f]||'—')}</span>
+        <span style="color:var(--text-muted)">→</span>
+        <span style="color:var(--clr-ok);font-weight:500">${esc(m[f]||'—')}</span>
+      </div>`
+    ).join('');
+
+    const statusBadge = isNew
+      ? `<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--clr-ok-bg);color:var(--clr-ok)">NEW</span>`
+      : `<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--clr-warn-bg);color:var(--clr-warn)">${diffs.length} field${diffs.length>1?'s':''} changed</span>`;
+
+    const actionBtn = isNew
+      ? `<span style="font-size:12px;color:var(--text-muted)">New fixture — add manually in CricClubs or via bulk upload</span>`
+      : hasId
+        ? `<a href="${updateUrl}" target="_blank" class="btn" style="font-size:12px;text-decoration:none;white-space:nowrap">Open in CricClubs →</a>`
+        : `<span style="font-size:12px;color:var(--clr-bad)">⚠ No CricClubs ID — re-sync first</span>`;
+
+    return `<div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;gap:16px;align-items:flex-start">
+      <div style="min-width:36px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);padding-top:2px">#${isNew?'new':m.id}</div>
+      <div style="flex:1">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+          ${statusBadge}
+          <span style="font-size:13px;font-weight:600">${esc(m.team1)} v ${esc(m.team2)}</span>
+          <span style="font-size:12px;color:var(--text-muted)">${esc(m.division)} · ${esc(m.date)||'TBD'}</span>
+        </div>
+        ${isNew ? '<div style="font-size:12px;color:var(--text-muted)">All fields new</div>' : diffRows}
+      </div>
+      <div style="flex-shrink:0;display:flex;align-items:center">${actionBtn}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Status ────────────────────────────────────────────────────
+async function loadStatus() {
+  const row = document.getElementById('statusRow');
+  try {
+    const r = await fetch('/api/schedule');
+    if (!r.ok) throw new Error(r.status === 503 ? 'Not configured' : 'No data yet');
+    const data = await r.json();
+    const when = new Date(data.updatedAt);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const upcomingCount = data.matches.filter(m => { const d = parseEditorDate(m.date); return !d || d >= today; }).length;
+    const divs = [...new Set(data.matches.map(m => m.division))];
+    row.innerHTML = `
+      <div class="stat-cell">
+        <div class="stat-label">Last updated</div>
+        <div class="stat-value" style="font-size:14px">${when.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>
+        <div class="stat-sub">${when.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label">Total matches</div>
+        <div class="stat-value">${data.matchCount}</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label">Upcoming</div>
+        <div class="stat-value">${upcomingCount}</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label">Divisions</div>
+        <div class="stat-value">${divs.length}</div>
+        <div class="stat-sub">${divs.join(' · ')}</div>
+      </div>
+    `;
+  } catch (e) {
+    row.innerHTML = `<div class="stat-cell"><div class="stat-label">Status</div><div class="stat-value" style="font-size:13px;color:var(--text-muted)">${e.message}</div><div class="stat-sub">Use Sync or Upload to load data</div></div>`;
+  }
+}
+
+// ── Excel upload ──────────────────────────────────────────────
+async function handleUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!confirm('Uploading will replace ALL current schedule data, including any edits made in the fixture editor.\n\nContinue?')) {
+    e.target.value = ''; return;
+  }
+  showMsg('uploadMsg', 'Parsing…', 'info');
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    const matches = parseScheduleFromRaw(raw);
+    if (!matches) { showMsg('uploadMsg', 'Could not find schedule columns. Make sure this is a CricClubs export.', 'err'); return; }
+    showMsg('uploadMsg', `Found ${matches.length} matches. Uploading…`, 'info');
+    const r = await fetch('/api/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': getPassword() },
+      body: JSON.stringify({ matches, source: 'xlsx' })
+    });
+    const d = await r.json();
+    if (d.error) { showMsg('uploadMsg', 'Error: ' + d.error, 'err'); return; }
+    showMsg('uploadMsg', d.message + ' Dashboard will update within 60 seconds.', 'ok');
+    loadStatus(); loadFixtures();
+  } catch (err) {
+    showMsg('uploadMsg', 'Failed: ' + err.message, 'err');
+  }
+  e.target.value = '';
+}
+
+// ── Fixture Editor ────────────────────────────────────────────
+let _allMatches = [];
+let _editorRows = [];
+let _originalRows = {};  // keyed by match id, stores original field values
+let _changedIds = new Set();
+
+function parseEditorDate(s) {
+  if (!s) return null;
+  const p = s.split('/');
+  if (p.length === 3) return new Date(parseInt(p[2]), parseInt(p[0])-1, parseInt(p[1]));
+  return new Date(s);
+}
+
+function buildDataLists() {
+  const divTeams = {};
+  const grounds = new Set();
+  _allMatches.forEach(m => {
+    if (!divTeams[m.division]) divTeams[m.division] = new Set();
+    divTeams[m.division].add(m.team1);
+    divTeams[m.division].add(m.team2);
+    if (m.ground) grounds.add(m.ground);
+  });
+
+  const container = document.getElementById('datalistContainer');
+  container.querySelectorAll('datalist').forEach(el => el.remove());
+
+  // All divisions
+  const dlDiv = document.createElement('datalist');
+  dlDiv.id = 'dl-divisions';
+  Object.keys(divTeams).sort().forEach(d => { const o = document.createElement('option'); o.value = d; dlDiv.appendChild(o); });
+  container.appendChild(dlDiv);
+
+  // Teams per division
+  Object.entries(divTeams).forEach(([div, teams]) => {
+    const dl = document.createElement('datalist');
+    dl.id = 'dl-teams-' + div.replace(/\W+/g,'_');
+    [...teams].sort().forEach(t => { const o = document.createElement('option'); o.value = t; dl.appendChild(o); });
+    container.appendChild(dl);
+  });
+
+  // Grounds
+  const dlGr = document.createElement('datalist');
+  dlGr.id = 'dl-grounds';
+  [...grounds].sort().forEach(g => { const o = document.createElement('option'); o.value = g; dlGr.appendChild(o); });
+  container.appendChild(dlGr);
+
+  // Common times
+  const dlTime = document.createElement('datalist');
+  dlTime.id = 'dl-times';
+  ['9:00 AM','10:00 AM','10:30 AM','12:00 PM','12:30 PM','1:00 PM','2:00 PM','3:00 PM','3:30 PM'].forEach(t => {
+    const o = document.createElement('option'); o.value = t; dlTime.appendChild(o);
+  });
+  container.appendChild(dlTime);
+}
+
+async function loadFixtures() {
+  try {
+    const r = await fetch('/api/schedule');
+    if (!r.ok) { renderEditorEmpty('No schedule data yet. Sync from CricClubs or upload an Excel file first.'); return; }
+    const data = await r.json();
+    _allMatches = data.matches || [];
+    _changedIds = new Set();
+
+    const today = new Date(); today.setHours(0,0,0,0);
+    _editorRows = _allMatches
+      .filter(m => { const d = parseEditorDate(m.date); return !d || d >= today; })
+      .map(m => ({...m}));
+
+    // Snapshot originals for change detection
+    _originalRows = {};
+    _editorRows.forEach(m => { _originalRows[m.id] = {...m}; });
+
+    buildDataLists();
+    populateAnalyticsSelectors();
+    renderIssues();
+
+    const divs = [...new Set(_allMatches.map(m => m.division))];
+    const sel = document.getElementById('editorDivFilter');
+    while (sel.options.length > 1) sel.remove(1);
+    divs.forEach(d => { const o = document.createElement('option'); o.value = d; o.textContent = d; sel.appendChild(o); });
+
+    renderEditorTable();
+  } catch(e) {
+    renderEditorEmpty('Failed to load: ' + e.message);
+  }
+}
+
+function renderEditorEmpty(msg) {
+  document.getElementById('editorBody').innerHTML =
+    `<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--text-muted)">${msg}</td></tr>`;
+}
+
+function esc(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function divListId(div) { return 'dl-teams-' + (div||'').replace(/\W+/g,'_'); }
+
+function markChanged(idx) {
+  const m = _editorRows[idx];
+  const isNew = String(m.id).startsWith('new_');
+  if (isNew) return;
+  const orig = _originalRows[m.id];
+  if (!orig) return;
+  const FIELDS = ['division','date','time','team1','team2','ground','umpire1','umpire2'];
+  const changed = FIELDS.some(f => (m[f]||'') !== (orig[f]||''));
+  if (changed) _changedIds.add(m.id); else _changedIds.delete(m.id);
+  updateChangedBadge();
+  // Highlight the row
+  const tr = document.querySelector(`tr[data-idx="${idx}"]`);
+  if (tr) tr.classList.toggle('changed-row', changed);
+  // Highlight specific cells
+  FIELDS.forEach((f, fi) => {
+    const td = tr?.querySelectorAll('td')[fi + 1];
+    if (td) td.classList.toggle('changed-cell', orig && (m[f]||'') !== (orig[f]||''));
+  });
+}
+
+function updateChangedBadge() {
+  const badge = document.getElementById('changedBadge');
+  const filterBtn = document.getElementById('showChangedBtn');
+  const navBadge = document.getElementById('propagateNavBadge');
+  const n = _changedIds.size;
+  if (badge) badge.textContent = n > 0 ? `${n} changed` : '';
+  if (filterBtn) filterBtn.style.display = n > 0 ? '' : 'none';
+  if (navBadge) { navBadge.textContent = n; navBadge.style.display = n > 0 ? '' : 'none'; }
+}
+
+function renderEditorTable() {
+  const tbody = document.getElementById('editorBody');
+  const divFilter = document.getElementById('editorDivFilter').value;
+  const changedOnly = document.getElementById('showChangedBtn')?.classList.contains('active');
+  let rows = divFilter ? _editorRows.filter(m => m.division === divFilter) : _editorRows;
+  if (changedOnly) rows = rows.filter(m => String(m.id).startsWith('new_') || _changedIds.has(m.id));
+
+  if (!rows.length) {
+    renderEditorEmpty(changedOnly ? 'No changes yet in this view.' : 'No upcoming fixtures' + (divFilter ? ' for ' + divFilter : '') + '.');
+    return;
+  }
+
+  tbody.innerHTML = '';
+  rows.forEach(m => {
+    const idx = _editorRows.indexOf(m);
+    const isNew = String(m.id).startsWith('new_');
+    const isChanged = !isNew && _changedIds.has(m.id);
+    const dlId = divListId(m.division);
+    const orig = _originalRows[m.id] || {};
+    const FIELDS = ['division','date','time','team1','team2','ground','umpire1','umpire2'];
+    const cellChanged = f => !isNew && orig && (m[f]||'') !== (orig[f]||'');
+
+    const tr = document.createElement('tr');
+    tr.setAttribute('data-idx', idx);
+    if (isNew) tr.className = 'new-row';
+    else if (isChanged) tr.className = 'changed-row';
+
+    const inputCell = (field, id, listId, placeholder, extraStyle) => {
+      const changed = cellChanged(field);
+      return `<td${changed?' class="changed-cell"':''}><input class="edit-input" ${id?`id="${id}"`:''}
+        value="${esc(m[field])}" list="${listId||''}"
+        oninput="_editorRows[${idx}].${field}=this.value;markChanged(${idx})"
+        placeholder="${placeholder||''}" style="${extraStyle||''}min-width:${
+          field==='division'?80:field==='date'?96:field==='time'?80:
+          field==='team1'||field==='team2'?140:field==='ground'?100:120}px"></td>`;
+    };
+
+    tr.innerHTML = `
+      <td style="color:var(--text-muted);font-size:10px;font-family:'JetBrains Mono',monospace;text-align:center;white-space:nowrap">
+        ${isNew ? '<span style="color:var(--clr-ok);font-size:13px">✦</span>' : isChanged ? '<span style="color:var(--clr-warn);font-size:11px">●</span>' : (m.id||'')}
+      </td>
+      ${inputCell('division','div-'+idx,'dl-divisions','')}
+      ${inputCell('date','','','MM/DD/YYYY','font-family:\'JetBrains Mono\',monospace;font-size:11px;')}
+      ${inputCell('time','','dl-times','9:00 AM','')}
+      ${inputCell('team1','t1-'+idx,dlId,'')}
+      ${inputCell('team2','t2-'+idx,dlId,'')}
+      ${inputCell('ground','','dl-grounds','')}
+      ${inputCell('umpire1','u1-'+idx,dlId,'')}
+      ${inputCell('umpire2','u2-'+idx,dlId,'')}
+      <td><button class="del-btn" onclick="deleteFixtureRow(${idx})" title="Remove this row">×</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function updateTeamLists(idx) {
+  const div = _editorRows[idx].division;
+  const dlId = divListId(div);
+  ['t1','t2','u1','u2'].forEach(prefix => {
+    const el = document.getElementById(`${prefix}-${idx}`);
+    if (el) el.setAttribute('list', dlId);
+  });
+}
+
+function addFixtureRow() {
+  const divFilter = document.getElementById('editorDivFilter').value;
+  const divs = [...new Set(_allMatches.map(m => m.division))];
+  _editorRows.push({
+    id: 'new_' + Date.now(),
+    division: divFilter || divs[0] || '',
+    matchType: 'League', date: '', time: '',
+    team1: '', team2: '', ground: '',
+    umpire1: '', umpire2: '', result: '', winner: '', status: ''
+  });
+  renderEditorTable();
+  document.getElementById('editorBody').lastElementChild?.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function deleteFixtureRow(idx) {
+  _editorRows.splice(idx, 1);
+  renderEditorTable();
+}
+
+async function saveFixtures() {
+  const msgEl = document.getElementById('editorMsg');
+  showMsg('editorMsg', 'Saving…', 'info');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const past = _allMatches.filter(m => { const d = parseEditorDate(m.date); return d && d < today; });
+  const maxId = _allMatches.reduce((mx, m) => { const n = parseInt(m.id); return isNaN(n) ? mx : Math.max(mx, n); }, 0);
+  let nextId = maxId + 1;
+  const upcoming = _editorRows.map(m => ({
+    ...m, id: String(m.id).startsWith('new_') ? String(nextId++) : m.id
+  }));
+  const combined = [...past, ...upcoming];
+  try {
+    const r = await fetch('/api/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': getPassword() },
+      body: JSON.stringify({ matches: combined, source: 'editor' })
+    });
+    const d = await r.json();
+    if (d.error) { showMsg('editorMsg', 'Error: ' + d.error, 'err'); return; }
+    _allMatches = combined;
+    showMsg('editorMsg', d.message + ' Dashboard updates within 60 seconds.', 'ok');
+    loadStatus(); loadFixtures();
+  } catch(e) {
+    showMsg('editorMsg', 'Failed: ' + e.message, 'err');
+  }
+}
+
+function exportFixtures(changedOnly) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  let exportRows;
+  if (changedOnly) {
+    exportRows = _editorRows.filter(m => String(m.id).startsWith('new_') || _changedIds.has(m.id));
+    if (!exportRows.length) { alert('No changes to export.'); return; }
+  } else {
+    const past = _allMatches.filter(m => { const d = parseEditorDate(m.date); return d && d < today; });
+    exportRows = [...past, ..._editorRows];
+  }
+  const rows = [
+    ['#','Series','Division','Match Type','Date','Time','Team One','Team Two','Ground','Umpire One','Umpire Two'],
+    ...exportRows.map(m => [String(m.id).startsWith('new_')?'':m.id, '', m.division, m.matchType||'League', m.date, m.time, m.team1, m.team2, m.ground, m.umpire1, m.umpire2])
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [6,10,14,12,12,10,22,22,20,20,20].map(w => ({wch:w}));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Schedule');
+  const suffix = changedOnly ? '_changes' : '';
+  XLSX.writeFile(wb, `sycl_schedule${suffix}_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ── Analytics helpers ─────────────────────────────────────────
+function isAM(time) {
+  if (!time) return null;
+  const t = time.toUpperCase();
+  if (t.includes('AM')) return true;
+  if (t.includes('PM')) return false;
+  return null;
+}
+
+function computeBalance(matches, teams) {
+  const s = {};
+  teams.forEach(t => { s[t] = { home:0, away:0, am:0, pm:0, umpire:0, games:0 }; });
+  matches.forEach(m => {
+    if (s[m.team1]) { s[m.team1].home++; s[m.team1].games++; }
+    if (s[m.team2]) { s[m.team2].away++; s[m.team2].games++; }
+    const a = isAM(m.time);
+    if (a===true)  { if(s[m.team1]) s[m.team1].am++; if(s[m.team2]) s[m.team2].am++; }
+    else if (a===false) { if(s[m.team1]) s[m.team1].pm++; if(s[m.team2]) s[m.team2].pm++; }
+    if (m.umpire1 && s[m.umpire1]) s[m.umpire1].umpire++;
+    if (m.umpire2 && s[m.umpire2]) s[m.umpire2].umpire++;
+  });
+  return s;
+}
+
+function balanceBadge(val, ideal) {
+  const d = Math.abs(val - ideal);
+  const cls = d===0 ? 'ok' : d===1 ? 'warn' : 'bad';
+  const bg = cls==='ok' ? 'var(--clr-ok-bg)' : cls==='warn' ? 'var(--clr-warn-bg)' : 'var(--clr-bad-bg)';
+  const fg = cls==='ok' ? 'var(--clr-ok)'    : cls==='warn' ? 'var(--clr-warn)'    : 'var(--clr-bad)';
+  return `<span style="display:inline-block;padding:1px 7px;border-radius:999px;font-size:12px;background:${bg};color:${fg};font-weight:500">${val}</span>`;
+}
+
+function populateAnalyticsSelectors() {
+  const divs = [...new Set(_allMatches.map(m => m.division))].sort();
+  ['balanceDivFilter','pairingsDivFilter'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    while (sel.options.length > 0) sel.remove(0);
+    divs.forEach(d => { const o = document.createElement('option'); o.value = d; o.textContent = d; sel.appendChild(o); });
+    if (divs.length > 0) sel.value = divs[0];
+  });
+  // Issues div filter — keep "All divisions" as first option
+  const issSel = document.getElementById('issuesDivFilter');
+  if (issSel) {
+    while (issSel.options.length > 1) issSel.remove(1);
+    divs.forEach(d => { const o = document.createElement('option'); o.value = d; o.textContent = d; issSel.appendChild(o); });
+  }
+}
+
+function renderBalance() {
+  const div = document.getElementById('balanceDivFilter').value;
+  const dm = _allMatches.filter(m => m.division === div);
+  const teams = [...new Set(dm.flatMap(m => [m.team1, m.team2]))].sort();
+  const stats = computeBalance(dm, teams);
+  const n = dm.length;
+  const iHA = teams.length > 1 ? Math.round(n * 2 / teams.length / 2) : 0;
+  const iU  = teams.length > 0 ? Math.round(n / teams.length) : 0;
+
+  document.getElementById('balanceSummary').innerHTML = `
+    <div class="stat-cell"><div class="stat-label">Teams</div><div class="stat-value">${teams.length}</div></div>
+    <div class="stat-cell"><div class="stat-label">Matches</div><div class="stat-value">${n}</div></div>
+    <div class="stat-cell"><div class="stat-label">Ideal H/A each</div><div class="stat-value">${iHA}</div></div>
+    <div class="stat-cell"><div class="stat-label">Ideal Ump</div><div class="stat-value">${iU}</div></div>
+  `;
+
+  if (!teams.length) {
+    document.getElementById('balanceBody').innerHTML = '<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--text-muted)">No data. Sync schedule first.</td></tr>';
+    return;
+  }
+
+  document.getElementById('balanceBody').innerHTML = teams.map(t => {
+    const s = stats[t];
+    const hd = Math.abs(s.home - s.away), sd = Math.abs(s.am - s.pm);
+    const haCls = hd===0?'ok':hd===1?'warn':'bad', slCls = sd===0?'ok':sd===1?'warn':'bad';
+    const haBg = haCls==='ok'?'var(--clr-ok-bg)':haCls==='warn'?'var(--clr-warn-bg)':'var(--clr-bad-bg)';
+    const haFg = haCls==='ok'?'var(--clr-ok)':haCls==='warn'?'var(--clr-warn)':'var(--clr-bad)';
+    const slBg = slCls==='ok'?'var(--clr-ok-bg)':slCls==='warn'?'var(--clr-warn-bg)':'var(--clr-bad-bg)';
+    const slFg = slCls==='ok'?'var(--clr-ok)':slCls==='warn'?'var(--clr-warn)':'var(--clr-bad)';
+    const haLabel = hd===0?'even':`${s.home>s.away?'H':'A'}+${hd}`;
+    const slLabel = sd===0?'even':`${s.am>s.pm?'AM':'PM'}+${sd}`;
+    return `<tr>
+      <td style="font-weight:500">${esc(t)}</td>
+      <td style="text-align:center">${s.games}</td>
+      <td style="text-align:center">${balanceBadge(s.home,iHA)}</td>
+      <td style="text-align:center">${balanceBadge(s.away,iHA)}</td>
+      <td style="text-align:center">${balanceBadge(s.am,iHA)}</td>
+      <td style="text-align:center">${balanceBadge(s.pm,iHA)}</td>
+      <td style="text-align:center">${balanceBadge(s.umpire,iU)}</td>
+      <td style="text-align:center"><span style="display:inline-block;padding:1px 7px;border-radius:999px;font-size:12px;background:${haBg};color:${haFg};font-weight:500">${haLabel}</span></td>
+      <td style="text-align:center"><span style="display:inline-block;padding:1px 7px;border-radius:999px;font-size:12px;background:${slBg};color:${slFg};font-weight:500">${slLabel}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderPairings() {
+  const div = document.getElementById('pairingsDivFilter').value;
+  const dm = _allMatches.filter(m => m.division === div);
+  const teams = [...new Set(dm.flatMap(m => [m.team1, m.team2]))].sort();
+  const played = new Set();
+  dm.forEach(m => { played.add([m.team1,m.team2].sort().join('|||')); });
+  const total = (teams.length * (teams.length - 1)) / 2;
+
+  document.getElementById('pairingsSummary').innerHTML = `
+    <div class="stat-cell"><div class="stat-label">Pairings scheduled</div><div class="stat-value">${played.size} / ${total}</div></div>
+    <div class="stat-cell"><div class="stat-label">Remaining</div><div class="stat-value" style="color:${total-played.size>0?'var(--clr-bad)':'var(--clr-ok)'}">${total - played.size}</div></div>
+  `;
+
+  if (!teams.length) {
+    document.getElementById('pairingsTableWrap').innerHTML = '<div style="text-align:center;padding:28px;color:var(--text-muted)">No data. Sync schedule first.</div>';
+    return;
+  }
+
+  const shortName = t => t.replace(/^(MLCA |MSKICA |Super11 |Boltz |ICCS |PBL |OCA |Seattle Chargers )/,'').substring(0,8);
+  let html = '<table><thead><tr><th style="min-width:140px"></th>';
+  teams.forEach(t => { html += `<th style="text-align:center;font-size:10px;max-width:72px" title="${esc(t)}">${esc(shortName(t))}</th>`; });
+  html += '</tr></thead><tbody>';
+  teams.forEach(t1 => {
+    html += `<tr><td style="font-weight:500;font-size:12px">${esc(t1)}</td>`;
+    teams.forEach(t2 => {
+      if (t1===t2) { html += '<td style="background:var(--bg-200)"></td>'; return; }
+      const ip = played.has([t1,t2].sort().join('|||'));
+      html += `<td style="text-align:center;background:${ip?'var(--clr-ok-bg)':'var(--clr-bad-bg)'};color:${ip?'var(--clr-ok)':'var(--clr-bad)'};font-size:13px">${ip?'✓':'✗'}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('pairingsTableWrap').innerHTML = html;
+}
+
+// ── Issue scanner ─────────────────────────────────────────────
+function scanIssues(matches) {
+  const issues = [];
+  const add = (level,div,title,detail,ids) => issues.push({level,div,title,detail,matchIds:ids||[]});
+  const byDiv = {};
+  matches.forEach(m => { if(!byDiv[m.division]) byDiv[m.division]=[]; byDiv[m.division].push(m); });
+  Object.entries(byDiv).forEach(([div,dms]) => {
+    const teams=[...new Set(dms.flatMap(m=>[m.team1,m.team2]))];
+    const teamSet=new Set(teams);
+    const pairCount={};
+    dms.forEach(m=>{const k=[m.team1,m.team2].sort().join('|||');if(!pairCount[k])pairCount[k]=[];pairCount[k].push(m);});
+    Object.entries(pairCount).forEach(([pair,ms])=>{
+      if(ms.length>1){const n=pair.split('|||');add('error',div,'Duplicate matchup',`${n[0]} vs ${n[1]} scheduled ${ms.length}x (#${ms.map(m=>m.id).join(', #')})`,ms.map(m=>m.id));}
+    });
+    const tdg={};
+    dms.forEach(m=>{[m.team1,m.team2].forEach(t=>{const k=`${t}|||${m.date}`;if(!tdg[k])tdg[k]=[];tdg[k].push(m);});});
+    Object.entries(tdg).forEach(([k,ms])=>{
+      if(ms.length>1){const[team,date]=k.split('|||');add('error',div,'Double-booked team',`${team} plays ${ms.length} games on ${date} (#${ms.map(m=>m.id).join(', #')})`,ms.map(m=>m.id));}
+    });
+    dms.forEach(m=>{
+      [m.umpire1,m.umpire2].forEach(u=>{
+        if(u&&(u===m.team1||u===m.team2)) add('error',div,'Self-umpiring',`${u} umpires own match #${m.id} (${m.team1} vs ${m.team2}, ${m.date})`,[m.id]);
+      });
+    });
+    dms.forEach(m=>{
+      if(m.umpire1&&!teamSet.has(m.umpire1)) add('warn',div,'Cross-division umpire',`${m.umpire1} (not in ${div}) umpires match #${m.id}`,[m.id]);
+    });
+    const stats=computeBalance(dms,teams);
+    Object.entries(stats).forEach(([team,s])=>{
+      if(Math.abs(s.home-s.away)>=3) add('warn',div,'Home/Away imbalance',`${team}: ${s.home}H / ${s.away}A`);
+      if(Math.abs(s.am-s.pm)>=3) add('warn',div,'AM/PM imbalance',`${team}: ${s.am}AM / ${s.pm}PM`);
+    });
+    const gc=Object.values(stats).map(s=>s.games);
+    if(gc.length && Math.max(...gc)-Math.min(...gc)>=2){
+      const lo=Object.entries(stats).filter(([,s])=>s.games<=Math.min(...gc)).map(([t,s])=>`${t} (${s.games})`);
+      const hi=Object.entries(stats).filter(([,s])=>s.games>=Math.max(...gc)).map(([t,s])=>`${t} (${s.games})`);
+      add('warn',div,'Uneven game counts',`Range ${Math.min(...gc)}-${Math.max(...gc)}. Fewest: ${lo.join(', ')}. Most: ${hi.join(', ')}`);
+    }
+    const noT=dms.filter(m=>!m.time); if(noT.length) add('info',div,'Missing time',`${noT.length} match(es)`);
+    const noG=dms.filter(m=>!m.ground); if(noG.length) add('info',div,'Missing ground',`${noG.length} match(es)`);
+    const noU=dms.filter(m=>!m.umpire1); if(noU.length) add('info',div,'Missing umpire',`${noU.length} match(es)`);
+  });
+  const slotMap={};
+  matches.forEach(m=>{
+    if(!m.ground||!m.date||!m.time) return;
+    const k=`${m.ground}|||${m.date}|||${m.time}`;if(!slotMap[k])slotMap[k]=[];slotMap[k].push(m);
+  });
+  Object.entries(slotMap).forEach(([k,ms])=>{
+    if(ms.length>1){const[ground,date,time]=k.split('|||');add('error','ALL','Ground conflict',`${ground} on ${date} ${time}: ${ms.map(m=>`#${m.id} ${m.division}`).join(' + ')}`,ms.map(m=>m.id));}
+  });
+  const order={error:0,warn:1,info:2};
+  issues.sort((a,b)=>order[a.level]-order[b.level]);
+  return issues;
+}
+
+let _issueLevel = 'all';
+
+function setIssueFilter(val) {
+  _issueLevel = val;
+  ['all','error','warn','info'].forEach(l => {
+    const btn = document.getElementById('issLevel' + l.charAt(0).toUpperCase() + l.slice(1));
+    if (btn) btn.classList.toggle('active', l === _issueLevel);
+  });
+  renderIssues();
+}
+
+function renderIssues() {
+  if (!_allMatches.length) return;
+  const issues = scanIssues(_allMatches);
+  const divFilter = document.getElementById('issuesDivFilter')?.value || '';
+  const ec = issues.filter(i => i.level === 'error').length;
+  const wc = issues.filter(i => i.level === 'warn').length;
+  const ic = issues.filter(i => i.level === 'info').length;
+
+  const summaryRow = document.getElementById('issuesSummaryRow');
+  if (summaryRow) {
+    summaryRow.innerHTML = `
+      <span style="color:var(--clr-bad)">${ec} error${ec!==1?'s':''}</span>
+      <span style="color:var(--clr-warn)">${wc} warning${wc!==1?'s':''}</span>
+      <span style="color:#2563eb">${ic} info</span>
+    `;
+  }
+
+  const badge = document.getElementById('issuesNavBadge');
+  if (badge) {
+    if (ec > 0) { badge.textContent = ec; badge.style.display = ''; badge.style.background = 'var(--clr-bad-bg)'; badge.style.color = 'var(--clr-bad)'; }
+    else if (wc > 0) { badge.textContent = wc; badge.style.display = ''; badge.style.background = 'var(--clr-warn-bg)'; badge.style.color = 'var(--clr-warn)'; }
+    else { badge.style.display = 'none'; }
+  }
+
+  const filtered = issues.filter(i => {
+    if (_issueLevel !== 'all' && i.level !== _issueLevel) return false;
+    if (divFilter && i.div !== divFilter && i.div !== 'ALL') return false;
+    return true;
+  });
+
+  const body = document.getElementById('issuesBody');
+  if (!body) return;
+
+  if (!filtered.length) {
+    const msg = issues.length === 0 ? 'No issues found — schedule looks clean!' : 'No issues match the current filter.';
+    body.innerHTML = `<div style="text-align:center;padding:32px;color:${issues.length===0?'var(--clr-ok)':'var(--text-muted)'};font-size:13px">${msg}</div>`;
+    return;
+  }
+
+  body.innerHTML = filtered.map(issue => `
+    <div class="issue-card ${issue.level}">
+      <div class="issue-header">
+        <span class="issue-sev ${issue.level}">${issue.level==='error'?'ERROR':issue.level==='warn'?'WARN':'INFO'}</span>
+        <span class="issue-div-badge">${esc(issue.div)}</span>
+        <span class="issue-title">${esc(issue.title)}</span>
+      </div>
+      <div class="issue-detail">${esc(issue.detail)}</div>
+    </div>
+  `).join('');
+}
+
+// ── Utilities ─────────────────────────────────────────────────
+function showMsg(id, text, type) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'msg ' + type;
+  el.textContent = text;
+}
+
+// ── Init ──────────────────────────────────────────────────────
+if (getPassword()) showAdminShell();
+</script>
+</body>
+</html>

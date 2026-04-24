@@ -9,16 +9,23 @@
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    html, body { margin: 0; padding: 0; height: 100%; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { height: 100%; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased; min-height: 100%;
+    }
     #root { min-height: 100%; }
   </style>
 </head>
 <body>
   <div id="root"></div>
   <script type="text/babel">
-const { useState, useMemo, useCallback } = React;
-
+const { useState, useMemo, useCallback, useEffect } = React;
 
 const POINTS = { win: 2, abandoned: 1, forfeit_winner: 2, forfeit_loser: 0, loss: 0 };
 
@@ -139,323 +146,360 @@ function computeStandings(matches, teams) {
   return Object.entries(s).map(([team,d])=>({team,...d})).sort((a,b)=>b.points-a.points||b.won-a.won||a.lost-b.lost);
 }
 
-function scanIssues(matches) {
-  const issues = [];
-  const add = (level,div,title,detail,ids) => issues.push({level,div,title,detail,matchIds:ids||[]});
-  const byDiv = {};
-  matches.forEach(m => { if(!byDiv[m.division]) byDiv[m.division]=[]; byDiv[m.division].push(m); });
-
-  Object.entries(byDiv).forEach(([div,dms]) => {
-    const teams=[...new Set(dms.flatMap(m=>[m.team1,m.team2]))];
-    const teamSet=new Set(teams);
-
-    const pairCount={};
-    dms.forEach(m=>{const k=[m.team1,m.team2].sort().join("|||");if(!pairCount[k])pairCount[k]=[];pairCount[k].push(m);});
-    Object.entries(pairCount).forEach(([pair,ms])=>{
-      if(ms.length>1){const n=pair.split("|||");add("error",div,"Duplicate matchup",`${n[0]} vs ${n[1]} scheduled ${ms.length}x (#${ms.map(m=>m.id).join(", #")})`,ms.map(m=>m.id));}
-    });
-
-    const tdg={};
-    dms.forEach(m=>{[m.team1,m.team2].forEach(t=>{const k=`${t}|||${m.date}`;if(!tdg[k])tdg[k]=[];tdg[k].push(m);});});
-    Object.entries(tdg).forEach(([k,ms])=>{
-      if(ms.length>1){const[team,date]=k.split("|||");add("error",div,"Double-booked team",`${team} plays ${ms.length} games on ${date} (#${ms.map(m=>m.id).join(", #")})`,ms.map(m=>m.id));}
-    });
-
-    dms.forEach(m=>{
-      [m.umpire1,m.umpire2].forEach(u=>{
-        if(u&&(u===m.team1||u===m.team2)) add("error",div,"Self-umpiring",`${u} umpires own match #${m.id} (${m.team1} vs ${m.team2}, ${m.date})`,[m.id]);
-      });
-    });
-
-    dms.forEach(m=>{
-      if(m.umpire1&&!teamSet.has(m.umpire1)) add("warn",div,"Cross-division umpire",`${m.umpire1} (not in ${div}) umpires match #${m.id}`,[m.id]);
-    });
-
-    const stats=computeBalance(dms,teams);
-    Object.entries(stats).forEach(([team,s])=>{
-      if(Math.abs(s.home-s.away)>=3) add("warn",div,"Home/Away imbalance",`${team}: ${s.home}H / ${s.away}A`);
-      if(Math.abs(s.am-s.pm)>=3) add("warn",div,"AM/PM imbalance",`${team}: ${s.am}AM / ${s.pm}PM`);
-    });
-
-    const gc=Object.values(stats).map(s=>s.games);
-    if(Math.max(...gc)-Math.min(...gc)>=2){
-      const lo=Object.entries(stats).filter(([,s])=>s.games<=Math.min(...gc)).map(([t,s])=>`${t} (${s.games})`);
-      const hi=Object.entries(stats).filter(([,s])=>s.games>=Math.max(...gc)).map(([t,s])=>`${t} (${s.games})`);
-      add("warn",div,"Uneven game counts",`Range ${Math.min(...gc)}-${Math.max(...gc)}. Fewest: ${lo.join(", ")}. Most: ${hi.join(", ")}`);
-    }
-
-    const noT=dms.filter(m=>!m.time); if(noT.length) add("info",div,"Missing time",`${noT.length} match(es)`);
-    const noG=dms.filter(m=>!m.ground); if(noG.length) add("info",div,"Missing ground",`${noG.length} match(es)`);
-    const noU=dms.filter(m=>!m.umpire1); if(noU.length) add("info",div,"Missing umpire",`${noU.length} match(es)`);
-  });
-
-  const slotMap={};
-  matches.forEach(m=>{
-    if(!m.ground||!m.date||!m.time) return;
-    const k=`${m.ground}|||${m.date}|||${m.time}`;if(!slotMap[k])slotMap[k]=[];slotMap[k].push(m);
-  });
-  Object.entries(slotMap).forEach(([k,ms])=>{
-    if(ms.length>1){const[ground,date,time]=k.split("|||");add("error","ALL","Ground conflict",`${ground} on ${date} ${time}: ${ms.map(m=>`#${m.id} ${m.division}`).join(" + ")}`,ms.map(m=>m.id));}
-  });
-
-  const order={error:0,warn:1,info:2};
-  issues.sort((a,b)=>order[a.level]-order[b.level]);
-  return issues;
-}
-
+/* ─────────────────────────────────────────────────────────────
+   STYLES — Tasko-inspired design system
+───────────────────────────────────────────────────────────── */
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap');
-
-  /* ── Light theme (default, Claude-inspired) ── */
+  /* ── Tokens: Light ── */
   :root, [data-theme="light"] {
-    --bg-primary: #f7f5f0;
-    --bg-secondary: #edeae3;
-    --bg-card: #ffffff;
-    --bg-hover: #f0ede6;
-    --border: #d9d4ca;
-    --text-primary: #1a1815;
-    --text-secondary: #6b6560;
-    --text-muted: #9c958c;
-    --accent: #b35c2c;
-    --accent-dim: #faf0e8;
-    --accent-text: #b35c2c;
-    --clr-ok: #2d8a4e;
-    --clr-warn: #b87514;
-    --clr-bad: #c4382a;
-    --clr-am: #3672b0;
-    --clr-pm: #7c52b8;
-    --clr-info: #3672b0;
-    --badge-ok-bg: #e8f5ed;
-    --badge-warn-bg: #fdf3e0;
-    --badge-bad-bg: #fde8e6;
-    --badge-am-bg: #e4eef8;
-    --badge-pm-bg: #efe4f8;
-    --sev-error-bg: #fde8e6;
-    --sev-warn-bg: #fdf3e0;
-    --sev-info-bg: #e4eef8;
-    --pair-yes-bg: #e8f5ed;
-    --pair-no-bg: #fde8e6;
-    --shadow: 0 1px 3px rgba(0,0,0,0.06);
+    --bg-100: #ffffff;
+    --bg-200: #fafafa;
+    --bg-300: #f4f4f5;
+    --bg-hover: #f0f0f1;
+    --z-100: #f4f4f5;
+    --z-200: #e4e4e7;
+    --z-300: #d4d4d8;
+    --z-500: #71717a;
+    --z-700: #52525b;
+    --z-900: #18181b;
+    --z-1000: #09090b;
+    --a-200: rgba(0,0,0,0.05);
+    --a-400: rgba(0,0,0,0.10);
+    --a-500: rgba(0,0,0,0.15);
+    --a-600: rgba(0,0,0,0.22);
+    --border: var(--a-400);
+    --text-primary: var(--z-1000);
+    --text-secondary: var(--z-700);
+    --text-muted: var(--z-500);
+    --clr-ok: #16a34a;
+    --clr-warn: #d97706;
+    --clr-bad: #dc2626;
+    --clr-info: #2563eb;
+    --clr-am: #2563eb;
+    --clr-pm: #7c3aed;
+    --badge-ok-bg: #dcfce7;   --badge-ok-fg: #15803d;
+    --badge-warn-bg: #fef3c7; --badge-warn-fg: #92400e;
+    --badge-bad-bg: #fee2e2;  --badge-bad-fg: #991b1b;
+    --badge-am-bg: #dbeafe;   --badge-am-fg: #1d4ed8;
+    --badge-pm-bg: #ede9fe;   --badge-pm-fg: #6d28d9;
+    --sev-error-bg: #fee2e2;
+    --sev-warn-bg: #fef3c7;
+    --sev-info-bg: #dbeafe;
+    --pair-yes-bg: #dcfce7;
+    --pair-no-bg: #fee2e2;
   }
 
-  /* ── Dark theme (warm, Claude-inspired) ── */
+  /* ── Tokens: Dark ── */
   [data-theme="dark"] {
-    --bg-primary: #282624;
-    --bg-secondary: #302e2b;
-    --bg-card: #383532;
-    --bg-hover: #403d39;
-    --border: #4a4641;
-    --text-primary: #e8e4de;
-    --text-secondary: #a39e96;
-    --text-muted: #787269;
-    --accent: #d4845a;
-    --accent-dim: #3d3028;
-    --accent-text: #d4845a;
-    --clr-ok: #5cb97a;
-    --clr-warn: #d4a03c;
-    --clr-bad: #d9605a;
-    --clr-am: #6fa3d4;
-    --clr-pm: #a982d4;
-    --clr-info: #6fa3d4;
-    --badge-ok-bg: #2a3a2d;
-    --badge-warn-bg: #3a3426;
-    --badge-bad-bg: #3a2828;
-    --badge-am-bg: #262f3a;
-    --badge-pm-bg: #302a3a;
-    --sev-error-bg: #3a2828;
-    --sev-warn-bg: #3a3426;
-    --sev-info-bg: #262f3a;
-    --pair-yes-bg: #2a3a2d;
-    --pair-no-bg: #3a2828;
-    --shadow: 0 1px 3px rgba(0,0,0,0.2);
+    --bg-100: #27272a;
+    --bg-200: #18181b;
+    --bg-300: #3f3f46;
+    --bg-hover: #3f3f46;
+    --z-100: #3f3f46;
+    --z-200: #52525b;
+    --z-300: #71717a;
+    --z-500: #a1a1aa;
+    --z-700: #d4d4d8;
+    --z-900: #e4e4e7;
+    --z-1000: #fafafa;
+    --a-200: rgba(255,255,255,0.04);
+    --a-400: rgba(255,255,255,0.09);
+    --a-500: rgba(255,255,255,0.14);
+    --a-600: rgba(255,255,255,0.20);
+    --border: var(--a-400);
+    --text-primary: var(--z-1000);
+    --text-secondary: var(--z-700);
+    --text-muted: var(--z-500);
+    --clr-ok: #4ade80;
+    --clr-warn: #fbbf24;
+    --clr-bad: #f87171;
+    --clr-info: #60a5fa;
+    --clr-am: #60a5fa;
+    --clr-pm: #a78bfa;
+    --badge-ok-bg: #14532d;   --badge-ok-fg: #4ade80;
+    --badge-warn-bg: #451a03; --badge-warn-fg: #fbbf24;
+    --badge-bad-bg: #450a0a;  --badge-bad-fg: #f87171;
+    --badge-am-bg: #1e3a5f;   --badge-am-fg: #60a5fa;
+    --badge-pm-bg: #2e1065;   --badge-pm-fg: #a78bfa;
+    --sev-error-bg: #450a0a;
+    --sev-warn-bg: #451a03;
+    --sev-info-bg: #1e3a5f;
+    --pair-yes-bg: #14532d;
+    --pair-no-bg: #450a0a;
   }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'DM Sans', sans-serif; background: var(--bg-primary); color: var(--text-primary); }
-  .app { max-width: 1200px; margin: 0 auto; padding: 20px; }
+  /* ── Reset & base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg-200); color: var(--text-primary);
+    font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased;
+  }
 
+  /* ── App shell ── */
+  .app { max-width: 1280px; margin: 0 auto; padding: 0 24px 48px; }
+
+  /* ── Header ── */
   .header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 0; border-bottom: 1px solid var(--border); margin-bottom: 24px;
+    min-height: 60px; border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; background: var(--bg-200); z-index: 20;
+    margin: 0 -24px; padding: 10px 24px;
+    backdrop-filter: blur(8px);
   }
-  .header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; color: var(--text-primary); }
-  .header-sub { font-size: 12px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
-  .header-actions { display: flex; gap: 8px; align-items: center; }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header-cricket { font-size: 20px; line-height: 1; }
+  .header h1 { font-size: 16px; font-weight: 700; letter-spacing: -0.4px; line-height: 1.3; }
+  .header-sub { font-size: 12px; color: var(--text-secondary); line-height: 1.4; margin-top: 2px; }
+  .header-sep { width: 1px; height: 24px; background: var(--border); align-self: center; }
+  .header-actions { display: flex; gap: 6px; align-items: center; }
 
+  /* ── Upload zone ── */
   .upload-zone {
-    border: 2px dashed var(--border); border-radius: 12px; padding: 48px;
-    text-align: center; cursor: pointer; transition: all 0.2s; background: var(--bg-card); display: block; box-shadow: var(--shadow);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border: 1px dashed var(--z-300); border-radius: 12px; padding: 72px 48px;
+    text-align: center; cursor: pointer; transition: border-color 0.15s;
+    background: var(--bg-100); margin-top: 32px;
   }
-  .upload-zone:hover { border-color: var(--accent); }
+  .upload-zone:hover { border-color: var(--z-500); }
   .upload-zone input { display: none; }
-  .upload-zone p { color: var(--text-secondary); font-size: 14px; margin-top: 8px; }
+  .upload-icon { font-size: 28px; margin-bottom: 12px; }
+  .upload-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .upload-sub { font-size: 12px; color: var(--text-muted); }
 
-  .division-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+  /* ── Division pill bar ── */
+  .division-bar {
+    display: flex; gap: 4px; align-items: center; padding: 14px 0 10px;
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .division-bar::-webkit-scrollbar { display: none; }
+
+  /* ── Buttons ── */
+  .div-btn, .small-btn, .tab-btn, .filter-btn {
+    font-family: 'Inter', -apple-system, sans-serif;
+    font-weight: 500; cursor: pointer; transition: all 0.1s; white-space: nowrap;
+  }
   .div-btn {
-    padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border);
-    background: var(--bg-card); color: var(--text-secondary);
-    font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+    padding: 0 12px; height: 28px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--bg-100);
+    color: var(--text-secondary); font-size: 13px; flex-shrink: 0;
   }
-  .div-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
-  .div-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
-  .div-btn.issues-btn { border-color: transparent; }
-  .div-btn.issues-btn.has-errors { border-color: var(--clr-bad); color: var(--clr-bad); }
-  .div-btn.issues-btn.has-warnings { border-color: var(--clr-warn); color: var(--clr-warn); }
-  .div-btn.issues-btn.all-clear { border-color: var(--clr-ok); color: var(--clr-ok); }
-
-  .tab-bar { display: flex; gap: 2px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
-  .tab-btn {
-    padding: 10px 20px; border: none; background: none; color: var(--text-muted);
-    font-size: 13px; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent;
-    margin-bottom: -1px; transition: all 0.15s; font-family: 'DM Sans', sans-serif;
-  }
-  .tab-btn:hover { color: var(--text-secondary); }
-  .tab-btn.active { color: var(--accent-text); border-bottom-color: var(--accent); }
-
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; padding: 10px 12px; color: var(--text-muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); white-space: nowrap; background: var(--bg-secondary); }
-  td { padding: 8px 12px; border-bottom: 1px solid var(--border); color: var(--text-primary); font-variant-numeric: tabular-nums; }
-  tr:hover td { background: var(--bg-hover); }
-
-  .num-cell { text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 500; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
-  .badge-ok { background: var(--badge-ok-bg); color: var(--clr-ok); }
-  .badge-warn { background: var(--badge-warn-bg); color: var(--clr-warn); }
-  .badge-bad { background: var(--badge-bad-bg); color: var(--clr-bad); }
-  .badge-am { background: var(--badge-am-bg); color: var(--clr-am); }
-  .badge-pm { background: var(--badge-pm-bg); color: var(--clr-pm); }
-
-  .date-group { padding: 8px 12px; background: var(--bg-secondary); font-weight: 600; font-size: 12px; color: var(--accent-text); border-bottom: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; }
-
-  .summary-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
-  .summary-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; flex: 1; min-width: 140px; box-shadow: var(--shadow); }
-  .summary-card .label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-  .summary-card .value { font-size: 22px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--text-primary); }
-
-  .team-name { font-weight: 500; white-space: nowrap; }
-  .points-cell { font-weight: 700; color: var(--accent-text); font-family: 'JetBrains Mono', monospace; }
+  .div-btn:hover { background: var(--z-100); color: var(--text-primary); border-color: var(--a-500); }
+  .div-btn.active { background: var(--z-1000); color: var(--bg-100); border-color: var(--z-1000); }
 
   .small-btn {
-    padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border);
-    background: var(--bg-card); color: var(--text-secondary); font-size: 12px;
-    cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s;
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0 10px; height: 28px; border-radius: 5px;
+    border: 1px solid var(--border); background: var(--bg-100);
+    color: var(--text-secondary); font-size: 12px; text-decoration: none;
   }
-  .small-btn:hover { border-color: var(--accent); color: var(--accent-text); }
+  .small-btn:hover { background: var(--z-100); color: var(--text-primary); border-color: var(--a-500); }
+  .small-btn.primary { background: var(--z-1000); color: var(--bg-100); border-color: var(--z-1000); }
+  .small-btn.primary:hover { background: var(--z-900); border-color: var(--z-900); }
 
-  .empty-state { text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px; }
+  /* ── Tab bar ── */
+  .tab-bar {
+    display: flex; border-bottom: 1px solid var(--border);
+    margin: 0 -24px 20px; padding: 0 24px;
+    background: var(--bg-100); overflow-x: auto; scrollbar-width: none;
+  }
+  .tab-bar::-webkit-scrollbar { display: none; }
+  .tab-btn {
+    padding: 0 16px; height: 40px; border: none; background: none;
+    color: var(--text-muted); font-size: 14px;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .tab-btn:hover { color: var(--text-secondary); }
+  .tab-btn.active { color: var(--text-primary); border-bottom-color: var(--z-1000); }
+
+  /* ── Tables ── */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th {
+    text-align: left; padding: 10px 14px;
+    color: var(--text-muted); font-weight: 500; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border); white-space: nowrap;
+    background: var(--bg-100);
+  }
+  td {
+    padding: 11px 14px; border-bottom: 1px solid var(--a-200);
+    color: var(--text-primary); font-variant-numeric: tabular-nums;
+  }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--z-100); }
+
+  .num-cell { text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+  .team-name { font-weight: 500; }
+  .points-cell { font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--text-primary); }
+
+  /* ── Badges (pill-shaped) ── */
+  .badge {
+    display: inline-flex; align-items: center; padding: 1px 8px;
+    border-radius: 999px; font-size: 10px; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.1px; white-space: nowrap;
+  }
+  .badge-ok   { background: var(--badge-ok-bg);   color: var(--badge-ok-fg); }
+  .badge-warn { background: var(--badge-warn-bg);  color: var(--badge-warn-fg); }
+  .badge-bad  { background: var(--badge-bad-bg);   color: var(--badge-bad-fg); }
+  .badge-am   { background: var(--badge-am-bg);    color: var(--badge-am-fg); }
+  .badge-pm   { background: var(--badge-pm-bg);    color: var(--badge-pm-fg); }
+
+  /* ── Date group ── */
+  .date-group {
+    padding: 6px 12px; background: var(--bg-200);
+    font-size: 10px; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── Section divider (past matches) ── */
+  .section-sep {
+    padding: 8px 12px; background: var(--bg-200);
+    font-size: 10px; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    border-top: 2px solid var(--border); border-bottom: 1px solid var(--border);
+  }
+
+  /* ── Summary stat cards ── */
+  .summary-row { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .summary-card {
+    background: var(--bg-100); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px; flex: 1; min-width: 110px;
+  }
+  .summary-card .label {
+    font-size: 10px; color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: 0.5px; font-weight: 600; margin-bottom: 6px;
+  }
+  .summary-card .value {
+    font-size: 22px; font-weight: 700;
+    font-family: 'JetBrains Mono', monospace; color: var(--text-primary);
+  }
+
+  /* ── Filter row ── */
+  .filter-bar { display: flex; gap: 4px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+  .filter-btn {
+    padding: 0 10px; height: 26px; border-radius: 5px;
+    border: 1px solid var(--border); background: var(--bg-100);
+    color: var(--text-muted); font-size: 12px;
+  }
+  .filter-btn:hover { background: var(--z-100); color: var(--text-secondary); }
+  .filter-btn.active { background: var(--z-1000); color: var(--bg-100); border-color: var(--z-1000); }
+
+  /* ── Misc ── */
+  .empty-state { text-align: center; padding: 48px; color: var(--text-muted); font-size: 13px; }
   .scroll-x { overflow-x: auto; }
 
-  .issue-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; background: var(--bg-card); border-left: 3px solid var(--border); box-shadow: var(--shadow); }
-  .issue-card.error { border-left-color: var(--clr-bad); }
-  .issue-card.warn { border-left-color: var(--clr-warn); }
-  .issue-card.info { border-left-color: var(--clr-info); }
-  .issue-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-  .issue-sev { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 1px 6px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; }
-  .issue-sev.error { background: var(--sev-error-bg); color: var(--clr-bad); }
-  .issue-sev.warn { background: var(--sev-warn-bg); color: var(--clr-warn); }
-  .issue-sev.info { background: var(--sev-info-bg); color: var(--clr-info); }
-  .issue-div { font-size: 10px; font-weight: 600; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; padding: 1px 6px; background: var(--bg-secondary); border-radius: 3px; }
-  .issue-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
-  .issue-detail { font-size: 12px; color: var(--text-secondary); margin-top: 2px; line-height: 1.5; }
-  .issues-summary { display: flex; gap: 16px; margin-bottom: 20px; align-items: center; }
-  .issues-count { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
-  .issues-dot { width: 10px; height: 10px; border-radius: 50%; }
-  .filter-bar { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
-  .filter-btn { padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-muted); font-size: 11px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
-  .filter-btn:hover { color: var(--text-secondary); }
-  .filter-btn.active { background: var(--bg-hover); color: var(--text-primary); border-color: var(--accent); }
-
-  .theme-toggle {
-    width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border);
-    background: var(--bg-card); color: var(--text-secondary); font-size: 16px;
-    cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+  /* ── Team filter select ── */
+  .team-select {
+    padding: 0 10px; height: 26px; border-radius: 5px;
+    border: 1px solid var(--border); background: var(--bg-100);
+    color: var(--text-primary); font-size: 12px; font-family: 'Inter', sans-serif;
+    cursor: pointer; appearance: auto;
   }
-  .theme-toggle:hover { border-color: var(--accent); color: var(--accent-text); }
+  .team-select:hover { border-color: var(--a-500); }
+
+  /* ── Theme toggle ── */
+  .theme-toggle {
+    width: 28px; height: 28px; border-radius: 5px; border: 1px solid var(--border);
+    background: var(--bg-100); color: var(--text-muted); font-size: 13px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.1s;
+  }
+  .theme-toggle:hover { background: var(--z-100); color: var(--text-primary); }
+
+  /* ── Loading pulse ── */
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .loading-text { animation: pulse 1.5s ease-in-out infinite; }
 `;
 
-function BB({ val, ideal }) {
-  const d = Math.abs(val - ideal);
-  return <span className={`badge ${d===0?"badge-ok":d===1?"badge-warn":"badge-bad"}`}>{val}</span>;
-}
 
-function BalanceView({ matches, division }) {
+/* ─── Views ─── */
+function ScheduleView({ matches, division }) {
+  const [teamFilter, setTeamFilter] = useState("");
   const dm = matches.filter(m => m.division === division);
   const teams = [...new Set(dm.flatMap(m => [m.team1, m.team2]))].sort();
-  const stats = computeBalance(dm, teams);
-  const n = dm.length;
-  const iHA = teams.length > 1 ? Math.round(n * 2 / teams.length / 2) : 0;
-  const iU = teams.length > 0 ? Math.round(n / teams.length) : 0;
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  const isUpcoming = m => { const d = parseDate(m.date); return !d || d >= today; };
+  const matchesTeam = m => !teamFilter || m.team1 === teamFilter || m.team2 === teamFilter;
+  const cmpAsc = (a,b) => {
+    const da = parseDate(a.date), db = parseDate(b.date);
+    if (da && db && da-db !== 0) return da-db;
+    return (a.time||"").localeCompare(b.time||"");
+  };
+
+  const upcoming = dm.filter(m => matchesTeam(m) && isUpcoming(m)).sort(cmpAsc);
+  const past     = dm.filter(m => matchesTeam(m) && !isUpcoming(m) && parseDate(m.date)).sort((a,b) => -cmpAsc(a,b));
+
+  const groupByDate = ms => {
+    const g = {};
+    ms.forEach(m => { const k = m.date||"TBD"; if(!g[k]) g[k]=[]; g[k].push(m); });
+    return Object.entries(g);
+  };
+
+  const matchRow = m => (
+    <tr key={m.id}>
+      <td className="num-cell" style={{color:"var(--text-muted)",width:40}}>{m.id}</td>
+      <td style={{width:90}}>
+        <span className={`badge ${isAM(m.time)===true?"badge-am":isAM(m.time)===false?"badge-pm":""}`}>{m.time||"TBD"}</span>
+      </td>
+      <td className="team-name">{m.team1}</td>
+      <td className="team-name">{m.team2}</td>
+      <td style={{color:"var(--text-muted)",fontSize:12}}>{m.ground||"—"}</td>
+      <td style={{color:"var(--text-muted)",fontSize:12}}>{m.umpire1||"—"}</td>
+      <td style={{fontSize:12,color:m.result||m.winner?"var(--text-primary)":"var(--text-muted)"}}>{m.result||m.winner||"—"}</td>
+    </tr>
+  );
+
+  const dateRows = (ms, isPast) => groupByDate(ms).flatMap(([date, grp]) => {
+    const d = parseDate(date);
+    return [
+      <tr key={`h-${date}-${isPast}`}>
+        <td colSpan={7} className="date-group">
+          {date}{d && ` · ${d.toLocaleDateString("en-US",{weekday:"long"})}`}
+          {isPast && <span style={{marginLeft:8,opacity:0.6}}>played</span>}
+        </td>
+      </tr>,
+      ...grp.map(matchRow)
+    ];
+  });
 
   return (
     <div>
-      <div className="summary-row">
-        <div className="summary-card"><div className="label">Teams</div><div className="value">{teams.length}</div></div>
-        <div className="summary-card"><div className="label">Matches</div><div className="value">{n}</div></div>
-        <div className="summary-card"><div className="label">Ideal H/A</div><div className="value">{iHA}/{iHA}</div></div>
-        <div className="summary-card"><div className="label">Ideal AM/PM</div><div className="value">{iHA}/{iHA}</div></div>
-        <div className="summary-card"><div className="label">Ideal Ump</div><div className="value">{iU}</div></div>
+      <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:14,flexWrap:"wrap"}}>
+        <span style={{fontSize:11,color:"var(--text-muted)",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.4px"}}>Team</span>
+        <select className="team-select" value={teamFilter} onChange={e=>setTeamFilter(e.target.value)}>
+          <option value="">All teams</option>
+          {teams.map(t=><option key={t} value={t}>{t}</option>)}
+        </select>
+        {teamFilter && <button className="small-btn" onClick={()=>setTeamFilter("")}>✕</button>}
+        <span style={{fontSize:12,color:"var(--text-muted)",marginLeft:"auto"}}>
+          {upcoming.length} upcoming · {past.length} played
+        </span>
       </div>
       <div className="scroll-x">
-        <table><thead><tr>
-          <th>Team</th><th style={{textAlign:"center"}}>GP</th>
-          <th style={{textAlign:"center"}}>Home</th><th style={{textAlign:"center"}}>Away</th>
-          <th style={{textAlign:"center"}}>AM</th><th style={{textAlign:"center"}}>PM</th>
-          <th style={{textAlign:"center"}}>Ump</th><th style={{textAlign:"center"}}>H/A</th><th style={{textAlign:"center"}}>Slot</th>
-        </tr></thead><tbody>
-          {teams.map(t => {
-            const s = stats[t]; const hd = Math.abs(s.home-s.away); const sd = Math.abs(s.am-s.pm);
-            return (<tr key={t}>
-              <td className="team-name">{t}</td><td className="num-cell">{s.games}</td>
-              <td className="num-cell"><BB val={s.home} ideal={iHA}/></td>
-              <td className="num-cell"><BB val={s.away} ideal={iHA}/></td>
-              <td className="num-cell"><BB val={s.am} ideal={iHA}/></td>
-              <td className="num-cell"><BB val={s.pm} ideal={iHA}/></td>
-              <td className="num-cell"><BB val={s.umpire} ideal={iU}/></td>
-              <td className="num-cell"><span className={`badge ${hd===0?"badge-ok":hd===1?"badge-warn":"badge-bad"}`}>{hd===0?"even":`${s.home>s.away?"H":"A"}+${hd}`}</span></td>
-              <td className="num-cell"><span className={`badge ${sd===0?"badge-ok":sd===1?"badge-warn":"badge-bad"}`}>{sd===0?"even":`${s.am>s.pm?"AM":"PM"}+${sd}`}</span></td>
-            </tr>);
-          })}
-        </tbody></table>
+        <table>
+          <thead><tr>
+            <th>#</th><th>Time</th><th>Home (Team 1)</th><th>Away (Team 2)</th>
+            <th>Ground</th><th>Umpire</th><th>Result</th>
+          </tr></thead>
+          <tbody>
+            {upcoming.length===0 && past.length===0 && (
+              <tr><td colSpan={7} className="empty-state">No matches found.</td></tr>
+            )}
+            {dateRows(upcoming, false)}
+            {past.length > 0 && (
+              <tr key="past-sep">
+                <td colSpan={7} className="section-sep">
+                  Past matches · {past.length} played
+                </td>
+              </tr>
+            )}
+            {dateRows(past, true)}
+          </tbody>
+        </table>
       </div>
-    </div>
-  );
-}
-
-function ScheduleView({ matches, division }) {
-  const dm = matches.filter(m => m.division === division).sort((a, b) => {
-    const da = parseDate(a.date), db = parseDate(b.date);
-    if (da && db && da.getTime() !== db.getTime()) return da - db;
-    return (a.time || "").localeCompare(b.time || "");
-  });
-  const grouped = {};
-  dm.forEach(m => { const k = m.date || "Unknown"; if (!grouped[k]) grouped[k] = []; grouped[k].push(m); });
-  const today = new Date(); today.setHours(0,0,0,0);
-
-  return (
-    <div className="scroll-x">
-      <table><thead><tr><th>#</th><th>Time</th><th>Home (Team 1)</th><th>Away (Team 2)</th><th>Ground</th><th>Umpire</th><th>Result</th></tr></thead>
-        <tbody>
-          {Object.entries(grouped).map(([date, ms]) => {
-            const d = parseDate(date); const past = d && d < today;
-            return [
-              <tr key={`h-${date}`}><td colSpan={7} className="date-group">
-                {date}{d && ` — ${d.toLocaleDateString("en-US",{weekday:"long"})}`}
-                {past && <span style={{marginLeft:8,color:"var(--text-muted)",fontSize:11}}>PLAYED</span>}
-              </td></tr>,
-              ...ms.map(m => (
-                <tr key={m.id}>
-                  <td className="num-cell" style={{color:"var(--text-muted)"}}>{m.id}</td>
-                  <td><span className={`badge ${isAM(m.time)?"badge-am":"badge-pm"}`}>{m.time}</span></td>
-                  <td className="team-name">{m.team1}</td><td className="team-name">{m.team2}</td>
-                  <td style={{color:"var(--text-secondary)",fontSize:12}}>{m.ground||"—"}</td>
-                  <td style={{color:"var(--text-secondary)",fontSize:12}}>{m.umpire1||"—"}</td>
-                  <td style={{fontSize:12,color:m.result?"var(--accent-text)":"var(--text-muted)"}}>{m.result||m.winner||"—"}</td>
-                </tr>
-              ))
-            ];
-          })}
-        </tbody>
-      </table>
     </div>
   );
 }
@@ -464,16 +508,31 @@ function StandingsView({ matches, division }) {
   const dm = matches.filter(m => m.division === division);
   const teams = [...new Set(dm.flatMap(m => [m.team1, m.team2]))].sort();
   const standings = computeStandings(dm, teams);
-  if (!standings.some(s => s.played > 0)) return <div className="empty-state">No result data in this export yet.</div>;
+  if (!standings.some(s => s.played > 0)) return (
+    <div className="empty-state">No results recorded yet for this division.</div>
+  );
   return (
     <div className="scroll-x">
-      <table><thead><tr><th style={{width:30}}>#</th><th>Team</th><th style={{textAlign:"center"}}>P</th><th style={{textAlign:"center"}}>W</th><th style={{textAlign:"center"}}>L</th><th style={{textAlign:"center"}}>Abd</th><th style={{textAlign:"center"}}>Fft</th><th style={{textAlign:"center"}}>Pts</th></tr></thead>
+      <table>
+        <thead><tr>
+          <th style={{width:32}}>#</th><th>Team</th>
+          <th style={{textAlign:"center"}} title="Matches played">P</th>
+          <th style={{textAlign:"center"}} title="Wins">W</th>
+          <th style={{textAlign:"center"}} title="Losses">L</th>
+          <th style={{textAlign:"center"}} title="Abandoned / No result">Abd</th>
+          <th style={{textAlign:"center"}} title="Forfeited">Fft</th>
+          <th style={{textAlign:"center"}} title="Points (Win=2, Abandoned=1, Forfeit Win=2)">Pts</th>
+        </tr></thead>
         <tbody>
           {standings.map((s, i) => (
-            <tr key={s.team}><td className="num-cell" style={{color:"var(--text-muted)"}}>{i+1}</td>
-              <td className="team-name">{s.team}</td><td className="num-cell">{s.played}</td><td className="num-cell">{s.won}</td>
+            <tr key={s.team}>
+              <td className="num-cell" style={{color:"var(--text-muted)"}}>{i+1}</td>
+              <td className="team-name">{s.team}</td>
+              <td className="num-cell">{s.played}</td><td className="num-cell">{s.won}</td>
               <td className="num-cell">{s.lost}</td><td className="num-cell">{s.abandoned}</td>
-              <td className="num-cell">{s.forfeited}</td><td className="num-cell points-cell">{s.points}</td></tr>
+              <td className="num-cell">{s.forfeited}</td>
+              <td className="num-cell points-cell">{s.points}</td>
+            </tr>
           ))}
         </tbody>
       </table>
@@ -481,99 +540,37 @@ function StandingsView({ matches, division }) {
   );
 }
 
-function PairingsView({ matches, division }) {
-  const dm = matches.filter(m => m.division === division);
-  const teams = [...new Set(dm.flatMap(m => [m.team1, m.team2]))].sort();
-  const played = new Set();
-  dm.forEach(m => { played.add([m.team1, m.team2].sort().join("|||")); });
-  const total = (teams.length * (teams.length - 1)) / 2;
-
-  return (
-    <div>
-      <div className="summary-row">
-        <div className="summary-card"><div className="label">Unique Pairings</div><div className="value">{played.size}/{total}</div></div>
-        <div className="summary-card"><div className="label">Remaining</div><div className="value">{total - played.size}</div></div>
-      </div>
-      <div className="scroll-x">
-        <table><thead><tr><th></th>
-          {teams.map(t => <th key={t} style={{textAlign:"center",fontSize:10,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis"}} title={t}>
-            {t.replace(/^(MLCA |MSKICA |Super11|Boltz |ICCS |PBL |OCA |Seattle Chargers )/,"").substring(0,8)}
-          </th>)}
-        </tr></thead><tbody>
-          {teams.map(t1 => (
-            <tr key={t1}>
-              <td className="team-name" style={{fontSize:12}}>{t1}</td>
-              {teams.map(t2 => {
-                if (t1===t2) return <td key={t2} style={{background:"var(--bg-secondary)"}}></td>;
-                const ip = played.has([t1,t2].sort().join("|||"));
-                return <td key={t2} className="num-cell" style={{background:ip?"var(--pair-yes-bg)":"var(--pair-no-bg)",color:ip?"var(--clr-ok)":"var(--clr-bad)",fontSize:14}}>{ip?"✓":"✗"}</td>;
-              })}
-            </tr>
-          ))}
-        </tbody></table>
-      </div>
-    </div>
-  );
-}
-
-function IssuesView({ matches, filterDiv, onFilterDiv }) {
-  const issues = useMemo(() => scanIssues(matches), [matches]);
-  const [levelFilter, setLevelFilter] = useState("all");
-  const allDivs = useMemo(() => ["ALL", ...new Set(issues.map(i => i.div))], [issues]);
-  const filtered = issues.filter(i => {
-    if (filterDiv && filterDiv !== "ALL" && i.div !== filterDiv && i.div !== "ALL") return false;
-    if (levelFilter !== "all" && i.level !== levelFilter) return false;
-    return true;
-  });
-  const ec = issues.filter(i => i.level === "error").length;
-  const wc = issues.filter(i => i.level === "warn").length;
-  const ic = issues.filter(i => i.level === "info").length;
-
-  return (
-    <div>
-      <div className="issues-summary">
-        <div className="issues-count"><div className="issues-dot" style={{background:"var(--clr-bad)"}}></div>{ec} errors</div>
-        <div className="issues-count"><div className="issues-dot" style={{background:"var(--clr-warn)"}}></div>{wc} warnings</div>
-        <div className="issues-count"><div className="issues-dot" style={{background:"var(--clr-info)"}}></div>{ic} info</div>
-      </div>
-      <div className="filter-bar">
-        {["all","error","warn","info"].map(l => (
-          <button key={l} className={`filter-btn ${levelFilter===l?"active":""}`} onClick={()=>setLevelFilter(l)}>
-            {l==="all"?"All":l==="error"?"Errors":l==="warn"?"Warnings":"Info"}
-          </button>
-        ))}
-        <span style={{width:1,background:"var(--border)",margin:"0 4px",alignSelf:"stretch"}}></span>
-        {allDivs.map(d => (
-          <button key={d} className={`filter-btn ${(!filterDiv&&d==="ALL")||(filterDiv===d)?"active":""}`}
-            onClick={()=>onFilterDiv(d==="ALL"?null:d)}>{d}</button>
-        ))}
-      </div>
-      {filtered.length === 0 ? (
-        <div className="empty-state" style={{color:"var(--clr-ok)"}}>{issues.length===0?"No issues found. Schedule looks clean.":"No issues match current filter."}</div>
-      ) : (
-        filtered.map((issue, i) => (
-          <div key={i} className={`issue-card ${issue.level}`}>
-            <div className="issue-header">
-              <span className={`issue-sev ${issue.level}`}>{issue.level==="error"?"ERROR":issue.level==="warn"?"WARN":"INFO"}</span>
-              <span className="issue-div">{issue.div}</span>
-              <span className="issue-title">{issue.title}</span>
-            </div>
-            <div className="issue-detail">{issue.detail}</div>
-          </div>
-        ))
-      )}
-    </div>
-  );
-}
-
+/* ─── Main dashboard ─── */
 function SYCLDashboard() {
   const [data, setData] = useState(null);
   const [selectedDivision, setSelectedDivision] = useState(null);
-  const [activeTab, setActiveTab] = useState("balance");
+  const [activeTab, setActiveTab] = useState("schedule");
   const [fileName, setFileName] = useState("");
-  const [issuesDivFilter, setIssuesDivFilter] = useState(null);
-  const [showIssues, setShowIssues] = useState(false);
-  const [theme, setTheme] = useState("light");
+  const [theme, setTheme] = useState(() => {
+    try { return localStorage.getItem('sycl_theme') || 'light'; } catch { return 'light'; }
+  });
+  const [loading, setLoading] = useState(true);
+  const [lastRefresh, setLastRefresh] = useState(null);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try { localStorage.setItem('sycl_theme', theme); } catch {}
+  }, [theme]);
+
+  useEffect(() => {
+    fetch("/api/schedule")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.matches?.length) {
+          const divisions = [...new Set(d.matches.map(m => m.division))];
+          setData({ matches: d.matches, divisions });
+          setSelectedDivision(divisions[0]);
+          setLastRefresh(d.updatedAt);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   const handleUpload = useCallback((e) => {
     const file = e.target.files[0];
@@ -586,7 +583,8 @@ function SYCLDashboard() {
       const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
       const parsed = parseSchedule(raw);
       if (parsed && parsed.divisions.length > 0) {
-        setData(parsed); setSelectedDivision(parsed.divisions[0]); setActiveTab("balance"); setShowIssues(false);
+        setData(parsed); setSelectedDivision(parsed.divisions[0]);
+        setActiveTab("schedule");
       }
     };
     reader.readAsArrayBuffer(file);
@@ -601,73 +599,78 @@ function SYCLDashboard() {
     });
   }, [data]);
 
-  const ic = useMemo(() => {
-    if (!data) return { errors: 0, warnings: 0 };
-    const issues = scanIssues(data.matches);
-    return { errors: issues.filter(i=>i.level==="error").length, warnings: issues.filter(i=>i.level==="warn").length };
-  }, [data]);
-
-  const ibCls = ic.errors > 0 ? "has-errors" : ic.warnings > 0 ? "has-warnings" : "all-clear";
+  const tabs = [["schedule","Schedule"],["standings","Standings"]];
 
   return (
     <>
       <style>{STYLES}</style>
-      <div className="app" data-theme={theme}>
+      <div className="app">
+        {/* ── Header ── */}
         <div className="header">
-          <div>
-            <h1>SYCL Schedule Dashboard</h1>
-            {fileName && <div className="header-sub">{fileName}</div>}
+          <div className="header-left">
+            <span className="header-cricket">🏏</span>
+            <div className="header-sep"></div>
+            <div>
+              <div className="header h1">SYCL Schedule</div>
+              {lastRefresh ? (
+                <div className="header-sub">
+                  Updated {new Date(lastRefresh).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})} at {new Date(lastRefresh).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}
+                </div>
+              ) : fileName ? (
+                <div className="header-sub">{fileName}</div>
+              ) : null}
+            </div>
           </div>
           <div className="header-actions">
-            {data && (
-              <label className="small-btn">
-                Reload<input type="file" accept=".xlsx,.xls,.csv" onChange={handleUpload} style={{display:"none"}} />
+            {data && !lastRefresh && (
+              <label className="small-btn" style={{cursor:"pointer"}}>
+                Reload <input type="file" accept=".xlsx,.xls,.csv" onChange={handleUpload} style={{display:"none"}} />
               </label>
             )}
-            <button className="theme-toggle" onClick={() => setTheme(t => t === "light" ? "dark" : "light")} title="Toggle theme">
-              {theme === "light" ? "☾" : "☀"}
+            <a href="/admin.html" className="small-btn">Admin</a>
+            <button className="theme-toggle" onClick={() => setTheme(t => t==="light"?"dark":"light")} title="Toggle theme">
+              {theme==="light" ? "☾" : "☀"}
             </button>
           </div>
         </div>
 
+        {/* ── Content ── */}
         {!data ? (
-          <label className="upload-zone">
-            <input type="file" accept=".xlsx,.xls,.csv" onChange={handleUpload} />
-            <div style={{fontSize:32,marginBottom:8}}>📊</div>
-            <div style={{fontSize:16,fontWeight:600,color:"var(--text-primary)",marginBottom:4}}>Upload CricClubs Schedule Export</div>
-            <p>.xlsx exported from CricClubs</p>
-          </label>
+          loading ? (
+            <div className="loading-text" style={{textAlign:"center",padding:"80px",color:"var(--text-muted)",fontSize:13}}>
+              Loading schedule…
+            </div>
+          ) : (
+            <label className="upload-zone">
+              <input type="file" accept=".xlsx,.xls,.csv" onChange={handleUpload} />
+              <div className="upload-icon">📊</div>
+              <div className="upload-title">Drop schedule or click to upload</div>
+              <div class="upload-sub">.xlsx exported from CricClubs · Schedule → Export</div>
+            </label>
+          )
         ) : (
           <>
+            {/* Division bar */}
             <div className="division-bar">
-              <button className={`div-btn issues-btn ${ibCls} ${showIssues?"active":""}`}
-                onClick={()=>{setShowIssues(true);setSelectedDivision(null);}}>
-                {ic.errors > 0 ? `⚠ Issues (${ic.errors})` : ic.warnings > 0 ? `Issues (${ic.warnings})` : "✓ No Issues"}
-              </button>
-              <span style={{width:1,background:"var(--border)",margin:"0 4px"}}></span>
               {sortedDivs.map(d => (
-                <button key={d} className={`div-btn ${!showIssues&&selectedDivision===d?"active":""}`}
-                  onClick={()=>{setSelectedDivision(d);setShowIssues(false);setActiveTab("balance");}}>
+                <button key={d} className={`div-btn ${selectedDivision===d?"active":""}`}
+                  onClick={()=>{setSelectedDivision(d);setActiveTab("schedule");}}>
                   {d}
                 </button>
               ))}
             </div>
 
-            {showIssues ? (
-              <IssuesView matches={data.matches} filterDiv={issuesDivFilter} onFilterDiv={setIssuesDivFilter} />
-            ) : (
-              <>
-                <div className="tab-bar">
-                  {[["balance","Balance"],["schedule","Schedule"],["pairings","Pairings Matrix"],["standings","Standings"]].map(([k,l])=>(
-                    <button key={k} className={`tab-btn ${activeTab===k?"active":""}`} onClick={()=>setActiveTab(k)}>{l}</button>
-                  ))}
-                </div>
-                {selectedDivision && activeTab==="balance" && <BalanceView matches={data.matches} division={selectedDivision}/>}
-                {selectedDivision && activeTab==="schedule" && <ScheduleView matches={data.matches} division={selectedDivision}/>}
-                {selectedDivision && activeTab==="pairings" && <PairingsView matches={data.matches} division={selectedDivision}/>}
-                {selectedDivision && activeTab==="standings" && <StandingsView matches={data.matches} division={selectedDivision}/>}
-              </>
-            )}
+            <>
+              {/* Tab bar */}
+              <div className="tab-bar">
+                {tabs.map(([k,l]) => (
+                  <button key={k} className={`tab-btn ${activeTab===k?"active":""}`} onClick={()=>setActiveTab(k)}>{l}</button>
+                ))}
+              </div>
+
+              {selectedDivision && activeTab==="schedule"  && <ScheduleView  matches={data.matches} division={selectedDivision}/>}
+              {selectedDivision && activeTab==="standings" && <StandingsView matches={data.matches} division={selectedDivision}/>}
+            </>
           </>
         )}
       </div>
@@ -675,9 +678,8 @@ function SYCLDashboard() {
   );
 }
 
-
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(React.createElement(SYCLDashboard));
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(SYCLDashboard));
   </script>
 </body>
 </html>
