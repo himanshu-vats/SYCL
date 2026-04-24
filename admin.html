@@ -405,7 +405,7 @@
     <!-- Sync All section -->
     <div id="section-sync-all" class="section">
       <div class="section-title">Sync All Data from CricClubs</div>
-      <div class="section-desc">One bookmarklet, one click — pulls match results, standings, batting, bowling, and rankings for every division at once.</div>
+      <div class="section-desc">One bookmarklet, one click — pulls the full schedule, match results, standings, batting, bowling, and rankings for every division at once.</div>
 
       <div class="card">
         <div class="card-header"><span class="card-icon">◈</span><span class="card-title">Bookmarklet setup</span></div>
@@ -413,7 +413,7 @@
           <ol class="steps">
             <li>Drag the button below into your browser's bookmarks bar <em>(do this once)</em></li>
             <li>Open the <a href="https://cricclubs.com/SYCLYouth/listMatches.do?clubId=10669" target="_blank" style="color:var(--text-primary);font-weight:500">CricClubs Match Results page ↗</a></li>
-            <li>Click the bookmarklet — it reads results from the current page, then fetches standings, batting, bowling, and rankings for all divisions in parallel</li>
+            <li>Click the bookmarklet — it reads results from the current page, then fetches the schedule <em>(fixtures.do)</em> and standings, batting, bowling, rankings for all divisions in parallel</li>
           </ol>
           <div class="bookmarklet-wrap">
             <a id="syncAllBookmarkletLink" class="bookmarklet-link" href="#">◈ Sync All to SYCL</a>
@@ -974,6 +974,31 @@ if(!window.location.href.includes('listMatches.do')){
   alert('Run this from the CricClubs Match Results page\\n(Results → Match Results)');return;
 }
 
+// ── Parse schedule from fixtures page document ───────────────
+function parseScheduleFromDoc(doc){
+  var t=doc.getElementById('attTable');if(!t)return null;
+  var fixtureIds=[];var seen={};
+  Array.from(doc.querySelectorAll('div[id^="deleteRow"]')).forEach(function(el){
+    var m=el.id.match(/deleteRow(\\d+)/);if(m&&!seen[m[1]]){seen[m[1]]=true;fixtureIds.push(m[1]);}
+  });
+  var ths=t.querySelectorAll('thead th');
+  if(!ths.length)ths=t.querySelectorAll('tr:first-child td,tr:first-child th');
+  var h=Array.from(ths).map(function(c){return c.textContent.trim().toLowerCase().replace(/[*()\\/\\\\0-9.]/g,'').trim();});
+  function fc(al){for(var i=0;i<h.length;i++)for(var j=0;j<al.length;j++)if(h[i]===al[j]||h[i].indexOf(al[j])>-1)return i;return -1;}
+  var c={id:fc(['#','no','number']),dv:fc(['division']),mt:fc(['match type','matchtype','type']),dt:fc(['date']),tm:fc(['time']),t1:fc(['team one','team 1','team1','teamone']),t2:fc(['team two','team 2','team2','teamtwo']),gr:fc(['ground','venue']),u1:fc(['umpire one','umpire 1','umpire1']),u2:fc(['umpire two','umpire 2','umpire2']),rs:fc(['result','match result']),wn:fc(['winner']),st:fc(['status'])};
+  if(c.dv<0||c.t1<0||c.t2<0)return null;
+  var ms=[];
+  Array.from(t.querySelectorAll('tbody tr')).forEach(function(r){
+    var cs=Array.from(r.querySelectorAll('td')).map(function(x){return x.textContent.trim();});
+    if(!cs.length)return;
+    var dv=c.dv>=0?cs[c.dv]||'':'',a=c.t1>=0?cs[c.t1]||'':'',b=c.t2>=0?cs[c.t2]||'':'';
+    if(!dv||!a||!b)return;
+    var fid=fixtureIds[ms.length]||'';
+    ms.push({id:c.id>=0?cs[c.id]||'':'',division:dv,matchType:c.mt>=0?cs[c.mt]||'':'',date:c.dt>=0?cs[c.dt]||'':'',time:c.tm>=0?cs[c.tm]||'':'',team1:a,team2:b,ground:c.gr>=0?cs[c.gr]||'':'',umpire1:c.u1>=0?cs[c.u1]||'':'',umpire2:c.u2>=0?cs[c.u2]||'':'',result:c.rs>=0?cs[c.rs]||'':'',winner:c.wn>=0?cs[c.wn]||'':'',status:c.st>=0?cs[c.st]||'':'',fixtureId:fid,fixtureUpdateUrl:fid?'https://cricclubs.com/SYCLYouth/updateFixture.do?fixtureId='+fid+'&clubId=10669':''});
+  });
+  return ms.length?ms:null;
+}
+
 // ── Parse match results from current page ────────────────────
 function parseResults(){
   var out=[];
@@ -1091,12 +1116,15 @@ if(!results.length&&!divOptions.length){
 
 var ov=document.createElement('div');
 ov.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;font-family:sans-serif';
-ov.innerHTML='<div style="background:#fff;border-radius:10px;padding:24px 32px;min-width:320px;text-align:center;font-size:14px;color:#09090b">SYCL Sync All<br><span id="_syclMsg" style="font-size:12px;color:#71717a">Fetching '+(divOptions.length)+' divisions × 4 data types…</span></div>';
+ov.innerHTML='<div style="background:#fff;border-radius:10px;padding:24px 32px;min-width:320px;text-align:center;font-size:14px;color:#09090b">SYCL Sync All<br><span id="_syclMsg" style="font-size:12px;color:#71717a">Fetching schedule + '+divOptions.length+' divisions × 4 data types…</span></div>';
 document.body.appendChild(ov);
 function setMsg(m){var el=document.getElementById('_syclMsg');if(el)el.textContent=m;}
 
 var base='https://cricclubs.com/SYCLYouth/';
-var fetchAll=[];
+// Fetch fixtures page for schedule (in parallel with everything else)
+var scheduleFetch=fetch(base+'fixtures.do?clubId=10669',{credentials:'include'}).then(function(r){return r.text();}).then(function(h){return parseScheduleFromDoc(new DOMParser().parseFromString(h,'text/html'));}).catch(function(){return null;});
+
+var fetchAll=[scheduleFetch];
 divOptions.forEach(function(opt){
   fetchAll.push(
     fetch(base+'viewPointsTable.do?league='+opt.leagueId+'&clubId=10669',{credentials:'include'}).then(function(r){return r.text();}).then(function(h){return{type:'standings',name:opt.name,rows:parseStandings(new DOMParser().parseFromString(h,'text/html'))};}).catch(function(){return null;}),
@@ -1108,8 +1136,10 @@ divOptions.forEach(function(opt){
 
 Promise.all(fetchAll).then(function(fetched){
   ov.remove();
+  var scheduleMatches=fetched[0]; // from fixtures.do
+  var statResults=fetched.slice(1);
   var standings={},batting={},bowling={},rankings={};
-  fetched.filter(Boolean).forEach(function(r){
+  statResults.filter(Boolean).forEach(function(r){
     if(!r.rows)return;
     if(r.type==='standings')standings[r.name]=r.rows;
     else if(r.type==='batting')batting[r.name]=r.rows;
@@ -1117,10 +1147,11 @@ Promise.all(fetchAll).then(function(fetched){
     else if(r.type==='rankings')rankings[r.name]=r.rows;
   });
   var sd=Object.keys(standings).length,bd=Object.keys(batting).length,bw=Object.keys(bowling).length,rk=Object.keys(rankings).length;
-  var summary='Results: '+results.length+' matches\\nStandings: '+sd+' divisions\\nBatting: '+bd+' divisions\\nBowling: '+bw+' divisions\\nRankings: '+rk+' divisions';
+  var summary=(scheduleMatches?'Schedule: '+scheduleMatches.length+' fixtures\\n':'Schedule: not found\\n')+'Results: '+results.length+' match results\\nStandings: '+sd+' divisions\\nBatting: '+bd+' divisions\\nBowling: '+bw+' divisions\\nRankings: '+rk+' divisions';
   if(!confirm('Sync all data to SYCL dashboard?\\n\\n'+summary)){return;}
   document.body.appendChild(ov);setMsg('Saving to dashboard…');
   var payload={};
+  if(scheduleMatches&&scheduleMatches.length)payload.matches=scheduleMatches;
   if(results.length)payload.results=results;
   if(sd)payload.standings=standings;
   if(bd)payload.batting=batting;
