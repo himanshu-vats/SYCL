@@ -637,6 +637,31 @@ const STYLES = `
   /* ── Section label ── */
   .section-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
   .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* ── Drilldown panel ── */
+  .panel-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.42); z-index: 200; }
+  .panel-drawer {
+    position: fixed; top: 0; right: 0; width: min(480px, 100vw); height: 100vh;
+    background: var(--bg-100); overflow-y: auto; z-index: 201;
+    box-shadow: -8px 0 40px rgba(0,0,0,0.22);
+    animation: panelIn 0.22s cubic-bezier(.4,0,.2,1);
+  }
+  @keyframes panelIn { from { transform: translateX(100%); opacity:0; } to { transform: translateX(0); opacity:1; } }
+  .panel-content { padding: 22px 20px 40px; }
+  .panel-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 22px; gap: 12px; }
+  .panel-title { font-size: 20px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.3px; line-height: 1.2; }
+  .panel-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+  .panel-close { width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--border); background: var(--bg-200); cursor: pointer; font-size: 14px; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.12s; }
+  .panel-close:hover { background: var(--border); }
+  .stat-tile { background: var(--bg-200); border-radius: 10px; padding: 12px 8px; text-align: center; }
+  .stat-tile-val { font-size: 20px; font-weight: 900; font-family: 'JetBrains Mono', monospace; color: var(--text-primary); line-height: 1; }
+  .stat-tile-lbl { font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 5px; }
+  .result-row { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .result-row:last-child { border-bottom: none; }
+  .fixture-row { display: flex; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .fixture-row:last-child { border-bottom: none; }
+  .clickable { cursor: pointer; transition: color 0.1s; }
+  .clickable:hover { color: var(--accent) !important; text-decoration: underline; }
 `;
 
 
@@ -811,8 +836,284 @@ function ResultStrip({ results, division }) {
   );
 }
 
+/* ─── Drilldown: Player panel ─── */
+function PlayerPanel({ name, batting, bowling, rankings, results, matches, onClose, onDrilldown }) {
+  const batRows = batting
+    ? Object.entries(batting).filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+        .flatMap(([div, rows]) => Array.isArray(rows) ? rows.filter(r => String(r.player||'').toLowerCase() === name.toLowerCase()).map(r => ({...r, _div:div})) : [])
+    : [];
+  const bowlRows = bowling
+    ? Object.entries(bowling).filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+        .flatMap(([div, rows]) => Array.isArray(rows) ? rows.filter(r => String(r.player||'').toLowerCase() === name.toLowerCase()).map(r => ({...r, _div:div})) : [])
+    : [];
+  const rankRows = rankings
+    ? Object.entries(rankings).filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+        .flatMap(([div, rows]) => Array.isArray(rows) ? rows.filter(r => String(r.player||'').toLowerCase() === name.toLowerCase()).map(r => ({...r, _div:div})) : [])
+    : [];
+
+  const teams = [...new Set([...batRows, ...bowlRows].map(r => r.team).filter(Boolean))];
+  const divs  = [...new Set([...batRows, ...bowlRows].map(r => r._div).filter(Boolean))];
+
+  const bat  = aggregateBatting(batRows)[0]  || null;
+  const bowl = aggregateBowling(bowlRows)[0] || null;
+  const rankTotals = rankRows.reduce((acc, r) => ({
+    total: acc.total + (Number(r.total)||0), batting: acc.batting + (Number(r.batting)||0),
+    bowling: acc.bowling + (Number(r.bowling)||0), mom: acc.mom + (Number(r.mom)||0),
+  }), { total:0, batting:0, bowling:0, mom:0 });
+
+  const teamResults = (results?.matches||[])
+    .filter(m => teams.some(t => m.team1===t || m.team2===t))
+    .sort((a,b) => { const da=parseDate(a.date),db=parseDate(b.date); return da&&db?db-da:0; })
+    .slice(0, 8);
+
+  if (!bat && !bowl && !rankRows.length) return (
+    <div className="panel-content">
+      <div className="panel-header">
+        <div><div className="panel-title">{name}</div></div>
+        <button className="panel-close" onClick={onClose}>✕</button>
+      </div>
+      <div className="empty-state">No stats found for this player.</div>
+    </div>
+  );
+
+  return (
+    <div className="panel-content">
+      <div className="panel-header">
+        <div>
+          <div className="panel-title">{name}</div>
+          <div className="panel-sub">
+            {teams.map((t,i) => <span key={t}>{i>0?', ':''}<span className="clickable" onClick={() => onDrilldown({type:'team',name:t})}>{t}</span></span>)}
+            {divs.length ? <span> · {divs.join(', ')}</span> : null}
+          </div>
+        </div>
+        <button className="panel-close" onClick={onClose}>✕</button>
+      </div>
+
+      {bat && <>
+        <div className="section-label">Batting — Season</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(68px,1fr))',gap:8,marginBottom:batRows.length>1?12:20}}>
+          {[['Runs',bat.runs],['Avg',bat.avg],['SR',bat.sr],['50s',bat.fifties],['100s',bat.hundreds],['HS',bat.hs],['6s',bat.sixes]].map(([l,v]) => (
+            <div key={l} className="stat-tile"><div className="stat-tile-val">{v??'—'}</div><div className="stat-tile-lbl">{l}</div></div>
+          ))}
+        </div>
+        {batRows.length > 1 && (
+          <div className="scroll-x" style={{marginBottom:20}}>
+            <table><thead><tr><th>Division</th><th>Mat</th><th>Inns</th><th>Runs</th><th>Avg</th><th>SR</th><th>50s</th><th>HS</th></tr></thead>
+              <tbody>{batRows.map((r,i) => <tr key={i}><td style={{fontSize:12}}>{r._div}</td><td className="num-cell">{r.mat}</td><td className="num-cell">{r.inns}</td><td className="num-cell">{r.runs}</td><td className="num-cell">{r.avg}</td><td className="num-cell">{r.sr}</td><td className="num-cell">{r.fifties}</td><td className="num-cell">{r.hs}</td></tr>)}</tbody>
+            </table>
+          </div>
+        )}
+      </>}
+
+      {bowl && <>
+        <div className="section-label">Bowling — Season</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(68px,1fr))',gap:8,marginBottom:bowlRows.length>1?12:20}}>
+          {[['Wkts',bowl.wickets],['Econ',bowl.econ],['Avg',bowl.avg],['BBF',bowl.bbf],['5W',bowl.fiveW],['Mdns',bowl.maidens]].map(([l,v]) => (
+            <div key={l} className="stat-tile"><div className="stat-tile-val">{v??'—'}</div><div className="stat-tile-lbl">{l}</div></div>
+          ))}
+        </div>
+        {bowlRows.length > 1 && (
+          <div className="scroll-x" style={{marginBottom:20}}>
+            <table><thead><tr><th>Division</th><th>Mat</th><th>Ovs</th><th>Wkts</th><th>Runs</th><th>Econ</th><th>BBF</th></tr></thead>
+              <tbody>{bowlRows.map((r,i) => <tr key={i}><td style={{fontSize:12}}>{r._div}</td><td className="num-cell">{r.mat}</td><td className="num-cell">{r.overs}</td><td className="num-cell">{r.wickets}</td><td className="num-cell">{r.runs}</td><td className="num-cell">{r.econ}</td><td className="num-cell">{r.bbf}</td></tr>)}</tbody>
+            </table>
+          </div>
+        )}
+      </>}
+
+      {rankTotals.total > 0 && <>
+        <div className="section-label">Rankings Points</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(68px,1fr))',gap:8,marginBottom:20}}>
+          {[['Total',rankTotals.total],['Batting',rankTotals.batting],['Bowling',rankTotals.bowling],['MoM',rankTotals.mom]].map(([l,v]) => (
+            <div key={l} className="stat-tile"><div className="stat-tile-val">{v}</div><div className="stat-tile-lbl">{l}</div></div>
+          ))}
+        </div>
+      </>}
+
+      {teamResults.length > 0 && <>
+        <div className="section-label">Team's Recent Matches</div>
+        <div>
+          {teamResults.map((m, i) => {
+            const myScore = teams.includes(m.team1) ? m.team1Score : m.team2Score;
+            const r = (m.result||'').toLowerCase();
+            const code = r.includes('abandon')||r.includes('no result') ? 'A' : myScore?.won===true ? 'W' : myScore?.won===false ? 'L' : 'NR';
+            return (
+              <div key={i} className="result-row">
+                <span className={`fd fd-${code}`} style={{flexShrink:0}}>{code}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:600,fontSize:13,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.team1} <span style={{opacity:0.45,fontWeight:400}}>v</span> {m.team2}</div>
+                  <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>{m.date} · {m.result||'—'}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </>}
+    </div>
+  );
+}
+
+/* ─── Drilldown: Team panel ─── */
+function TeamPanel({ name, matches, results, batting, bowling, onClose, onDrilldown }) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const teamMatches = matches.filter(m => m.team1===name || m.team2===name);
+  const upcoming = teamMatches
+    .filter(m => { const d=parseDate(m.date); return !d||d>=today; })
+    .sort((a,b) => { const da=parseDate(a.date),db=parseDate(b.date); return da&&db?da-db:0; });
+  const teamResults = (results?.matches||[])
+    .filter(m => m.team1===name || m.team2===name)
+    .sort((a,b) => { const da=parseDate(a.date),db=parseDate(b.date); return da&&db?db-da:0; });
+
+  const divs = [...new Set(teamMatches.map(m => m.division))];
+  const form = computeFormGuide(results, name, 10);
+  const streak = computeStreak(form);
+  const wins = form.filter(f=>f==='W').length;
+  const losses = form.filter(f=>f==='L').length;
+  const abds = form.filter(f=>f==='A').length;
+
+  const teamBatRows = batting
+    ? Object.entries(batting).filter(([k]) => k!=='updatedAt'&&k!=='combined')
+        .flatMap(([,rows]) => Array.isArray(rows) ? rows.filter(r => r.team===name) : [])
+    : [];
+  const topBatters = aggregateBatting(teamBatRows).sort((a,b) => (Number(b.runs)||0)-(Number(a.runs)||0)).slice(0,5);
+
+  const teamBowlRows = bowling
+    ? Object.entries(bowling).filter(([k]) => k!=='updatedAt'&&k!=='combined')
+        .flatMap(([,rows]) => Array.isArray(rows) ? rows.filter(r => r.team===name) : [])
+    : [];
+  const topBowlers = aggregateBowling(teamBowlRows).sort((a,b) => (Number(b.wickets)||0)-(Number(a.wickets)||0)).slice(0,5);
+
+  return (
+    <div className="panel-content">
+      <div className="panel-header">
+        <div>
+          <div className="panel-title">{name}</div>
+          <div className="panel-sub">{divs.join(', ')}</div>
+        </div>
+        <button className="panel-close" onClick={onClose}>✕</button>
+      </div>
+
+      {form.length > 0 && <>
+        <div className="section-label">Season Record</div>
+        <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:12}}>
+          <div className="form-guide">{form.map((c,i) => <span key={i} className={`fd fd-${c}`}>{c}</span>)}</div>
+          {streak && <span className={`streak-badge streak-${streak.code}`}>{streak.code}{streak.count}</span>}
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:20}}>
+          <div className="stat-tile"><div className="stat-tile-val" style={{color:'#17bf63'}}>{wins}</div><div className="stat-tile-lbl">Won</div></div>
+          <div className="stat-tile"><div className="stat-tile-val" style={{color:'#e0245e'}}>{losses}</div><div className="stat-tile-lbl">Lost</div></div>
+          <div className="stat-tile"><div className="stat-tile-val" style={{color:'#f0a500'}}>{abds}</div><div className="stat-tile-lbl">Abd</div></div>
+        </div>
+      </>}
+
+      {topBatters.length > 0 && <>
+        <div className="section-label">Top Batters</div>
+        <div style={{marginBottom:20}}>
+          {topBatters.map((r,i) => (
+            <div key={i} className="result-row" style={{cursor:'pointer'}} onClick={() => onDrilldown({type:'player',name:r.player})}>
+              <span style={{fontSize:12,fontWeight:800,color:'var(--text-muted)',width:18,textAlign:'center',flexShrink:0}}>{i+1}</span>
+              <div style={{flex:1}}><div style={{fontWeight:600,fontSize:13,color:'var(--accent)'}}>{r.player}</div></div>
+              <div style={{textAlign:'right',flexShrink:0}}>
+                <div style={{fontWeight:800,fontSize:15,fontFamily:"'JetBrains Mono',monospace"}}>{r.runs}</div>
+                <div style={{fontSize:10,color:'var(--text-muted)'}}>runs</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </>}
+
+      {topBowlers.length > 0 && <>
+        <div className="section-label">Top Bowlers</div>
+        <div style={{marginBottom:20}}>
+          {topBowlers.map((r,i) => (
+            <div key={i} className="result-row" style={{cursor:'pointer'}} onClick={() => onDrilldown({type:'player',name:r.player})}>
+              <span style={{fontSize:12,fontWeight:800,color:'var(--text-muted)',width:18,textAlign:'center',flexShrink:0}}>{i+1}</span>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:600,fontSize:13,color:'var(--accent)'}}>{r.player}</div>
+                {r.econ !== '—' && <div style={{fontSize:11,color:'var(--text-muted)'}}>Econ {r.econ}</div>}
+              </div>
+              <div style={{textAlign:'right',flexShrink:0}}>
+                <div style={{fontWeight:800,fontSize:15,fontFamily:"'JetBrains Mono',monospace"}}>{r.wickets}</div>
+                <div style={{fontSize:10,color:'var(--text-muted)'}}>wkts</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </>}
+
+      {upcoming.length > 0 && <>
+        <div className="section-label">Upcoming Fixtures</div>
+        <div style={{marginBottom:20}}>
+          {upcoming.slice(0,5).map((m,i) => {
+            const opp = m.team1===name ? m.team2 : m.team1;
+            const home = m.team1===name;
+            const d = parseDate(m.date);
+            return (
+              <div key={i} className="fixture-row">
+                <div style={{textAlign:'center',flexShrink:0,minWidth:36}}>
+                  <div style={{fontSize:16,fontWeight:800,fontFamily:"'JetBrains Mono',monospace",lineHeight:1}}>{d?d.getDate():'?'}</div>
+                  <div style={{fontSize:9,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase'}}>{d?d.toLocaleDateString('en-US',{month:'short'}):''}</div>
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:600,fontSize:13}}>
+                    <span style={{color:'var(--text-muted)',fontSize:10,marginRight:4}}>{home?'vs':'@'}</span>
+                    <span className="clickable" onClick={() => onDrilldown({type:'team',name:opp})}>{opp}</span>
+                  </div>
+                  <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>{m.time||'TBD'}{m.ground?` · ${m.ground}`:''}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </>}
+
+      {teamResults.length > 0 && <>
+        <div className="section-label">Recent Results</div>
+        <div>
+          {teamResults.slice(0,8).map((m,i) => {
+            const myScore = m.team1===name ? m.team1Score : m.team2Score;
+            const r = (m.result||'').toLowerCase();
+            const code = r.includes('abandon')||r.includes('no result') ? 'A' : myScore?.won===true ? 'W' : myScore?.won===false ? 'L' : 'NR';
+            const opp = m.team1===name ? m.team2 : m.team1;
+            return (
+              <div key={i} className="result-row">
+                <span className={`fd fd-${code}`} style={{flexShrink:0}}>{code}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:600,fontSize:13}}>vs <span className="clickable" onClick={e=>{e.stopPropagation();onDrilldown({type:'team',name:opp});}}>{opp}</span></div>
+                  <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>{m.date} · {m.result||'—'}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </>}
+    </div>
+  );
+}
+
+function DrilldownPanel({ drilldown, data, onClose, onDrilldown }) {
+  useEffect(() => {
+    if (!drilldown) return;
+    const handler = e => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [drilldown]);
+  if (!drilldown) return null;
+  const pd = { batting:data.batting, bowling:data.bowling, rankings:data.rankings, results:data.results, matches:data.matches };
+  return (
+    <>
+      <div className="panel-overlay" onClick={onClose}/>
+      <div className="panel-drawer">
+        {drilldown.type === 'player'
+          ? <PlayerPanel name={drilldown.name} {...pd} onClose={onClose} onDrilldown={onDrilldown}/>
+          : <TeamPanel   name={drilldown.name} {...pd} onClose={onClose} onDrilldown={onDrilldown}/>}
+      </div>
+    </>
+  );
+}
+
 /* ─── Views ─── */
-function ScheduleView({ matches, division }) {
+function ScheduleView({ matches, division, onDrilldown }) {
   const [teamFilter, setTeamFilter] = useState("");
   const [subTab, setSubTab] = useState("upcoming");
   const dm = matches.filter(m => m.division === division);
@@ -842,8 +1143,8 @@ function ScheduleView({ matches, division }) {
       <td style={{width:90}}>
         <span className={`badge ${isAM(m.time)===true?"badge-am":isAM(m.time)===false?"badge-pm":""}`}>{m.time||"TBD"}</span>
       </td>
-      <td className="team-name">{m.team1}</td>
-      <td className="team-name">{m.team2}</td>
+      <td className="team-name clickable" onClick={() => onDrilldown({type:'team',name:m.team1})}>{m.team1}</td>
+      <td className="team-name clickable" onClick={() => onDrilldown({type:'team',name:m.team2})}>{m.team2}</td>
       <td style={{color:"var(--text-muted)",fontSize:12}}>{m.ground||"—"}</td>
       <td style={{color:"var(--text-muted)",fontSize:12}}>{m.umpire1||"—"}</td>
       <td style={{fontSize:12,color:m.result||m.winner?"var(--text-primary)":"var(--text-muted)"}}>{m.result||m.winner||"—"}</td>
@@ -865,16 +1166,56 @@ function ScheduleView({ matches, division }) {
 
   const visibleRows = subTab === "upcoming" ? upcoming : past;
 
+  function shareOnWhatsApp() {
+    const list = subTab === "upcoming" ? upcoming : past;
+    if (!list.length) return;
+    const label = subTab === "upcoming" ? "Upcoming Fixtures" : "Past Fixtures";
+    let text = `🏏 SYCL — ${division}\n${label}\n\n`;
+    const grouped = groupByDate(list);
+    grouped.forEach(([date, grp]) => {
+      const d = parseDate(date);
+      const dayLabel = d
+        ? d.toLocaleDateString("en-US", { weekday:"short", month:"short", day:"numeric" })
+        : date || "TBD";
+      text += `📅 ${dayLabel}\n`;
+      grp.forEach(m => {
+        const time = m.time ? `⏰ ${m.time}  ` : "";
+        const ground = m.ground ? `  📍 ${m.ground}` : "";
+        text += `  ${time}${m.team1} vs ${m.team2}${ground}\n`;
+      });
+      text += "\n";
+    });
+    text = text.trimEnd() + "\n\n🔗 " + window.location.origin;
+    window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
+  }
+
   return (
     <div>
       <NextMatchCard matches={matches} division={division}/>
-      <div className="sub-tab-bar">
+      <div className="sub-tab-bar" style={{display:"flex",alignItems:"center",gap:6}}>
         <button className={`sub-tab-btn ${subTab==="upcoming"?"active":""}`} onClick={()=>setSubTab("upcoming")}>
           Upcoming <span className="sub-count">{upcoming.length}</span>
         </button>
         <button className={`sub-tab-btn ${subTab==="past"?"active":""}`} onClick={()=>setSubTab("past")}>
           Past <span className="sub-count">{past.length}</span>
         </button>
+        <div style={{flex:1}}/>
+        {visibleRows.length > 0 && (
+          <button onClick={shareOnWhatsApp} style={{
+            display:"inline-flex",alignItems:"center",gap:5,padding:"5px 12px",
+            background:"#25D366",color:"#fff",border:"none",borderRadius:7,
+            fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0,
+            boxShadow:"0 1px 4px rgba(37,211,102,0.35)",transition:"background 0.12s"
+          }}
+            onMouseEnter={e=>e.currentTarget.style.background="#1ebe5d"}
+            onMouseLeave={e=>e.currentTarget.style.background="#25D366"}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+            </svg>
+            Share
+          </button>
+        )}
       </div>
       <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:14,flexWrap:"wrap"}}>
         <span style={{fontSize:11,color:"var(--text-muted)",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.4px"}}>Team</span>
@@ -902,7 +1243,7 @@ function ScheduleView({ matches, division }) {
   );
 }
 
-function StandingsView({ matches, division, standings, results }) {
+function StandingsView({ matches, division, standings, results, onDrilldown }) {
   const [sortCol, setSortCol] = useState('pts');
   const [sortDir, setSortDir] = useState('desc');
   const [filter, setFilter] = useState('');
@@ -927,7 +1268,7 @@ function StandingsView({ matches, division, standings, results }) {
             <div className="leader-card gold">
               <div className="leader-label"><span className="leader-medal">🏆</span>Division Leader</div>
               <div className="leader-stat">{leader.pts} pts</div>
-              <div className="leader-name">{leader.team}</div>
+              <div className="leader-name clickable" onClick={() => onDrilldown({type:'team',name:leader.team})}>{leader.team}</div>
               <div className="leader-sub">{leader.won}W · {leader.lost}L{leader.nr>0?` · ${leader.nr}NR`:''} · Win% {leader.winPct}</div>
               {hasResults && <div style={{marginTop:10}}><FormGuide results={results} team={leader.team}/></div>}
               <div className="leader-bar"><div className="leader-bar-fill" style={{width:'100%'}}></div></div>
@@ -935,7 +1276,7 @@ function StandingsView({ matches, division, standings, results }) {
             {rows[1] && <div className="leader-card silver">
               <div className="leader-label"><span className="leader-medal">🥈</span>2nd Place</div>
               <div className="leader-stat">{rows[1].pts} pts</div>
-              <div className="leader-name">{rows[1].team}</div>
+              <div className="leader-name clickable" onClick={() => onDrilldown({type:'team',name:rows[1].team})}>{rows[1].team}</div>
               <div className="leader-sub">{rows[1].won}W · {rows[1].lost}L · {leader.pts - rows[1].pts} pts behind</div>
               {hasResults && <div style={{marginTop:10}}><FormGuide results={results} team={rows[1].team}/></div>}
               <div className="leader-bar"><div className="leader-bar-fill" style={{width:`${(rows[1].pts/leader.pts)*100}%`}}></div></div>
@@ -943,7 +1284,7 @@ function StandingsView({ matches, division, standings, results }) {
             {rows[2] && <div className="leader-card bronze">
               <div className="leader-label"><span className="leader-medal">🥉</span>3rd Place</div>
               <div className="leader-stat">{rows[2].pts} pts</div>
-              <div className="leader-name">{rows[2].team}</div>
+              <div className="leader-name clickable" onClick={() => onDrilldown({type:'team',name:rows[2].team})}>{rows[2].team}</div>
               <div className="leader-sub">{rows[2].won}W · {rows[2].lost}L · {leader.pts - rows[2].pts} pts behind</div>
               {hasResults && <div style={{marginTop:10}}><FormGuide results={results} team={rows[2].team}/></div>}
               <div className="leader-bar"><div className="leader-bar-fill" style={{width:`${(rows[2].pts/leader.pts)*100}%`}}></div></div>
@@ -980,7 +1321,7 @@ function StandingsView({ matches, division, standings, results }) {
                     color: i===0?"#c9a227":i===1?"#8e8e8e":i===2?"#a0785a":"var(--text-muted)",
                     fontWeight: i<3?800:undefined
                   }}>{i+1}</td>
-                  <td className="team-name">{s.team}</td>
+                  <td className="team-name clickable" onClick={() => onDrilldown({type:'team',name:s.team})}>{s.team}</td>
                   <td className="num-cell">{s.played}</td>
                   <td className="num-cell">{s.won}</td>
                   <td className="num-cell">{s.lost}</td>
@@ -1042,7 +1383,7 @@ function StandingsView({ matches, division, standings, results }) {
             {rows2.map((s, i) => (
               <tr key={s.team}>
                 <td className="num-cell" style={{color:"var(--text-muted)"}}>{i+1}</td>
-                <td className="team-name">{s.team}</td>
+                <td className="team-name clickable" onClick={() => onDrilldown({type:'team',name:s.team})}>{s.team}</td>
                 <td className="num-cell">{s.played}</td><td className="num-cell">{s.won}</td>
                 <td className="num-cell">{s.lost}</td><td className="num-cell">{s.abandoned}</td>
                 <td className="num-cell">{s.forfeited}</td>
@@ -1056,7 +1397,7 @@ function StandingsView({ matches, division, standings, results }) {
   );
 }
 
-function BattingView({ batting, division }) {
+function BattingView({ batting, division, onDrilldown }) {
   const [sortCol, setSortCol] = useState('runs');
   const [sortDir, setSortDir] = useState('desc');
   const [filter, setFilter] = useState('');
@@ -1114,8 +1455,8 @@ function BattingView({ batting, division }) {
             {rows.map((r, i) => (
               <tr key={r.player + i}>
                 <td className="num-cell" style={{color:"var(--text-muted)"}}>{i+1}</td>
-                <td className="team-name" style={{fontWeight:500}}>{r.player}</td>
-                <td style={{fontSize:12,color:"var(--text-secondary)"}}>{r.team}</td>
+                <td className="team-name clickable" style={{fontWeight:500}} onClick={() => onDrilldown({type:'player',name:r.player})}>{r.player}</td>
+                <td className="clickable" style={{fontSize:12,color:"var(--text-secondary)"}} onClick={() => onDrilldown({type:'team',name:r.team})}>{r.team}</td>
                 <td className="num-cell">{r.mat}</td>
                 <td className="num-cell">{r.inns}</td>
                 <td className="num-cell">{r.no}</td>
@@ -1136,7 +1477,7 @@ function BattingView({ batting, division }) {
   );
 }
 
-function BowlingView({ bowling, division }) {
+function BowlingView({ bowling, division, onDrilldown }) {
   const [sortCol, setSortCol] = useState('wickets');
   const [sortDir, setSortDir] = useState('desc');
   const [filter, setFilter] = useState('');
@@ -1194,8 +1535,8 @@ function BowlingView({ bowling, division }) {
             {rows.map((r, i) => (
               <tr key={r.player + i}>
                 <td className="num-cell" style={{color:"var(--text-muted)"}}>{i+1}</td>
-                <td className="team-name" style={{fontWeight:500}}>{r.player}</td>
-                <td style={{fontSize:12,color:"var(--text-secondary)"}}>{r.team}</td>
+                <td className="team-name clickable" style={{fontWeight:500}} onClick={() => onDrilldown({type:'player',name:r.player})}>{r.player}</td>
+                <td className="clickable" style={{fontSize:12,color:"var(--text-secondary)"}} onClick={() => onDrilldown({type:'team',name:r.team})}>{r.team}</td>
                 <td className="num-cell">{r.mat}</td>
                 <td className="num-cell">{r.overs}</td>
                 <td className="num-cell">{r.runs}</td>
@@ -1216,7 +1557,7 @@ function BowlingView({ bowling, division }) {
   );
 }
 
-function RankingsView({ rankings, division }) {
+function RankingsView({ rankings, division, onDrilldown }) {
   const [sortCol, setSortCol] = useState('total');
   const [sortDir, setSortDir] = useState('desc');
   const [filter, setFilter] = useState('');
@@ -1270,8 +1611,8 @@ function RankingsView({ rankings, division }) {
             {rows.map((r, i) => (
               <tr key={r.player + i}>
                 <td className="num-cell" style={{color:"var(--text-muted)"}}>{i+1}</td>
-                <td className="team-name" style={{fontWeight:500}}>{r.player}</td>
-                <td style={{fontSize:12,color:"var(--text-secondary)"}}>{r.team}</td>
+                <td className="team-name clickable" style={{fontWeight:500}} onClick={() => onDrilldown({type:'player',name:r.player})}>{r.player}</td>
+                <td className="clickable" style={{fontSize:12,color:"var(--text-secondary)"}} onClick={() => onDrilldown({type:'team',name:r.team})}>{r.team}</td>
                 <td className="num-cell">{r.matches}</td>
                 <td className="num-cell">{r.batting}</td>
                 <td className="num-cell">{r.bowling}</td>
@@ -1287,7 +1628,7 @@ function RankingsView({ rankings, division }) {
   );
 }
 
-function ResultsView({ results }) {
+function ResultsView({ results, onDrilldown }) {
   const [sortCol, setSortCol] = useState('date');
   const [sortDir, setSortDir] = useState('desc');
   const [filter, setFilter] = useState('');
@@ -1330,10 +1671,10 @@ function ResultsView({ results }) {
               <tr key={r.matchId || i}>
                 <td style={{fontSize:12,color:"var(--text-muted)",whiteSpace:"nowrap"}}>{r.date}</td>
                 <td style={{fontSize:11,color:"var(--text-secondary)"}}>{r.division}</td>
-                <td className="team-name">
+                <td className="team-name clickable" onClick={() => onDrilldown({type:'team',name:r.team1})}>
                   {r.team1}{r.team1Score?.won && <span style={{marginLeft:4,fontSize:8,color:"var(--clr-ok)"}}>●</span>}
                 </td>
-                <td className="team-name">
+                <td className="team-name clickable" onClick={() => onDrilldown({type:'team',name:r.team2})}>
                   {r.team2}{r.team2Score?.won && <span style={{marginLeft:4,fontSize:8,color:"var(--clr-ok)"}}>●</span>}
                 </td>
                 <td style={{fontSize:12,whiteSpace:"nowrap",color:"var(--text-secondary)"}}>
@@ -1363,6 +1704,9 @@ function SYCLDashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(null);
+  const [drilldown, setDrilldown] = useState(null);
+  const handleDrilldown = useCallback((d) => setDrilldown(d), []);
+  const closeDrilldown = useCallback(() => setDrilldown(null), []);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -1477,16 +1821,17 @@ function SYCLDashboard() {
                 ))}
               </div>
 
-              {selectedDivision && activeTab==="schedule"  && <ScheduleView  matches={data.matches} division={selectedDivision}/>}
-              {selectedDivision && activeTab==="standings" && <StandingsView matches={data.matches} division={selectedDivision} standings={data.standings} results={data.results}/>}
-              {activeTab==="results"  && <ResultsView  results={data.results}/>}
-              {activeTab==="batting"  && <BattingView  batting={data.batting}  division={selectedDivision}/>}
-              {activeTab==="bowling"  && <BowlingView  bowling={data.bowling}  division={selectedDivision}/>}
-              {activeTab==="rankings" && <RankingsView rankings={data.rankings} division={selectedDivision}/>}
+              {selectedDivision && activeTab==="schedule"  && <ScheduleView  matches={data.matches} division={selectedDivision} onDrilldown={handleDrilldown}/>}
+              {selectedDivision && activeTab==="standings" && <StandingsView matches={data.matches} division={selectedDivision} standings={data.standings} results={data.results} onDrilldown={handleDrilldown}/>}
+              {activeTab==="results"  && <ResultsView  results={data.results} onDrilldown={handleDrilldown}/>}
+              {activeTab==="batting"  && <BattingView  batting={data.batting}  division={selectedDivision} onDrilldown={handleDrilldown}/>}
+              {activeTab==="bowling"  && <BowlingView  bowling={data.bowling}  division={selectedDivision} onDrilldown={handleDrilldown}/>}
+              {activeTab==="rankings" && <RankingsView rankings={data.rankings} division={selectedDivision} onDrilldown={handleDrilldown}/>}
             </>
           </div>
         )}
       </div>
+      {data && <DrilldownPanel drilldown={drilldown} data={data} onClose={closeDrilldown} onDrilldown={handleDrilldown}/>}
     </>
   );
 }
