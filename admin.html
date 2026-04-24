@@ -262,6 +262,35 @@
     .issue-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
     .issue-detail { font-size: 12px; color: var(--text-secondary); margin-top: 2px; line-height: 1.5; }
 
+    /* ── Analytics inner tabs ── */
+    .analytics-tabs { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 24px; gap: 0; overflow-x: auto; scrollbar-width: none; }
+    .analytics-tabs::-webkit-scrollbar { display: none; }
+    .atab-btn {
+      padding: 0 20px; height: 42px; border: none; background: none;
+      color: var(--text-muted); font-size: 13px; font-weight: 600;
+      border-bottom: 3px solid transparent; margin-bottom: -2px;
+      cursor: pointer; font-family: 'Inter', sans-serif; white-space: nowrap;
+      transition: all 0.12s; display: flex; align-items: center; gap: 7px;
+    }
+    .atab-btn:hover { color: var(--accent); }
+    .atab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .atab-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+      font-size: 10px; font-weight: 800; font-family: 'JetBrains Mono', monospace;
+    }
+    .atab-content { display: none; }
+    .atab-content.active { display: block; }
+
+    /* ── Issue card enhancements ── */
+    .issue-card { border: 1.5px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-bottom: 6px; background: var(--bg-100); border-left: 3px solid var(--border); display: flex; align-items: flex-start; gap: 10px; }
+    .issue-card.error { border-left-color: var(--clr-bad); }
+    .issue-card.warn  { border-left-color: var(--clr-warn); }
+    .issue-card.info  { border-left-color: var(--accent); }
+    .issue-card.acknowledged { opacity: 0.5; }
+    .issue-card-body { flex: 1; min-width: 0; }
+    .issue-card-actions { flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
+
     /* ── Editor sort/filter ── */
     .th-inner { display: flex; align-items: center; gap: 3px; }
     .th-sort { background: none; border: none; cursor: pointer; padding: 0 1px; color: var(--text-muted); font-size: 10px; line-height: 1; font-family: 'JetBrains Mono', monospace; }
@@ -324,14 +353,8 @@
       </button>
 
       <div class="nav-section" style="margin-top:8px">Analytics</div>
-      <button class="nav-item" onclick="showSection('balance',this)">
-        <span class="nav-icon">⚖</span> H/A Balance
-      </button>
-      <button class="nav-item" onclick="showSection('pairings',this)">
-        <span class="nav-icon">⊞</span> Pairings Matrix
-      </button>
-      <button class="nav-item" onclick="showSection('issues',this)" id="issuesNavBtn">
-        <span class="nav-icon">⚠</span> Issues
+      <button class="nav-item" onclick="showSection('analytics',this)" id="analyticsNavBtn">
+        <span class="nav-icon">📊</span> Analytics
         <span id="issuesNavBadge" style="display:none;margin-left:auto;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px"></span>
       </button>
     </nav>
@@ -562,86 +585,106 @@
       </div>
     </div>
 
-    <!-- Balance section -->
-    <div id="section-balance" class="section">
-      <div class="section-title">Home/Away Balance</div>
-      <div class="section-desc">Check whether each team has a fair share of home games, away games, AM/PM slots, and umpiring duties.</div>
-      <div class="card">
-        <div class="card-header">
-          <span class="card-icon">⚖</span>
-          <span class="card-title">Balance by division</span>
-          <select id="balanceDivFilter" onchange="renderBalance()"
-            style="margin-left:auto;height:26px;padding:0 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg-100);font-size:12px;font-family:'Inter',sans-serif;color:var(--text-primary);cursor:pointer">
-          </select>
-        </div>
-        <div id="balanceSummary" class="stats-row" style="border-bottom:1px solid var(--border);padding:12px 18px;gap:0"></div>
-        <div class="scroll-x">
-          <table id="balanceTable">
-            <thead><tr>
-              <th>Team</th>
-              <th style="text-align:center" title="Games Played">GP</th>
-              <th style="text-align:center" title="Home matches — this team sets up the field">Home</th>
-              <th style="text-align:center" title="Away matches — this team is the visiting side">Away</th>
-              <th style="text-align:center" title="Morning matches (9 AM – 12 PM)">AM</th>
-              <th style="text-align:center" title="Afternoon/Evening matches (after 12 PM)">PM</th>
-              <th style="text-align:center" title="Matches umpired by this team">Ump</th>
-              <th style="text-align:center" title="Home/Away balance — ideal = even">H/A</th>
-              <th style="text-align:center" title="AM/PM time slot balance — ideal = even">Slot</th>
-            </tr></thead>
-            <tbody id="balanceBody">
-              <tr><td colspan="9" style="text-align:center;padding:28px;color:var(--text-muted)">Loading…</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+    <!-- Analytics section (combined: H/A Balance, Pairings, Issues) -->
+    <div id="section-analytics" class="section">
+      <div class="section-title">Analytics</div>
+      <div class="section-desc">Schedule health, balance analysis, matchup coverage, and automated issue detection.</div>
 
-    <!-- Pairings section -->
-    <div id="section-pairings" class="section">
-      <div class="section-title">Pairings Matrix</div>
-      <div class="section-desc">Visual grid showing which team matchups have been scheduled. Every cell should be filled for a round-robin.</div>
-      <div class="card">
-        <div class="card-header">
-          <span class="card-icon">⊞</span>
-          <span class="card-title">Matchup coverage</span>
-          <select id="pairingsDivFilter" onchange="renderPairings()"
-            style="margin-left:auto;height:26px;padding:0 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg-100);font-size:12px;font-family:'Inter',sans-serif;color:var(--text-primary);cursor:pointer">
-          </select>
-        </div>
-        <div id="pairingsSummary" class="stats-row" style="border-bottom:1px solid var(--border);padding:12px 18px;gap:0"></div>
-        <div class="scroll-x">
-          <div id="pairingsTableWrap"></div>
-        </div>
+      <div class="analytics-tabs">
+        <button class="atab-btn active" id="atab-issues" onclick="switchAnalyticsTab('issues')">
+          ⚠ Issues
+          <span id="issuesSummaryRow" class="atab-badge" style="background:var(--clr-bad-bg);color:var(--clr-bad)"></span>
+        </button>
+        <button class="atab-btn" id="atab-balance" onclick="switchAnalyticsTab('balance')">
+          ⚖ H/A Balance
+        </button>
+        <button class="atab-btn" id="atab-pairings" onclick="switchAnalyticsTab('pairings')">
+          ⊞ Pairings Matrix
+        </button>
       </div>
-    </div>
 
-    <!-- Issues section -->
-    <div id="section-issues" class="section">
-      <div class="section-title">Schedule Issues</div>
-      <div class="section-desc">Automated checks for scheduling conflicts, imbalances, and missing data.</div>
-      <div class="card">
-        <div class="card-header">
-          <span class="card-icon">⚠</span>
-          <span class="card-title">Issue scanner</span>
-          <div id="issuesSummaryRow" style="margin-left:auto;display:flex;gap:14px;align-items:center;font-size:12px;font-family:'JetBrains Mono',monospace"></div>
-        </div>
-        <div class="card-body">
-          <div class="editor-toolbar" style="margin-bottom:16px">
-            <button class="btn btn-ghost active" id="issLevelAll" onclick="setIssueFilter('all')">All</button>
-            <button class="btn btn-ghost" id="issLevelError" onclick="setIssueFilter('error')">Errors</button>
-            <button class="btn btn-ghost" id="issLevelWarn" onclick="setIssueFilter('warn')">Warnings</button>
-            <button class="btn btn-ghost" id="issLevelInfo" onclick="setIssueFilter('info')">Info</button>
-            <div class="sep"></div>
-            <select id="issuesDivFilter" onchange="renderIssues()"
-              style="height:26px;padding:0 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg-100);font-size:12px;font-family:'Inter',sans-serif;color:var(--text-primary);cursor:pointer">
-              <option value="">All divisions</option>
-            </select>
+      <!-- Issues tab -->
+      <div id="atab-content-issues" class="atab-content active">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">⚠</span>
+            <span class="card-title">Issue Scanner</span>
+            <div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <button class="btn btn-ghost active" id="issLevelAll" onclick="setIssueFilter('all')" style="font-size:11px;height:28px">All</button>
+              <button class="btn btn-ghost" id="issLevelError" onclick="setIssueFilter('error')" style="font-size:11px;height:28px">Errors</button>
+              <button class="btn btn-ghost" id="issLevelWarn" onclick="setIssueFilter('warn')" style="font-size:11px;height:28px">Warnings</button>
+              <button class="btn btn-ghost" id="issLevelInfo" onclick="setIssueFilter('info')" style="font-size:11px;height:28px">Info</button>
+              <div class="sep"></div>
+              <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:var(--text-muted)">
+                <input type="checkbox" id="showPastIssues" onchange="renderIssues()" style="cursor:pointer">
+                Show past fixture issues
+              </label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:var(--text-muted)">
+                <input type="checkbox" id="showAcknowledged" onchange="renderIssues()" style="cursor:pointer">
+                Show acknowledged
+              </label>
+              <div class="sep"></div>
+              <select id="issuesDivFilter" onchange="renderIssues()"
+                style="height:28px;padding:0 8px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg-100);font-size:12px;font-family:'Inter',sans-serif;color:var(--text-primary);cursor:pointer">
+                <option value="">All divisions</option>
+              </select>
+            </div>
           </div>
-          <div id="issuesBody">
+          <div id="issuesBody" class="card-body" style="padding:12px 18px">
             <div style="text-align:center;padding:28px;color:var(--text-muted);font-size:13px">Load schedule data to scan for issues.</div>
           </div>
         </div>
       </div>
+
+      <!-- H/A Balance tab -->
+      <div id="atab-content-balance" class="atab-content">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">⚖</span>
+            <span class="card-title">Balance by division</span>
+            <select id="balanceDivFilter" onchange="renderBalance()"
+              style="margin-left:auto;height:28px;padding:0 8px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg-100);font-size:12px;font-family:'Inter',sans-serif;color:var(--text-primary);cursor:pointer">
+            </select>
+          </div>
+          <div id="balanceSummary" class="stats-row" style="border-bottom:1px solid var(--border);padding:12px 18px;gap:0"></div>
+          <div class="scroll-x">
+            <table id="balanceTable">
+              <thead><tr>
+                <th>Team</th>
+                <th style="text-align:center" title="Games Played">GP</th>
+                <th style="text-align:center" title="Home matches">Home</th>
+                <th style="text-align:center" title="Away matches">Away</th>
+                <th style="text-align:center" title="Morning matches (AM)">AM</th>
+                <th style="text-align:center" title="Afternoon matches (PM)">PM</th>
+                <th style="text-align:center" title="Matches umpired">Ump</th>
+                <th style="text-align:center" title="Home/Away balance">H/A</th>
+                <th style="text-align:center" title="AM/PM slot balance">Slot</th>
+              </tr></thead>
+              <tbody id="balanceBody">
+                <tr><td colspan="9" style="text-align:center;padding:28px;color:var(--text-muted)">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pairings tab -->
+      <div id="atab-content-pairings" class="atab-content">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">⊞</span>
+            <span class="card-title">Matchup coverage</span>
+            <select id="pairingsDivFilter" onchange="renderPairings()"
+              style="margin-left:auto;height:28px;padding:0 8px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg-100);font-size:12px;font-family:'Inter',sans-serif;color:var(--text-primary);cursor:pointer">
+            </select>
+          </div>
+          <div id="pairingsSummary" class="stats-row" style="border-bottom:1px solid var(--border);padding:12px 18px;gap:0"></div>
+          <div class="scroll-x">
+            <div id="pairingsTableWrap"></div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
   </div><!-- /main-content -->
@@ -734,15 +777,33 @@ function showAdminShell() {
 }
 
 // ── Navigation ────────────────────────────────────────────────
+let _activeAnalyticsTab = 'issues';
+
+function switchAnalyticsTab(tab) {
+  _activeAnalyticsTab = tab;
+  document.querySelectorAll('.atab-btn').forEach(b => b.classList.toggle('active', b.id === 'atab-' + tab));
+  document.querySelectorAll('.atab-content').forEach(c => c.classList.toggle('active', c.id === 'atab-content-' + tab));
+  if (tab === 'issues')   renderIssues();
+  if (tab === 'balance')  renderBalance();
+  if (tab === 'pairings') renderPairings();
+}
+
 function showSection(id, btn) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  // Map old section ids to analytics tab
+  const analyticsIds = { balance: 'balance', pairings: 'pairings', issues: 'issues' };
+  if (analyticsIds[id]) {
+    document.getElementById('section-analytics').classList.add('active');
+    const navBtn = document.getElementById('analyticsNavBtn');
+    if (navBtn) navBtn.classList.add('active');
+    switchAnalyticsTab(analyticsIds[id]);
+    return;
+  }
   document.getElementById('section-' + id).classList.add('active');
   if (btn) btn.classList.add('active');
-  if (id === 'balance')   renderBalance();
-  if (id === 'pairings')  renderPairings();
   if (id === 'propagate') renderPropagateSection();
-  if (id === 'issues')    renderIssues();
+  if (id === 'analytics') switchAnalyticsTab(_activeAnalyticsTab);
 }
 
 // ── Bookmarklet ───────────────────────────────────────────────
@@ -1887,7 +1948,7 @@ function renderPairings() {
 // ── Issue scanner ─────────────────────────────────────────────
 function scanIssues(matches) {
   const issues = [];
-  const add = (level,div,title,detail,ids) => issues.push({level,div,title,detail,matchIds:ids||[]});
+  const add = (level,div,title,detail,ids) => issues.push({level,div,title,detail,matchIds:(ids||[]).map(String)});
   const byDiv = {};
   matches.forEach(m => { if(!byDiv[m.division]) byDiv[m.division]=[]; byDiv[m.division].push(m); });
   Object.entries(byDiv).forEach(([div,dms]) => {
@@ -1940,6 +2001,34 @@ function scanIssues(matches) {
 }
 
 let _issueLevel = 'all';
+let _acknowledgedIssues = new Set(JSON.parse(localStorage.getItem('sycl_ack_issues') || '[]'));
+
+function issueKey(issue) {
+  return `${issue.level}|||${issue.div}|||${issue.title}|||${issue.detail.slice(0, 80)}`;
+}
+
+function acknowledgeIssue(key) {
+  _acknowledgedIssues.add(key);
+  localStorage.setItem('sycl_ack_issues', JSON.stringify([..._acknowledgedIssues]));
+  renderIssues();
+}
+
+function unacknowledgeIssue(key) {
+  _acknowledgedIssues.delete(key);
+  localStorage.setItem('sycl_ack_issues', JSON.stringify([..._acknowledgedIssues]));
+  renderIssues();
+}
+
+function isIssuePast(issue) {
+  if (!issue.matchIds?.length) return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return issue.matchIds.every(id => {
+    const m = _allMatches.find(x => String(x.id) === String(id));
+    if (!m?.date) return false;
+    const d = parseEditorDate(m.date);
+    return d && d < today;
+  });
+}
 
 function setIssueFilter(val) {
   _issueLevel = val;
@@ -1952,21 +2041,23 @@ function setIssueFilter(val) {
 
 function renderIssues() {
   if (!_allMatches.length) return;
-  const issues = scanIssues(_allMatches);
+  const allIssues = scanIssues(_allMatches);
   const divFilter = document.getElementById('issuesDivFilter')?.value || '';
-  const ec = issues.filter(i => i.level === 'error').length;
-  const wc = issues.filter(i => i.level === 'warn').length;
-  const ic = issues.filter(i => i.level === 'info').length;
+  const showPast = document.getElementById('showPastIssues')?.checked || false;
+  const showAck  = document.getElementById('showAcknowledged')?.checked || false;
+
+  // Count active (non-past, non-acknowledged) errors/warnings for the badge
+  const activeIssues = allIssues.filter(i => !isIssuePast(i) && !_acknowledgedIssues.has(issueKey(i)));
+  const ec = activeIssues.filter(i => i.level === 'error').length;
+  const wc = activeIssues.filter(i => i.level === 'warn').length;
+  const ic = activeIssues.filter(i => i.level === 'info').length;
 
   const summaryRow = document.getElementById('issuesSummaryRow');
   if (summaryRow) {
-    summaryRow.innerHTML = `
-      <span style="color:var(--clr-bad)">${ec} error${ec!==1?'s':''}</span>
-      <span style="color:var(--clr-warn)">${wc} warning${wc!==1?'s':''}</span>
-      <span style="color:#2563eb">${ic} info</span>
-    `;
+    const total = ec + wc;
+    summaryRow.textContent = total > 0 ? total : '';
+    summaryRow.style.display = total > 0 ? '' : 'none';
   }
-
   const badge = document.getElementById('issuesNavBadge');
   if (badge) {
     if (ec > 0) { badge.textContent = ec; badge.style.display = ''; badge.style.background = 'var(--clr-bad-bg)'; badge.style.color = 'var(--clr-bad)'; }
@@ -1974,31 +2065,63 @@ function renderIssues() {
     else { badge.style.display = 'none'; }
   }
 
-  const filtered = issues.filter(i => {
+  // Sub-counts display above the list
+  const filtered = allIssues.filter(i => {
     if (_issueLevel !== 'all' && i.level !== _issueLevel) return false;
     if (divFilter && i.div !== divFilter && i.div !== 'ALL') return false;
+    const past = isIssuePast(i);
+    if (!showPast && past) return false;
+    const ack = _acknowledgedIssues.has(issueKey(i));
+    if (!showAck && ack) return false;
     return true;
   });
 
   const body = document.getElementById('issuesBody');
   if (!body) return;
 
+  const total = allIssues.length;
+  const ackCount = [..._acknowledgedIssues].filter(k => allIssues.some(i => issueKey(i) === k)).length;
+  const pastCount = allIssues.filter(i => isIssuePast(i)).length;
+
+  const statsBar = `<div style="display:flex;gap:14px;margin-bottom:14px;font-size:12px;font-family:'JetBrains Mono',monospace;flex-wrap:wrap">
+    <span style="color:var(--clr-bad);font-weight:700">${ec} error${ec!==1?'s':''}</span>
+    <span style="color:var(--clr-warn);font-weight:700">${wc} warning${wc!==1?'s':''}</span>
+    <span style="color:var(--accent);font-weight:700">${ic} info</span>
+    <span style="color:var(--text-muted)">·</span>
+    <span style="color:var(--text-muted)">${ackCount} acknowledged</span>
+    <span style="color:var(--text-muted)">${pastCount} past fixture</span>
+  </div>`;
+
   if (!filtered.length) {
-    const msg = issues.length === 0 ? 'No issues found — schedule looks clean!' : 'No issues match the current filter.';
-    body.innerHTML = `<div style="text-align:center;padding:32px;color:${issues.length===0?'var(--clr-ok)':'var(--text-muted)'};font-size:13px">${msg}</div>`;
+    const msg = total === 0 ? '✓ Schedule looks clean — no issues found!' : 'No issues match the current filter.';
+    body.innerHTML = statsBar + `<div style="text-align:center;padding:28px;color:${total===0?'var(--clr-ok)':'var(--text-muted)'};font-size:13px">${msg}</div>`;
     return;
   }
 
-  body.innerHTML = filtered.map(issue => `
-    <div class="issue-card ${issue.level}">
-      <div class="issue-header">
-        <span class="issue-sev ${issue.level}">${issue.level==='error'?'ERROR':issue.level==='warn'?'WARN':'INFO'}</span>
-        <span class="issue-div-badge">${esc(issue.div)}</span>
-        <span class="issue-title">${esc(issue.title)}</span>
+  body.innerHTML = statsBar + filtered.map(issue => {
+    const key = issueKey(issue);
+    const isAck = _acknowledgedIssues.has(key);
+    const isPast = isIssuePast(issue);
+    const pastTag = isPast ? `<span style="font-size:10px;background:var(--bg-200);color:var(--text-muted);padding:1px 6px;border-radius:4px;margin-left:4px">PAST</span>` : '';
+    const sevLabel = issue.level==='error'?'ERROR':issue.level==='warn'?'WARN':'INFO';
+    return `<div class="issue-card ${issue.level}${isAck?' acknowledged':''}">
+      <div class="issue-card-body">
+        <div class="issue-header">
+          <span class="issue-sev ${issue.level}">${sevLabel}</span>
+          <span class="issue-div-badge">${esc(issue.div)}</span>
+          <span class="issue-title">${esc(issue.title)}</span>
+          ${pastTag}
+        </div>
+        <div class="issue-detail">${esc(issue.detail)}</div>
       </div>
-      <div class="issue-detail">${esc(issue.detail)}</div>
-    </div>
-  `).join('');
+      <div class="issue-card-actions">
+        ${isAck
+          ? `<button class="btn btn-ghost" style="font-size:11px;height:26px;color:var(--text-muted)" onclick="unacknowledgeIssue(${JSON.stringify(key)})">↩ Reopen</button>`
+          : `<button class="btn btn-ghost" style="font-size:11px;height:26px" onclick="acknowledgeIssue(${JSON.stringify(key)})">✓ Acknowledge</button>`
+        }
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ── Utilities ─────────────────────────────────────────────────
