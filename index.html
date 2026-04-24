@@ -595,6 +595,149 @@ function StandingsView({ matches, division, standings }) {
   );
 }
 
+function BattingView({ batting, division }) {
+  const rows = batting?.[division] || [];
+  if (!rows.length) return (
+    <div className="empty-state">No batting data for this division. Use Sync Stats in admin to fetch.</div>
+  );
+  const ts = batting?.updatedAt;
+  return (
+    <div>
+      {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:10}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
+      <div className="scroll-x">
+        <table>
+          <thead><tr>
+            <th style={{width:32}}>#</th><th>Player</th><th>Team</th>
+            <th style={{textAlign:"center"}} title="Matches">Mat</th>
+            <th style={{textAlign:"center"}} title="Innings">Inns</th>
+            <th style={{textAlign:"center"}} title="Not Out">NO</th>
+            <th style={{textAlign:"center"}} title="Runs" className="points-cell">Runs</th>
+            <th style={{textAlign:"center"}} title="Fours">4s</th>
+            <th style={{textAlign:"center"}} title="Sixes">6s</th>
+            <th style={{textAlign:"center"}} title="Fifties">50s</th>
+            <th style={{textAlign:"center"}} title="Hundreds">100s</th>
+            <th style={{textAlign:"center"}} title="Highest Score">HS</th>
+            <th style={{textAlign:"center"}} title="Strike Rate">SR</th>
+            <th style={{textAlign:"center"}} title="Average">Avg</th>
+          </tr></thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={r.player + i}>
+                <td className="num-cell" style={{color:"var(--text-muted)"}}>{r.rank || i+1}</td>
+                <td className="team-name" style={{fontWeight:500}}>{r.player}</td>
+                <td style={{fontSize:12,color:"var(--text-secondary)"}}>{r.team}</td>
+                <td className="num-cell">{r.mat}</td>
+                <td className="num-cell">{r.inns}</td>
+                <td className="num-cell">{r.no}</td>
+                <td className="num-cell points-cell">{r.runs}</td>
+                <td className="num-cell">{r.fours}</td>
+                <td className="num-cell">{r.sixes}</td>
+                <td className="num-cell">{r.fifties}</td>
+                <td className="num-cell">{r.hundreds}</td>
+                <td className="num-cell">{r.hs}</td>
+                <td className="num-cell">{r.sr}</td>
+                <td className="num-cell">{r.avg}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function BowlingView({ bowling, division }) {
+  const rows = bowling?.[division] || [];
+  if (!rows.length) return (
+    <div className="empty-state">No bowling data for this division. Use Sync Stats in admin to fetch.</div>
+  );
+  const ts = bowling?.updatedAt;
+  return (
+    <div>
+      {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:10}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
+      <div className="scroll-x">
+        <table>
+          <thead><tr>
+            <th style={{width:32}}>#</th><th>Player</th><th>Team</th>
+            <th style={{textAlign:"center"}} title="Matches">Mat</th>
+            <th style={{textAlign:"center"}} title="Overs">Ovs</th>
+            <th style={{textAlign:"center"}} title="Runs conceded">Runs</th>
+            <th style={{textAlign:"center"}} title="Wickets" className="points-cell">Wkts</th>
+            <th style={{textAlign:"center"}} title="Best bowling figures">BBF</th>
+            <th style={{textAlign:"center"}} title="Maidens">Mdns</th>
+            <th style={{textAlign:"center"}} title="Dot balls">Dots</th>
+            <th style={{textAlign:"center"}} title="Economy">Econ</th>
+            <th style={{textAlign:"center"}} title="Average">Avg</th>
+            <th style={{textAlign:"center"}} title="Strike Rate">SR</th>
+            <th style={{textAlign:"center"}} title="Five-wicket hauls">5W</th>
+          </tr></thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={r.player + i}>
+                <td className="num-cell" style={{color:"var(--text-muted)"}}>{r.rank || i+1}</td>
+                <td className="team-name" style={{fontWeight:500}}>{r.player}</td>
+                <td style={{fontSize:12,color:"var(--text-secondary)"}}>{r.team}</td>
+                <td className="num-cell">{r.mat}</td>
+                <td className="num-cell">{r.overs}</td>
+                <td className="num-cell">{r.runs}</td>
+                <td className="num-cell points-cell">{r.wickets}</td>
+                <td className="num-cell">{r.bbf}</td>
+                <td className="num-cell">{r.maidens}</td>
+                <td className="num-cell">{r.dots}</td>
+                <td className="num-cell" style={{fontWeight:600}}>{r.econ}</td>
+                <td className="num-cell">{r.avg}</td>
+                <td className="num-cell">{r.sr}</td>
+                <td className="num-cell">{r.fiveW}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function RankingsView({ rankings, division }) {
+  const rows = rankings?.[division] || [];
+  if (!rows.length) return (
+    <div className="empty-state">No rankings data for this division. Use Sync Stats in admin to fetch.</div>
+  );
+  const ts = rankings?.updatedAt;
+  return (
+    <div>
+      {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:10}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
+      <div className="scroll-x">
+        <table>
+          <thead><tr>
+            <th style={{width:32}}>#</th><th>Player</th><th>Team</th>
+            <th style={{textAlign:"center"}} title="Matches played">Mat</th>
+            <th style={{textAlign:"center"}} title="Batting points">Bat</th>
+            <th style={{textAlign:"center"}} title="Bowling points">Bowl</th>
+            <th style={{textAlign:"center"}} title="Fielding points">Field</th>
+            <th style={{textAlign:"center"}} title="Man of Match awards">MOM</th>
+            <th style={{textAlign:"center"}} title="Total points" className="points-cell">Total</th>
+          </tr></thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={r.player + i}>
+                <td className="num-cell" style={{color:"var(--text-muted)"}}>{r.rank || i+1}</td>
+                <td className="team-name" style={{fontWeight:500}}>{r.player}</td>
+                <td style={{fontSize:12,color:"var(--text-secondary)"}}>{r.team}</td>
+                <td className="num-cell">{r.matches}</td>
+                <td className="num-cell">{r.batting}</td>
+                <td className="num-cell">{r.bowling}</td>
+                <td className="num-cell">{r.fielding}</td>
+                <td className="num-cell">{r.mom}</td>
+                <td className="num-cell points-cell">{r.total}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main dashboard ─── */
 function SYCLDashboard() {
   const [data, setData] = useState(null);
@@ -618,7 +761,7 @@ function SYCLDashboard() {
       .then(d => {
         if (d?.matches?.length) {
           const divisions = [...new Set(d.matches.map(m => m.division))];
-          setData({ matches: d.matches, divisions, standings: d.standings || {} });
+          setData({ matches: d.matches, divisions, standings: d.standings || {}, batting: d.batting || null, bowling: d.bowling || null, rankings: d.rankings || null });
           setSelectedDivision(divisions[0]);
           setLastRefresh(d.updatedAt);
         }
@@ -654,7 +797,7 @@ function SYCLDashboard() {
     });
   }, [data]);
 
-  const tabs = [["schedule","Schedule"],["standings","Standings"]];
+  const tabs = [["schedule","Schedule"],["standings","Standings"],["batting","Batting"],["bowling","Bowling"],["rankings","Rankings"]];
 
   return (
     <>
@@ -707,9 +850,18 @@ function SYCLDashboard() {
           <>
             {/* Division bar */}
             <div className="division-bar">
+              {["batting","bowling","rankings"].includes(activeTab) && (
+                <button className={`div-btn ${selectedDivision==="combined"?"active":""}`}
+                  onClick={()=>setSelectedDivision("combined")}>
+                  All
+                </button>
+              )}
               {sortedDivs.map(d => (
                 <button key={d} className={`div-btn ${selectedDivision===d?"active":""}`}
-                  onClick={()=>{setSelectedDivision(d);setActiveTab("schedule");}}>
+                  onClick={()=>{
+                    setSelectedDivision(d);
+                    if(!["standings","batting","bowling","rankings"].includes(activeTab)) setActiveTab("schedule");
+                  }}>
                   {d}
                 </button>
               ))}
@@ -725,6 +877,9 @@ function SYCLDashboard() {
 
               {selectedDivision && activeTab==="schedule"  && <ScheduleView  matches={data.matches} division={selectedDivision}/>}
               {selectedDivision && activeTab==="standings" && <StandingsView matches={data.matches} division={selectedDivision} standings={data.standings}/>}
+              {activeTab==="batting" && <BattingView batting={data.batting} division={selectedDivision}/>}
+              {activeTab==="bowling" && <BowlingView bowling={data.bowling} division={selectedDivision}/>}
+              {activeTab==="rankings" && <RankingsView rankings={data.rankings} division={selectedDivision}/>}
             </>
           </>
         )}
