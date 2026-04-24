@@ -413,16 +413,15 @@
           <ol class="steps">
             <li>Drag the button below into your browser's bookmarks bar <em>(do this once)</em></li>
             <li>Open the <a href="https://cricclubs.com/SYCLYouth/viewPointsTable.do?year=2026&clubId=10669" target="_blank" style="color:var(--text-primary);font-weight:500">CricClubs Points Table ↗</a></li>
-            <li>Select a division from the dropdown</li>
-            <li>Click the bookmarklet — repeat for each division</li>
+            <li>Click the bookmarklet — it fetches all divisions at once and syncs them all</li>
           </ol>
           <div class="bookmarklet-wrap">
             <a id="standingsBookmarkletLink" class="bookmarklet-link" href="#">Sync Standings to SYCL</a>
-            <div class="bookmarklet-hint">Drag to bookmarks bar · Click once per division on the CricClubs Points Table page</div>
+            <div class="bookmarklet-hint">Drag to bookmarks bar · Click once on the CricClubs Points Table page — syncs all divisions</div>
           </div>
         </div>
         <div class="card-footer">
-          <span style="font-size:12px;color:var(--text-muted)">Standings are merged per division — syncing Emerging Stars does not overwrite Premier, etc.</span>
+          <span style="font-size:12px;color:var(--text-muted)">Each division is merged independently — re-syncing one division does not overwrite others.</span>
         </div>
       </div>
     </div>
@@ -971,64 +970,113 @@ function buildStandingsBookmarklet() {
   const password = getPassword();
 
   const code = `(function(){
-// Detect division from the page select dropdowns (try each select, prefer non-year, non-"All" option)
-var divisionName='';
-var selects=Array.from(document.querySelectorAll('select'));
-for(var i=selects.length-1;i>=0;i--){
-  var sel=selects[i];
-  var chosen=sel.options[sel.selectedIndex];
-  if(!chosen)continue;
-  var t=chosen.text.trim();
-  // Skip year-only selects, blank, and "All"/"Select" placeholder options
-  if(!t||/^\\d{4}$/.test(t)||t.toLowerCase()==='all'||t.toLowerCase().startsWith('select')){continue;}
-  divisionName=t;break;
-}
-// Fallback: extract from page heading "(Division Name)"
-if(!divisionName){
-  var hdg=document.querySelector('h2,h3,.title');
-  var m2=(hdg?hdg.textContent:'').match(/\\(([^)]+)\\)/);
-  if(m2)divisionName=m2[1].trim();
-}
-if(!divisionName){alert('Could not detect the selected division.\\nPlease select a division from the dropdown first.');return;}
-
-// Find standings table — must have MAT and WON and PTS in its header row
-var tables=Array.from(document.querySelectorAll('table'));
-var standingsTable=null;
-for(var ti=0;ti<tables.length;ti++){
-  var hdrEl=tables[ti].querySelector('thead tr,tr');
-  if(!hdrEl)continue;
-  var hLow=hdrEl.textContent.toLowerCase();
-  if(hLow.includes('mat')&&hLow.includes('won')&&hLow.includes('pts')){standingsTable=tables[ti];break;}
-}
-if(!standingsTable){alert('Could not find the standings table.\\nMake sure you are on the CricClubs Points Table page with a division selected.');return;}
-
-// Map header columns to indices by text
-var headerCells=Array.from((standingsTable.querySelector('thead tr')||standingsTable.querySelector('tr')).querySelectorAll('th,td'));
-var colIdx={};
-var colMap={'rank':'#','team':'team','played':'mat','won':'won','lost':'lost','nr':'n/r','tie':'tie','pts':'pts','winPct':'win','nrr':'net rr','runsFor':'for','runsAgainst':'against'};
-headerCells.forEach(function(th,idx){
-  var t=th.textContent.trim().toLowerCase();
-  Object.keys(colMap).forEach(function(k){if(t===colMap[k]||t.startsWith(colMap[k]))colIdx[k]=idx;});
+// Find the division select — the one with non-year, non-placeholder options
+var divSelect=null;
+Array.from(document.querySelectorAll('select')).reverse().some(function(sel){
+  var nonYear=Array.from(sel.options).filter(function(o){
+    var t=o.text.trim();
+    return t&&!/^\\d+$/.test(t)&&t.toLowerCase()!=='all'&&!t.toLowerCase().startsWith('select')&&!t.toLowerCase().startsWith('--');
+  });
+  if(nonYear.length>0){divSelect=sel;return true;}
 });
+if(!divSelect){alert('Could not find the division dropdown on this page.');return;}
 
-// Extract rows
-var rows=[];
-Array.from(standingsTable.querySelectorAll('tbody tr')).forEach(function(tr){
-  var cells=Array.from(tr.querySelectorAll('td'));
-  if(cells.length<4)return;
-  function get(k){var i=colIdx[k];return(i!=null&&i<cells.length)?cells[i].textContent.replace(/\\s+/g,' ').trim():'';}
-  var team=get('team');
-  if(!team)return;
-  rows.push({rank:parseInt(get('rank'))||0,team:team,played:parseInt(get('played'))||0,won:parseInt(get('won'))||0,lost:parseInt(get('lost'))||0,nr:parseInt(get('nr'))||0,tie:parseInt(get('tie'))||0,pts:parseInt(get('pts'))||0,winPct:get('winPct'),nrr:get('nrr'),runsFor:get('runsFor'),runsAgainst:get('runsAgainst')});
+// Collect all real division options
+var divOptions=Array.from(divSelect.options).filter(function(o){
+  var t=o.text.trim();
+  return t&&!/^\\d+$/.test(t)&&t.toLowerCase()!=='all'&&!t.toLowerCase().startsWith('select')&&!t.toLowerCase().startsWith('--');
 });
-if(!rows.length){alert('No team rows found in the standings table.');return;}
+if(!divOptions.length){alert('No division options found in dropdown.');return;}
 
-if(!confirm('Sync standings for "'+divisionName+'" ('+rows.length+' teams)?\\n\\n'+rows.map(function(r,i){return(i+1)+'. '+r.team+' — '+r.pts+' pts';}).join('\\n'))){return;}
+// Find enclosing form to know how to re-request each division's page
+var form=divSelect.closest('form');
+var formAction=(form&&form.action)||window.location.href.split('?')[0];
+var formMethod=form?(form.method||'get').toLowerCase():'get';
 
-fetch('${origin}/api/standings',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Password':'${password}'},body:JSON.stringify({division:divisionName,rows:rows})})
-.then(function(r){return r.json();})
-.then(function(d){alert(d.error?('Error: '+d.error):d.message);})
-.catch(function(e){alert('Error: '+e.message);});
+// Collect base params from other form fields + URL
+var baseParams={};
+new URLSearchParams(window.location.search).forEach(function(v,k){baseParams[k]=v;});
+if(form){Array.from(form.elements).forEach(function(el){
+  if(el.name&&el!==divSelect&&el.type!=='submit'&&el.type!=='button'&&el.type!=='reset')baseParams[el.name]=el.value;
+});}
+var divFieldName=divSelect.name||'divisionId';
+
+// Parse a standings table out of a document (live or parsed)
+function parseStandingsTable(doc){
+  var tables=Array.from(doc.querySelectorAll('table'));
+  var found=null;
+  tables.some(function(tbl){
+    var hdrEl=tbl.querySelector('thead tr,tr');
+    if(!hdrEl)return;
+    var h=hdrEl.textContent.toLowerCase();
+    if(h.includes('mat')&&h.includes('won')&&h.includes('pts')){found=tbl;return true;}
+  });
+  if(!found)return null;
+  var headerCells=Array.from((found.querySelector('thead tr')||found.querySelector('tr')).querySelectorAll('th,td'));
+  var colIdx={};
+  var colMap={rank:'#',team:'team',played:'mat',won:'won',lost:'lost',nr:'n/r',tie:'tie',pts:'pts',winPct:'win',nrr:'net rr',runsFor:'for',runsAgainst:'against'};
+  headerCells.forEach(function(th,i){
+    var t=th.textContent.trim().toLowerCase();
+    Object.keys(colMap).forEach(function(k){if(t===colMap[k]||t.startsWith(colMap[k]))colIdx[k]=i;});
+  });
+  var rows=[];
+  Array.from(found.querySelectorAll('tbody tr')).forEach(function(tr){
+    var cells=Array.from(tr.querySelectorAll('td'));
+    if(cells.length<4)return;
+    function get(k){var i=colIdx[k];return(i!=null&&i<cells.length)?cells[i].textContent.replace(/\\s+/g,' ').trim():'';}
+    var team=get('team');if(!team)return;
+    rows.push({rank:parseInt(get('rank'))||0,team:team,played:parseInt(get('played'))||0,won:parseInt(get('won'))||0,lost:parseInt(get('lost'))||0,nr:parseInt(get('nr'))||0,tie:parseInt(get('tie'))||0,pts:parseInt(get('pts'))||0,winPct:get('winPct'),nrr:get('nrr'),runsFor:get('runsFor'),runsAgainst:get('runsAgainst')});
+  });
+  return rows.length?rows:null;
+}
+
+// Show loading overlay
+var ov=document.createElement('div');
+ov.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;font-family:sans-serif';
+ov.innerHTML='<div style="background:#fff;border-radius:10px;padding:24px 32px;min-width:280px;text-align:center;font-size:14px;color:#09090b">SYCL Sync Standings<br><span id="_syclSt" style="font-size:12px;color:#71717a">Fetching '+divOptions.length+' divisions…</span></div>';
+document.body.appendChild(ov);
+function setMsg(m){var el=document.getElementById('_syclSt');if(el)el.textContent=m;}
+
+// Fetch a division page and return { division, rows }
+function fetchDiv(opt){
+  var params=Object.assign({},baseParams);
+  params[divFieldName]=opt.value;
+  var url,init;
+  if(formMethod==='get'){
+    url=formAction+'?'+new URLSearchParams(params).toString();init={};
+  }else{
+    url=formAction;init={method:'POST',body:new URLSearchParams(params),headers:{'Content-Type':'application/x-www-form-urlencoded'}};
+  }
+  return fetch(url,init).then(function(r){return r.text();}).then(function(html){
+    var doc=new DOMParser().parseFromString(html,'text/html');
+    var rows=parseStandingsTable(doc);
+    return rows?{division:opt.text.trim(),rows:rows}:null;
+  });
+}
+
+// Fetch all divisions in parallel
+Promise.all(divOptions.map(fetchDiv)).then(function(results){
+  ov.remove();
+  var valid=results.filter(Boolean);
+  if(!valid.length){alert('Could not parse standings for any division.\\nThe page structure may have changed.');return;}
+
+  var summary=valid.map(function(d){return d.division+': '+d.rows.length+' teams';}).join('\\n');
+  if(!confirm('Sync standings for '+valid.length+' divisions?\\n\\n'+summary)){return;}
+
+  setMsg('Saving…');document.body.appendChild(ov);
+  return Promise.all(valid.map(function(d){
+    return fetch('${origin}/api/standings',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Password':'${password}'},body:JSON.stringify({division:d.division,rows:d.rows})})
+      .then(function(r){return r.json();}).then(function(resp){return{division:d.division,ok:!resp.error,msg:resp.message||resp.error};});
+  }));
+}).then(function(saved){
+  ov.remove();
+  if(!saved)return;
+  var ok=saved.filter(function(s){return s.ok;});
+  var fail=saved.filter(function(s){return!s.ok;});
+  var msg=ok.length+' division'+(ok.length!==1?'s':'')+' synced: '+ok.map(function(s){return s.division;}).join(', ');
+  if(fail.length)msg+='\\n\\nFailed: '+fail.map(function(s){return s.division+' ('+s.msg+')';}).join(', ');
+  alert(msg);
+}).catch(function(e){ov.remove();alert('Error: '+e.message);});
 })();`;
 
   document.getElementById('standingsBookmarkletLink').href = 'javascript:' + encodeURIComponent(code);
