@@ -914,7 +914,6 @@ function SYCLDashboard() {
   const [data, setData] = useState(null);
   const [selectedDivision, setSelectedDivision] = useState(null);
   const [activeTab, setActiveTab] = useState("schedule");
-  const [fileName, setFileName] = useState("");
   const [theme, setTheme] = useState(() => {
     try { return localStorage.getItem('sycl_theme') || 'light'; } catch { return 'light'; }
   });
@@ -926,14 +925,19 @@ function SYCLDashboard() {
     try { localStorage.setItem('sycl_theme', theme); } catch {}
   }, [theme]);
 
-  useEffect(() => {
-    fetch("/api/schedule")
+  const loadData = useCallback((bustCache) => {
+    setLoading(true);
+    const url = bustCache ? `/api/schedule?_t=${Date.now()}` : "/api/schedule";
+    fetch(url)
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (d?.matches?.length) {
           const divisions = [...new Set(d.matches.map(m => m.division))];
-          setData({ matches: d.matches, divisions, standings: d.standings || {}, batting: d.batting || null, bowling: d.bowling || null, rankings: d.rankings || null, results: d.results || null });
-          setSelectedDivision(divisions[0]);
+          setData(prev => {
+            const next = { matches: d.matches, divisions, standings: d.standings || {}, batting: d.batting || null, bowling: d.bowling || null, rankings: d.rankings || null, results: d.results || null };
+            if (!prev) setSelectedDivision(divisions[0]);
+            return next;
+          });
           setLastRefresh(d.updatedAt);
         }
       })
@@ -941,23 +945,7 @@ function SYCLDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleUpload = useCallback((e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const wb = XLSX.read(new Uint8Array(evt.target.result), { type: "array", cellDates: true });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-      const parsed = parseSchedule(raw);
-      if (parsed && parsed.divisions.length > 0) {
-        setData(parsed); setSelectedDivision(parsed.divisions[0]);
-        setActiveTab("schedule");
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  }, []);
+  useEffect(() => { loadData(false); }, []);
 
   const divOrder = ["Emerging Stars","U11A","U11B","U13A","U13B","U15A","U15B"];
   const sortedDivs = useMemo(() => {
@@ -981,21 +969,17 @@ function SYCLDashboard() {
             <div className="header-sep"></div>
             <div>
               <div className="header h1">SYCL Schedule</div>
-              {lastRefresh ? (
+              {lastRefresh && (
                 <div className="header-sub">
                   Updated {new Date(lastRefresh).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})} at {new Date(lastRefresh).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}
                 </div>
-              ) : fileName ? (
-                <div className="header-sub">{fileName}</div>
-              ) : null}
+              )}
             </div>
           </div>
           <div className="header-actions">
-            {data && !lastRefresh && (
-              <label className="small-btn" style={{cursor:"pointer"}}>
-                Reload <input type="file" accept=".xlsx,.xls,.csv" onChange={handleUpload} style={{display:"none"}} />
-              </label>
-            )}
+            <button className="small-btn" onClick={() => loadData(true)} title="Refresh data" disabled={loading}>
+              {loading ? "…" : "↻"}
+            </button>
             <a href="/admin.html" className="small-btn">Admin</a>
             <button className="theme-toggle" onClick={() => setTheme(t => t==="light"?"dark":"light")} title="Toggle theme">
               {theme==="light" ? "☾" : "☀"}
@@ -1005,18 +989,17 @@ function SYCLDashboard() {
 
         {/* ── Content ── */}
         {!data ? (
-          loading ? (
-            <div className="loading-text" style={{textAlign:"center",padding:"80px",color:"var(--text-muted)",fontSize:13}}>
-              Loading schedule…
-            </div>
-          ) : (
-            <label className="upload-zone">
-              <input type="file" accept=".xlsx,.xls,.csv" onChange={handleUpload} />
-              <div className="upload-icon">📊</div>
-              <div className="upload-title">Drop schedule or click to upload</div>
-              <div class="upload-sub">.xlsx exported from CricClubs · Schedule → Export</div>
-            </label>
-          )
+          <div style={{textAlign:"center",padding:"80px 24px",color:"var(--text-muted)"}}>
+            {loading
+              ? <div className="loading-text" style={{fontSize:13}}>Loading…</div>
+              : <>
+                  <div style={{fontSize:36,marginBottom:12}}>🏏</div>
+                  <div style={{fontSize:15,fontWeight:600,color:"var(--text-secondary)",marginBottom:6}}>No schedule data yet</div>
+                  <div style={{fontSize:13}}>The admin needs to run the Sync All bookmarklet from CricClubs.</div>
+                  <button className="small-btn" style={{marginTop:16}} onClick={() => loadData(true)}>Try again</button>
+                </>
+            }
+          </div>
         ) : (
           <>
             {/* Division bar */}

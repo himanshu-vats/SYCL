@@ -1035,14 +1035,27 @@ function parseResults(){
   return out;
 }
 
-// ── Find per-division league IDs from dropdown ───────────────
+// ── Find per-division league IDs from the Divisions dropdown ─
+// Targets only the dropdown that contains "All Divisions" to avoid
+// picking up season/league selectors which have many historical entries.
 function getDivisionOptions(){
   var options=[];var seen={};
-  Array.from(document.querySelectorAll('.dropdown-menu a[href*="league="]')).forEach(function(a){
+  var divMenu=null;
+  Array.from(document.querySelectorAll('.dropdown-menu')).forEach(function(menu){
+    if(divMenu)return;
+    Array.from(menu.querySelectorAll('a')).forEach(function(a){
+      if(/^all divisions$/i.test(a.textContent.trim()))divMenu=menu;
+    });
+  });
+  var links=divMenu
+    ?Array.from(divMenu.querySelectorAll('a[href*="league="]'))
+    :Array.from(document.querySelectorAll('.dropdown-menu a[href*="league="]'));
+  links.forEach(function(a){
     var m=a.href.match(/league=(\\d+)/);if(!m)return;
     var lid=m[1];
     var name=a.textContent.trim();
     if(!name||/^all\\s/i.test(name)||name.toLowerCase()==='all divisions')return;
+    if(!a.href.includes('SYCLYouth'))return;
     if(seen[lid])return;seen[lid]=true;
     options.push({name:name,leagueId:lid});
   });
