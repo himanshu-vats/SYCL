@@ -12,14 +12,25 @@ module.exports = async function(req, res) {
     return;
   }
 
-  const { division, rows } = req.body || {};
-  if (!division || !Array.isArray(rows) || !rows.length) {
-    res.status(400).json({ error: 'division and rows required' });
+  if (!process.env.GIST_ID || !process.env.GITHUB_TOKEN) {
+    res.status(503).json({ error: 'Not configured' });
     return;
   }
 
-  if (!process.env.GIST_ID || !process.env.GITHUB_TOKEN) {
-    res.status(503).json({ error: 'Not configured' });
+  const { division, rows, divisions } = req.body || {};
+
+  // Build update map: either { divisions: { Name: { rows } } } or legacy { division, rows }
+  const updates = {};
+  if (divisions && typeof divisions === 'object') {
+    Object.entries(divisions).forEach(([name, val]) => {
+      if (name && Array.isArray(val?.rows) && val.rows.length) updates[name] = val.rows;
+    });
+  } else if (division && Array.isArray(rows) && rows.length) {
+    updates[division] = rows;
+  }
+
+  if (!Object.keys(updates).length) {
+    res.status(400).json({ error: 'Provide divisions map or division+rows' });
     return;
   }
 
@@ -33,8 +44,11 @@ module.exports = async function(req, res) {
     let data = {};
     try { data = JSON.parse(gist.files?.['schedule.json']?.content || '{}'); } catch {}
 
+    const now = new Date().toISOString();
     if (!data.standings) data.standings = {};
-    data.standings[division] = { rows, updatedAt: new Date().toISOString() };
+    Object.entries(updates).forEach(([name, divRows]) => {
+      data.standings[name] = { rows: divRows, updatedAt: now };
+    });
 
     const putR = await fetch(`https://api.github.com/gists/${process.env.GIST_ID}`, {
       method: 'PATCH',
@@ -47,7 +61,8 @@ module.exports = async function(req, res) {
     });
     if (!putR.ok) { res.status(502).json({ error: `GitHub API error: ${putR.status}` }); return; }
 
-    res.json({ message: `${rows.length} teams synced for "${division}".`, updatedAt: data.standings[division].updatedAt });
+    const names = Object.keys(updates);
+    res.json({ message: `${names.length} division(s) synced: ${names.join(', ')}.`, updatedAt: now });
   } catch (e) {
     res.status(500).json({ error: 'Server error: ' + e.message });
   }

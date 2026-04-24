@@ -1040,18 +1040,15 @@ Promise.all(divOptions.map(fetchDiv)).then(function(results){
   var summary=valid.map(function(d){return d.division+': '+d.rows.length+' teams';}).join('\\n');
   if(!confirm('Sync standings for '+valid.length+' divisions?\\n\\n'+summary)){return;}
   document.body.appendChild(ov);setMsg('Saving to dashboard…');
-  return Promise.all(valid.map(function(d){
-    return fetch('${origin}/api/standings',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Password':'${password}'},body:JSON.stringify({division:d.division,rows:d.rows})})
-      .then(function(r){return r.json();}).then(function(resp){return{division:d.division,ok:!resp.error,msg:resp.message||resp.error};});
-  }));
-}).then(function(saved){
+  // Send ALL divisions in one request — avoids GitHub 409 conflicts from concurrent writes
+  var divisionsMap={};
+  valid.forEach(function(d){divisionsMap[d.division]={rows:d.rows};});
+  return fetch('${origin}/api/standings',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Password':'${password}'},body:JSON.stringify({divisions:divisionsMap})})
+    .then(function(r){return r.json();});
+}).then(function(resp){
   ov.remove();
-  if(!saved)return;
-  var ok=saved.filter(function(s){return s.ok;});
-  var fail=saved.filter(function(s){return!s.ok;});
-  var msg=ok.length+' division'+(ok.length!==1?'s':'')+' synced: '+ok.map(function(s){return s.division;}).join(', ');
-  if(fail.length)msg+='\\n\\nFailed: '+fail.map(function(s){return s.division+' ('+s.msg+')';}).join(', ');
-  alert(msg);
+  if(!resp)return;
+  alert(resp.error?('Error: '+resp.error):resp.message);
 }).catch(function(e){ov.remove();alert('Error: '+e.message);});
 })();`;
 
