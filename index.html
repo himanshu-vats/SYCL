@@ -554,8 +554,121 @@ const STYLES = `
   /* ── Loading pulse ── */
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
   .loading-text { animation: pulse 1.5s ease-in-out infinite; }
+
+  /* ── Stat leader cards ── */
+  .leader-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 22px; }
+  .leader-card {
+    background: var(--bg-100); border: 1.5px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; position: relative; overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    display: flex; flex-direction: column;
+  }
+  .leader-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--accent);
+  }
+  .leader-card.gold::before { background: linear-gradient(90deg, #c9a227, #f0d060); }
+  .leader-card.silver::before { background: linear-gradient(90deg, #8e8e8e, #c0c0c0); }
+  .leader-card.bronze::before { background: linear-gradient(90deg, #a0785a, #c8956a); }
+  .leader-label { font-size: 9.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 10px; }
+  .leader-medal { font-size: 14px; margin-right: 4px; }
+  .leader-stat { font-size: 32px; font-weight: 900; font-family: 'JetBrains Mono', monospace; color: var(--accent); line-height: 1; margin-bottom: 6px; }
+  .leader-name { font-size: 13px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .leader-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .leader-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 14px; }
+  .leader-bar-fill { height: 100%; border-radius: 2px; background: var(--accent); transition: width 0.5s ease; }
+  .leader-card.gold .leader-stat { color: #c9a227; }
+  .leader-card.silver .leader-stat { color: #8e8e8e; }
+  .leader-card.bronze .leader-stat { color: #a0785a; }
+  .leader-card.gold .leader-bar-fill { background: #c9a227; }
+  .leader-card.silver .leader-bar-fill { background: #8e8e8e; }
+  .leader-card.bronze .leader-bar-fill { background: #a0785a; }
+
+  /* ── Form guide dots ── */
+  .form-guide { display: flex; gap: 4px; align-items: center; }
+  .fd {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%;
+    font-size: 8.5px; font-weight: 900; color: #fff; flex-shrink: 0;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+  }
+  .fd-W { background: #17bf63; }
+  .fd-L { background: #e0245e; }
+  .fd-A { background: #f0a500; }
+  .fd-NR { background: #8b98a5; }
+
+  /* ── Next match hero card ── */
+  .next-match-card {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark, #4a009f) 100%);
+    border-radius: 14px; padding: 20px 22px; margin-bottom: 20px; color: #fff;
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    box-shadow: 0 6px 20px rgba(96,1,210,0.28);
+  }
+  .nmc-date-box {
+    text-align: center; background: rgba(255,255,255,0.15); border-radius: 12px;
+    padding: 12px 18px; flex-shrink: 0; min-width: 70px;
+    backdrop-filter: blur(4px);
+  }
+  .nmc-date-day { font-size: 30px; font-weight: 900; font-family: 'JetBrains Mono', monospace; line-height: 1; }
+  .nmc-date-month { font-size: 11px; font-weight: 700; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.5px; }
+  .nmc-body { flex: 1; min-width: 180px; }
+  .nmc-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; opacity: 0.7; margin-bottom: 5px; }
+  .nmc-teams { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; line-height: 1.3; }
+  .nmc-meta { font-size: 12px; opacity: 0.75; margin-top: 5px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .nmc-count { text-align: center; flex-shrink: 0; }
+  .nmc-count-val { font-size: 26px; font-weight: 900; font-family: 'JetBrains Mono', monospace; line-height: 1; }
+  .nmc-count-lbl { font-size: 10px; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+  /* ── Result summary strip ── */
+  .result-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 20px; }
+  .rs-card { background: var(--bg-100); border: 1.5px solid var(--border); border-radius: 10px; padding: 14px 16px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+  .rs-val { font-size: 30px; font-weight: 900; font-family: 'JetBrains Mono', monospace; line-height: 1; }
+  .rs-lbl { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 6px; }
+  .rs-played  { color: var(--accent); }
+  .rs-wins    { color: #17bf63; }
+  .rs-losses  { color: #e0245e; }
+  .rs-abd     { color: #f0a500; }
+
+  /* ── Streak badge ── */
+  .streak-badge { display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+  .streak-W { background: #e6f7ee; color: #0d6832; }
+  .streak-L { background: #fce8ef; color: #8c0023; }
+
+  /* ── Section label ── */
+  .section-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 `;
 
+
+/* ─── Form guide helper ─── */
+function computeFormGuide(results, team, n = 5) {
+  if (!results?.matches?.length) return [];
+  return results.matches
+    .filter(m => m.team1 === team || m.team2 === team)
+    .sort((a, b) => { const da = parseDate(a.date), db = parseDate(b.date); return da && db ? da - db : 0; })
+    .slice(-n)
+    .map(m => {
+      const r = (m.result || '').toLowerCase();
+      if (r.includes('abandon') || r.includes('no result')) return 'A';
+      if (r.includes('forfeit')) {
+        const teamLower = team.toLowerCase();
+        return r.includes(teamLower) && !r.includes('forfeit by ' + teamLower.split(' ')[0]) ? 'W' : 'L';
+      }
+      const score = m.team1 === team ? m.team1Score : m.team2Score;
+      if (score?.won === true) return 'W';
+      if (score?.won === false) return 'L';
+      return 'NR';
+    });
+}
+
+function computeStreak(form) {
+  if (!form.length) return null;
+  const last = form[form.length - 1];
+  if (last !== 'W' && last !== 'L') return null;
+  let count = 0;
+  for (let i = form.length - 1; i >= 0; i--) { if (form[i] === last) count++; else break; }
+  return { code: last, count };
+}
 
 /* ─── Sort/filter helpers ─── */
 function sortRows(rows, col, dir) {
@@ -573,6 +686,128 @@ function SortableTh({ col, sortCol, sortDir, onSort, children, style, ...rest })
     <th onClick={() => onSort(col)} style={{cursor:'pointer',userSelect:'none',...(style||{})}} {...rest}>
       {children}<span style={{marginLeft:2,opacity:0.4,fontSize:8}}>{sortCol===col?(sortDir==='asc'?'▲':'▼'):'⇅'}</span>
     </th>
+  );
+}
+
+/* ─── Shared visual components ─── */
+
+function FormGuide({ results, team }) {
+  const form = computeFormGuide(results, team);
+  if (!form.length) return <span style={{color:'var(--text-muted)',fontSize:11}}>—</span>;
+  return (
+    <div className="form-guide">
+      {form.map((code, i) => <span key={i} className={`fd fd-${code}`}>{code}</span>)}
+    </div>
+  );
+}
+
+function StreakBadge({ results, team }) {
+  const form = computeFormGuide(results, team);
+  const streak = computeStreak(form);
+  if (!streak) return null;
+  return (
+    <span className={`streak-badge streak-${streak.code}`}>
+      {streak.code}{streak.count}
+    </span>
+  );
+}
+
+const RANK_CLASS = ['gold','silver','bronze'];
+const RANK_MEDAL = ['🥇','🥈','🥉'];
+
+function LeaderCard({ rank, label, stat, name, sub, pct }) {
+  const cls = RANK_CLASS[rank] || '';
+  return (
+    <div className={`leader-card ${cls}`}>
+      <div className="leader-label"><span className="leader-medal">{RANK_MEDAL[rank] || ''}</span>{label}</div>
+      <div className="leader-stat">{stat}</div>
+      <div className="leader-name">{name}</div>
+      {sub && <div className="leader-sub">{sub}</div>}
+      <div style={{flex:1}}></div>
+      <div className="leader-bar"><div className="leader-bar-fill" style={{width:`${pct}%`}}></div></div>
+    </div>
+  );
+}
+
+function LeaderSection({ rows, statKey, label, nameKey = 'player', teamKey = 'team', fmt, ascending }) {
+  if (!rows?.length) return null;
+  const sorted = [...rows]
+    .filter(r => r[statKey] !== undefined && r[statKey] !== '—' && r[statKey] !== null)
+    .sort((a, b) => ascending
+      ? (parseFloat(a[statKey]) || 9999) - (parseFloat(b[statKey]) || 9999)
+      : (parseFloat(b[statKey]) || 0) - (parseFloat(a[statKey]) || 0)
+    );
+  const top = sorted.slice(0, 3);
+  if (!top.length) return null;
+  const ref = parseFloat(top[0][statKey]) || 1;
+  return (
+    <div className="leader-row">
+      {top.map((r, i) => (
+        <LeaderCard key={r[nameKey] + i} rank={i} label={label}
+          stat={fmt ? fmt(r[statKey]) : r[statKey]}
+          name={r[nameKey]} sub={r[teamKey]}
+          pct={ascending
+            ? (ref / (parseFloat(r[statKey]) || 1)) * 100
+            : ((parseFloat(r[statKey]) || 0) / ref) * 100
+          }
+        />
+      ))}
+    </div>
+  );
+}
+
+function NextMatchCard({ matches, division }) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const dm = division ? matches.filter(m => m.division === division) : matches;
+  const cmp = (a, b) => { const da = parseDate(a.date), db = parseDate(b.date); if (da && db && da-db !== 0) return da-db; return (a.time||'').localeCompare(b.time||''); };
+  const upcoming = dm.filter(m => { const d = parseDate(m.date); return !d || d >= today; }).sort(cmp);
+  const next = upcoming[0];
+  if (!next) return null;
+  const d = parseDate(next.date);
+  return (
+    <div className="next-match-card">
+      <div className="nmc-date-box">
+        <div className="nmc-date-day">{d ? d.getDate() : '?'}</div>
+        <div className="nmc-date-month">{d ? d.toLocaleDateString('en-US',{month:'short'}) : ''}</div>
+      </div>
+      <div className="nmc-body">
+        <div className="nmc-label">Next Match{d ? ` · ${d.toLocaleDateString('en-US',{weekday:'long'})}` : ''}</div>
+        <div className="nmc-teams">{next.team1} <span style={{opacity:0.55,fontWeight:400,fontSize:14}}>vs</span> {next.team2}</div>
+        <div className="nmc-meta">
+          {next.time && <span>⏰ {next.time}</span>}
+          {next.ground && <span>📍 {next.ground}</span>}
+        </div>
+      </div>
+      <div className="nmc-count">
+        <div className="nmc-count-val">{upcoming.length}</div>
+        <div className="nmc-count-lbl">Upcoming</div>
+      </div>
+    </div>
+  );
+}
+
+function ResultStrip({ results, division }) {
+  const matches = (results?.matches || []).filter(m => !division || m.division === division);
+  if (!matches.length) return null;
+  let played = matches.length, wins = 0, losses = 0, abd = 0;
+  matches.forEach(m => {
+    const r = (m.result||'').toLowerCase();
+    if (r.includes('abandon') || r.includes('no result')) abd++;
+    else if (m.team1Score?.won || m.team2Score?.won) { wins++; /* count matches with a winner */ }
+  });
+  const latest = [...matches].sort((a,b) => { const da=parseDate(a.date),db=parseDate(b.date); return da&&db?db-da:0; })[0];
+  return (
+    <div className="result-strip">
+      <div className="rs-card"><div className="rs-val rs-played">{played}</div><div className="rs-lbl">Played</div></div>
+      <div className="rs-card"><div className="rs-val rs-wins">{wins}</div><div className="rs-lbl">Completed</div></div>
+      <div className="rs-card"><div className="rs-val rs-abd">{abd}</div><div className="rs-lbl">Abandoned</div></div>
+      {latest && <div className="rs-card" style={{flex:3,textAlign:'left'}}>
+        <div style={{fontSize:9.5,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.6px',marginBottom:4}}>Latest Result</div>
+        <div style={{fontWeight:700,fontSize:13}}>{latest.team1} v {latest.team2}</div>
+        <div style={{fontSize:12,color:'var(--text-secondary)',marginTop:2}}>{latest.result||'—'}</div>
+        <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>{latest.date}{latest.division ? ` · ${latest.division}` : ''}</div>
+      </div>}
+    </div>
   );
 }
 
@@ -632,6 +867,7 @@ function ScheduleView({ matches, division }) {
 
   return (
     <div>
+      <NextMatchCard matches={matches} division={division}/>
       <div className="sub-tab-bar">
         <button className={`sub-tab-btn ${subTab==="upcoming"?"active":""}`} onClick={()=>setSubTab("upcoming")}>
           Upcoming <span className="sub-count">{upcoming.length}</span>
@@ -666,7 +902,7 @@ function ScheduleView({ matches, division }) {
   );
 }
 
-function StandingsView({ matches, division, standings }) {
+function StandingsView({ matches, division, standings, results }) {
   const [sortCol, setSortCol] = useState('pts');
   const [sortDir, setSortDir] = useState('desc');
   const [filter, setFilter] = useState('');
@@ -676,12 +912,44 @@ function StandingsView({ matches, division, standings }) {
   function toggleSort(col) { sortCol === col ? setSortDir(d => d==='asc'?'desc':'asc') : (setSortCol(col), setSortDir('asc')); }
   const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
 
+  const hasResults = results?.matches?.some(m => m.division === division);
+
   if (ccRows?.length > 0) {
     const q = filter.toLowerCase();
     const raw = filter ? ccRows.filter(s => s.team?.toLowerCase().includes(q)) : ccRows;
     const rows = sortRows(raw, sortCol, sortDir);
+    const leader = rows[0];
     return (
       <div>
+        {/* Leader summary card */}
+        {leader && (
+          <div className="leader-row" style={{gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))'}}>
+            <div className="leader-card gold">
+              <div className="leader-label"><span className="leader-medal">🏆</span>Division Leader</div>
+              <div className="leader-stat">{leader.pts} pts</div>
+              <div className="leader-name">{leader.team}</div>
+              <div className="leader-sub">{leader.won}W · {leader.lost}L{leader.nr>0?` · ${leader.nr}NR`:''} · Win% {leader.winPct}</div>
+              {hasResults && <div style={{marginTop:10}}><FormGuide results={results} team={leader.team}/></div>}
+              <div className="leader-bar"><div className="leader-bar-fill" style={{width:'100%'}}></div></div>
+            </div>
+            {rows[1] && <div className="leader-card silver">
+              <div className="leader-label"><span className="leader-medal">🥈</span>2nd Place</div>
+              <div className="leader-stat">{rows[1].pts} pts</div>
+              <div className="leader-name">{rows[1].team}</div>
+              <div className="leader-sub">{rows[1].won}W · {rows[1].lost}L · {leader.pts - rows[1].pts} pts behind</div>
+              {hasResults && <div style={{marginTop:10}}><FormGuide results={results} team={rows[1].team}/></div>}
+              <div className="leader-bar"><div className="leader-bar-fill" style={{width:`${(rows[1].pts/leader.pts)*100}%`}}></div></div>
+            </div>}
+            {rows[2] && <div className="leader-card bronze">
+              <div className="leader-label"><span className="leader-medal">🥉</span>3rd Place</div>
+              <div className="leader-stat">{rows[2].pts} pts</div>
+              <div className="leader-name">{rows[2].team}</div>
+              <div className="leader-sub">{rows[2].won}W · {rows[2].lost}L · {leader.pts - rows[2].pts} pts behind</div>
+              {hasResults && <div style={{marginTop:10}}><FormGuide results={results} team={rows[2].team}/></div>}
+              <div className="leader-bar"><div className="leader-bar-fill" style={{width:`${(rows[2].pts/leader.pts)*100}%`}}></div></div>
+            </div>}
+          </div>
+        )}
         <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>
           Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})} at {new Date(ts).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}
         </div>
@@ -699,12 +967,11 @@ function StandingsView({ matches, division, standings }) {
               <Th col="won" style={{textAlign:"center"}} title="Wins">W</Th>
               <Th col="lost" style={{textAlign:"center"}} title="Losses">L</Th>
               <Th col="nr" style={{textAlign:"center"}} title="No result">N/R</Th>
-              <Th col="tie" style={{textAlign:"center"}} title="Ties">Tie</Th>
               <Th col="pts" style={{textAlign:"center"}} title="Points">Pts</Th>
-              <Th col="winPct" style={{textAlign:"center"}} title="Win percentage">Win%</Th>
               <Th col="nrr" style={{textAlign:"center"}} title="Net Run Rate">NRR</Th>
-              <th style={{textAlign:"center"}} title="Runs scored / overs">For</th>
-              <th style={{textAlign:"center"}} title="Runs conceded / overs">Agst</th>
+              <Th col="winPct" style={{textAlign:"center"}} title="Win percentage">Win%</Th>
+              {hasResults && <th title="Last 5 results">Form</th>}
+              {hasResults && <th title="Current streak">Streak</th>}
             </tr></thead>
             <tbody>
               {rows.map((s, i) => (
@@ -718,12 +985,11 @@ function StandingsView({ matches, division, standings }) {
                   <td className="num-cell">{s.won}</td>
                   <td className="num-cell">{s.lost}</td>
                   <td className="num-cell">{s.nr}</td>
-                  <td className="num-cell">{s.tie}</td>
                   <td className="num-cell points-cell">{s.pts}</td>
-                  <td className="num-cell">{s.winPct}</td>
                   <td className="num-cell" style={{fontWeight:600}}>{s.nrr}</td>
-                  <td className="num-cell" style={{fontSize:11}}>{s.runsFor}</td>
-                  <td className="num-cell" style={{fontSize:11}}>{s.runsAgainst}</td>
+                  <td className="num-cell">{s.winPct}</td>
+                  {hasResults && <td><FormGuide results={results} team={s.team}/></td>}
+                  {hasResults && <td><StreakBadge results={results} team={s.team}/></td>}
                 </tr>
               ))}
             </tbody>
@@ -741,8 +1007,22 @@ function StandingsView({ matches, division, standings }) {
     <div className="empty-state">No results recorded yet for this division.</div>
   );
   const rows2 = sortRows(computed, sortCol === 'pts' ? 'points' : sortCol, sortDir);
+  const leader2 = rows2[0];
   return (
     <div>
+      {leader2 && leader2.points > 0 && (
+        <div className="leader-row" style={{gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))'}}>
+          {rows2.filter(s => s.points > 0).slice(0,3).map((s, i) => (
+            <div key={s.team} className={`leader-card ${RANK_CLASS[i]}`}>
+              <div className="leader-label"><span className="leader-medal">{RANK_MEDAL[i]}</span>{i===0?'Leader':`${i+1}${['','st','nd','rd'][i+1]||'th'} Place`}</div>
+              <div className="leader-stat">{s.points} pts</div>
+              <div className="leader-name">{s.team}</div>
+              <div className="leader-sub">{s.won}W · {s.lost}L</div>
+              <div className="leader-bar"><div className="leader-bar-fill" style={{width:`${(s.points/(leader2.points||1))*100}%`}}></div></div>
+            </div>
+          ))}
+        </div>
+      )}
       <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:10}}>
         Computed from match results — sync from CricClubs for official standings with NRR
       </div>
@@ -754,7 +1034,7 @@ function StandingsView({ matches, division, standings }) {
             <Th col="played" style={{textAlign:"center"}} title="Matches played">P</Th>
             <Th col="won" style={{textAlign:"center"}} title="Wins">W</Th>
             <Th col="lost" style={{textAlign:"center"}} title="Losses">L</Th>
-            <Th col="abandoned" style={{textAlign:"center"}} title="Abandoned / No result">Abd</Th>
+            <Th col="abandoned" style={{textAlign:"center"}} title="Abandoned">Abd</Th>
             <Th col="forfeited" style={{textAlign:"center"}} title="Forfeited">Fft</Th>
             <Th col="points" style={{textAlign:"center"}} title="Points">Pts</Th>
           </tr></thead>
@@ -798,6 +1078,13 @@ function BattingView({ batting, division }) {
   const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
   return (
     <div>
+      <div className="section-label">Batting Leaders</div>
+      <LeaderSection rows={raw} statKey="runs" label="Most Runs"/>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
+        <LeaderSection rows={raw} statKey="fifties" label="Most 50s"/>
+        <LeaderSection rows={raw} statKey="sixes" label="Most 6s"/>
+      </div>
+      <div className="section-label">All Batters</div>
       {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
       <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
         <input type="text" placeholder="Filter player / team…" value={filter} onChange={e=>setFilter(e.target.value)}
@@ -871,6 +1158,13 @@ function BowlingView({ bowling, division }) {
   const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
   return (
     <div>
+      <div className="section-label">Bowling Leaders</div>
+      <LeaderSection rows={raw} statKey="wickets" label="Most Wickets"/>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
+        <LeaderSection rows={raw} statKey="econ" label="Best Economy" ascending={true} fmt={v => Number(v).toFixed(2)}/>
+        <LeaderSection rows={raw} statKey="fiveW" label="5-Wicket Hauls"/>
+      </div>
+      <div className="section-label">All Bowlers</div>
       {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
       <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
         <input type="text" placeholder="Filter player / team…" value={filter} onChange={e=>setFilter(e.target.value)}
@@ -944,6 +1238,14 @@ function RankingsView({ rankings, division }) {
   const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
   return (
     <div>
+      <div className="section-label">Player Rankings Leaders</div>
+      <LeaderSection rows={raw} statKey="total" label="Overall Points"/>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:20}}>
+        <LeaderSection rows={raw} statKey="batting" label="Batting Pts"/>
+        <LeaderSection rows={raw} statKey="bowling" label="Bowling Pts"/>
+        <LeaderSection rows={raw} statKey="mom" label="Man of Match"/>
+      </div>
+      <div className="section-label">Full Rankings</div>
       {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
       <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
         <input type="text" placeholder="Filter player / team…" value={filter} onChange={e=>setFilter(e.target.value)}
@@ -1003,6 +1305,8 @@ function ResultsView({ results }) {
   const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
   return (
     <div>
+      <ResultStrip results={results}/>
+      <div className="section-label">Match Results</div>
       {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
       <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
         <input type="text" placeholder="Filter team, division, result…" value={filter} onChange={e=>setFilter(e.target.value)}
@@ -1174,7 +1478,7 @@ function SYCLDashboard() {
               </div>
 
               {selectedDivision && activeTab==="schedule"  && <ScheduleView  matches={data.matches} division={selectedDivision}/>}
-              {selectedDivision && activeTab==="standings" && <StandingsView matches={data.matches} division={selectedDivision} standings={data.standings}/>}
+              {selectedDivision && activeTab==="standings" && <StandingsView matches={data.matches} division={selectedDivision} standings={data.standings} results={data.results}/>}
               {activeTab==="results"  && <ResultsView  results={data.results}/>}
               {activeTab==="batting"  && <BattingView  batting={data.batting}  division={selectedDivision}/>}
               {activeTab==="bowling"  && <BowlingView  bowling={data.bowling}  division={selectedDivision}/>}
