@@ -582,8 +582,8 @@ const STYLES = `
   .leader-stat { font-size: 24px; font-weight: 900; font-family: 'JetBrains Mono', monospace; color: var(--accent); line-height: 1; margin-bottom: 4px; }
   .leader-name { font-size: 12px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .leader-sub { font-size: 10px; color: var(--text-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .leader-bar { height: 2px; background: var(--border); border-radius: 2px; margin-top: 8px; }
-  .leader-bar-fill { height: 100%; border-radius: 2px; background: var(--accent); transition: width 0.5s ease; }
+  .leader-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+  .leader-bar-fill { height: 3px; border-radius: 2px; background: var(--accent); transition: width 0.4s ease; }
   .leader-card.gold .leader-stat { color: #c9a227; }
   .leader-card.silver .leader-stat { color: #8e8e8e; }
   .leader-card.bronze .leader-stat { color: #a0785a; }
@@ -683,14 +683,23 @@ const STYLES = `
     .num-cell { font-size: 12px; padding: 8px 6px; }
     th:first-child, td:first-child { padding-left: 10px; }
 
-    /* Leader cards — 3-col grid, stripped down */
-    .leader-row { grid-template-columns: repeat(3, 1fr) !important; gap: 5px; margin-bottom: 10px; }
-    .leader-card { padding: 7px 8px; border-radius: 8px; }
-    .leader-stat { font-size: 18px; margin-bottom: 3px; }
-    .leader-name { font-size: 10px; }
-    .leader-sub { display: none; }
-    .leader-label { font-size: 8px; margin-bottom: 4px; }
-    .leader-medal { font-size: 10px; }
+    /* Leader cards — horizontal swipe carousel on mobile */
+    .leader-row {
+      display: flex !important;
+      overflow-x: auto !important;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding-bottom: 4px;
+      scrollbar-width: none;
+    }
+    .leader-row::-webkit-scrollbar { display: none; }
+    .leader-card { flex: 0 0 152px !important; scroll-snap-align: start; padding: 10px 12px; }
+    .leader-stat { font-size: 22px; }
+    .leader-name { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .leader-sub { font-size: 10px; }
+    .leader-label { font-size: 8.5px; }
     .leader-bar { margin-top: 6px; }
 
     /* Result strip — compact row */
@@ -726,8 +735,11 @@ const STYLES = `
     .result-row { padding: 8px 0; gap: 10px; }
     .fixture-row { padding: 7px 0; gap: 8px; }
 
-    /* WhatsApp share button — keep icon + text, fine on mobile */
-    .sub-tab-bar button[style] { padding: 5px 10px !important; }
+    /* Hide low-priority columns — no horizontal scroll needed */
+    .mob-hide { display: none !important; }
+
+    /* Player/team name column: truncate instead of wrap */
+    .team-name { max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   }
 
   /* Tiny screens (SE, 320px) */
@@ -849,8 +861,7 @@ function LeaderCard({ rank, label, stat, name, sub, pct }) {
       <div className="leader-stat">{stat}</div>
       <div className="leader-name">{name}</div>
       {sub && <div className="leader-sub">{sub}</div>}
-      <div style={{flex:1}}></div>
-      <div className="leader-bar"><div className="leader-bar-fill" style={{width:`${pct}%`}}></div></div>
+      <div className="leader-bar" style={{marginTop:'auto',paddingTop:8}}><div className="leader-bar-fill" style={{width:`${pct}%`}}></div></div>
     </div>
   );
 }
@@ -1240,14 +1251,14 @@ function ScheduleView({ matches, division, onDrilldown }) {
 
   const matchRow = m => (
     <tr key={m.id}>
-      <td className="num-cell" style={{color:"var(--text-muted)",width:40}}>{m.id}</td>
-      <td style={{width:90}}>
+      <td className="num-cell mob-hide" style={{color:"var(--text-muted)",width:40}}>{m.id}</td>
+      <td style={{width:80}}>
         <span className={`badge ${isAM(m.time)===true?"badge-am":isAM(m.time)===false?"badge-pm":""}`}>{m.time||"TBD"}</span>
       </td>
       <td className="team-name clickable" onClick={() => onDrilldown({type:'team',name:m.team1})}>{m.team1}</td>
       <td className="team-name clickable" onClick={() => onDrilldown({type:'team',name:m.team2})}>{m.team2}</td>
-      <td style={{color:"var(--text-muted)",fontSize:12}}>{m.ground||"—"}</td>
-      <td style={{color:"var(--text-muted)",fontSize:12}}>{m.umpire1||"—"}</td>
+      <td className="mob-hide" style={{color:"var(--text-muted)",fontSize:12}}>{m.ground||"—"}</td>
+      <td className="mob-hide" style={{color:"var(--text-muted)",fontSize:12}}>{m.umpire1||"—"}</td>
       <td style={{fontSize:12,color:m.result||m.winner?"var(--text-primary)":"var(--text-muted)"}}>{m.result||m.winner||"—"}</td>
     </tr>
   );
@@ -1328,8 +1339,8 @@ function ScheduleView({ matches, division, onDrilldown }) {
       <div className="scroll-x">
         <table>
           <thead><tr>
-            <th>#</th><th>Time</th><th>Home (Team 1)</th><th>Away (Team 2)</th>
-            <th>Ground</th><th>Umpire</th><th>Result</th>
+            <th className="mob-hide">#</th><th>Time</th><th>Home</th><th>Away</th>
+            <th className="mob-hide">Ground</th><th className="mob-hide">Umpire</th><th>Result</th>
           </tr></thead>
           <tbody>
             {visibleRows.length===0 && (
@@ -1364,7 +1375,7 @@ function StandingsView({ matches, division, standings, results, onDrilldown }) {
       <div>
         {/* Leader summary card */}
         {leader && (
-          <div className="leader-row" style={{gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))'}}>
+          <div className="leader-row" style={{}}>
             <div className="leader-card gold">
               <div className="leader-label"><span className="leader-medal">🏆</span>Division Leader</div>
               <div className="leader-stat">{leader.pts} pts</div>
@@ -1407,12 +1418,12 @@ function StandingsView({ matches, division, standings, results, onDrilldown }) {
               <Th col="played" style={{textAlign:"center"}} title="Matches played">P</Th>
               <Th col="won" style={{textAlign:"center"}} title="Wins">W</Th>
               <Th col="lost" style={{textAlign:"center"}} title="Losses">L</Th>
-              <Th col="nr" style={{textAlign:"center"}} title="No result">N/R</Th>
+              <Th col="nr" style={{textAlign:"center"}} title="No result" className="mob-hide">N/R</Th>
               <Th col="pts" style={{textAlign:"center"}} title="Points">Pts</Th>
-              <Th col="nrr" style={{textAlign:"center"}} title="Net Run Rate">NRR</Th>
-              <Th col="winPct" style={{textAlign:"center"}} title="Win percentage">Win%</Th>
+              <Th col="nrr" style={{textAlign:"center"}} title="Net Run Rate" className="mob-hide">NRR</Th>
+              <Th col="winPct" style={{textAlign:"center"}} title="Win percentage" className="mob-hide">Win%</Th>
               {hasResults && <th title="Last 5 results">Form</th>}
-              {hasResults && <th title="Current streak">Streak</th>}
+              {hasResults && <th title="Current streak" className="mob-hide">Streak</th>}
             </tr></thead>
             <tbody>
               {rows.map((s, i) => (
@@ -1425,12 +1436,12 @@ function StandingsView({ matches, division, standings, results, onDrilldown }) {
                   <td className="num-cell">{s.played}</td>
                   <td className="num-cell">{s.won}</td>
                   <td className="num-cell">{s.lost}</td>
-                  <td className="num-cell">{s.nr}</td>
+                  <td className="num-cell mob-hide">{s.nr}</td>
                   <td className="num-cell points-cell">{s.pts}</td>
-                  <td className="num-cell" style={{fontWeight:600}}>{s.nrr}</td>
-                  <td className="num-cell">{s.winPct}</td>
+                  <td className="num-cell mob-hide" style={{fontWeight:600}}>{s.nrr}</td>
+                  <td className="num-cell mob-hide">{s.winPct}</td>
                   {hasResults && <td><FormGuide results={results} team={s.team}/></td>}
-                  {hasResults && <td><StreakBadge results={results} team={s.team}/></td>}
+                  {hasResults && <td className="mob-hide"><StreakBadge results={results} team={s.team}/></td>}
                 </tr>
               ))}
             </tbody>
@@ -1452,7 +1463,7 @@ function StandingsView({ matches, division, standings, results, onDrilldown }) {
   return (
     <div>
       {leader2 && leader2.points > 0 && (
-        <div className="leader-row" style={{gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))'}}>
+        <div className="leader-row" style={{}}>
           {rows2.filter(s => s.points > 0).slice(0,3).map((s, i) => (
             <div key={s.team} className={`leader-card ${RANK_CLASS[i]}`}>
               <div className="leader-label"><span className="leader-medal">{RANK_MEDAL[i]}</span>{i===0?'Leader':`${i+1}${['','st','nd','rd'][i+1]||'th'} Place`}</div>
@@ -1500,7 +1511,8 @@ function StandingsView({ matches, division, standings, results, onDrilldown }) {
 function BattingView({ batting, division, onDrilldown }) {
   const [sortCol, setSortCol] = useState('runs');
   const [sortDir, setSortDir] = useState('desc');
-  const [filter, setFilter] = useState('');
+  const [teamFilter, setTeamFilter] = useState('');
+  const [playerFilter, setPlayerFilter] = useState('');
   const isCombined = division === 'combined';
 
   if (!batting) return <div className="empty-state">No batting data. Use Sync All in admin to fetch.</div>;
@@ -1513,24 +1525,31 @@ function BattingView({ batting, division, onDrilldown }) {
 
   const ts = batting?.updatedAt;
   function toggleSort(col) { sortCol === col ? setSortDir(d => d==='asc'?'desc':'asc') : (setSortCol(col), setSortDir('asc')); }
-  const q = filter.toLowerCase();
-  const filtered = filter ? raw.filter(r => [r.player,r.team].some(v => String(v||'').toLowerCase().includes(q))) : raw;
+  const teamOptions = [...new Set(raw.map(r => r.team).filter(Boolean))].sort();
+  const playerOptions = [...new Set((teamFilter ? raw.filter(r => r.team===teamFilter) : raw).map(r => r.player).filter(Boolean))].sort();
+  const filtered = raw.filter(r => (!teamFilter || r.team===teamFilter) && (!playerFilter || r.player===playerFilter));
   const rows = sortRows(filtered, sortCol, sortDir);
   const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
   return (
     <div>
       <div className="section-label">Batting Leaders</div>
       <LeaderSection rows={raw} statKey="runs" label="Most Runs"/>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
         <LeaderSection rows={raw} statKey="fifties" label="Most 50s"/>
         <LeaderSection rows={raw} statKey="sixes" label="Most 6s"/>
       </div>
       <div className="section-label">All Batters</div>
       {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
-      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
-        <input type="text" placeholder="Filter player / team…" value={filter} onChange={e=>setFilter(e.target.value)}
-          style={{padding:'4px 10px',fontSize:12,border:'1.5px solid var(--border)',borderRadius:6,background:'var(--bg-100)',color:'var(--text-primary)',width:190,outline:'none'}}/>
-        {filter && <button className="small-btn" onClick={()=>setFilter('')}>✕</button>}
+      <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
+        <select className="team-select" value={teamFilter} onChange={e=>{setTeamFilter(e.target.value);setPlayerFilter('');}}>
+          <option value="">All Teams</option>
+          {teamOptions.map(t=><option key={t} value={t}>{t}</option>)}
+        </select>
+        <select className="team-select" value={playerFilter} onChange={e=>setPlayerFilter(e.target.value)}>
+          <option value="">All Players</option>
+          {playerOptions.map(p=><option key={p} value={p}>{p}</option>)}
+        </select>
+        {(teamFilter||playerFilter) && <button className="small-btn" onClick={()=>{setTeamFilter('');setPlayerFilter('');}}>✕</button>}
         <span style={{fontSize:11,color:"var(--text-muted)",marginLeft:"auto"}}>{rows.length} players</span>
       </div>
       <div className="scroll-x">
@@ -1539,16 +1558,16 @@ function BattingView({ batting, division, onDrilldown }) {
             <th style={{width:32}}>#</th>
             <Th col="player">Player</Th>
             <Th col="team">Team</Th>
-            <Th col="mat" style={{textAlign:"center"}} title="Matches">Mat</Th>
-            <Th col="inns" style={{textAlign:"center"}} title="Innings">Inns</Th>
-            <Th col="no" style={{textAlign:"center"}} title="Not Out">NO</Th>
+            <Th col="mat" style={{textAlign:"center"}} title="Matches" className="mob-hide">Mat</Th>
+            <Th col="inns" style={{textAlign:"center"}} title="Innings" className="mob-hide">Inns</Th>
+            <Th col="no" style={{textAlign:"center"}} title="Not Out" className="mob-hide">NO</Th>
             <Th col="runs" style={{textAlign:"center"}} title="Runs" className="points-cell">Runs</Th>
-            <Th col="fours" style={{textAlign:"center"}} title="Fours">4s</Th>
-            <Th col="sixes" style={{textAlign:"center"}} title="Sixes">6s</Th>
-            <Th col="fifties" style={{textAlign:"center"}} title="Fifties">50s</Th>
-            <Th col="hundreds" style={{textAlign:"center"}} title="Hundreds">100s</Th>
+            <Th col="fours" style={{textAlign:"center"}} title="Fours" className="mob-hide">4s</Th>
+            <Th col="sixes" style={{textAlign:"center"}} title="Sixes" className="mob-hide">6s</Th>
+            <Th col="fifties" style={{textAlign:"center"}} title="Fifties" className="mob-hide">50s</Th>
+            <Th col="hundreds" style={{textAlign:"center"}} title="Hundreds" className="mob-hide">100s</Th>
             <Th col="hs" style={{textAlign:"center"}} title="Highest Score">HS</Th>
-            <Th col="sr" style={{textAlign:"center"}} title="Strike Rate">SR</Th>
+            <Th col="sr" style={{textAlign:"center"}} title="Strike Rate" className="mob-hide">SR</Th>
             <Th col="avg" style={{textAlign:"center"}} title="Average">Avg</Th>
           </tr></thead>
           <tbody>
@@ -1557,16 +1576,16 @@ function BattingView({ batting, division, onDrilldown }) {
                 <td className="num-cell" style={{color:"var(--text-muted)"}}>{i+1}</td>
                 <td className="team-name clickable" style={{fontWeight:500}} onClick={() => onDrilldown({type:'player',name:r.player})}>{r.player}</td>
                 <td className="clickable" style={{fontSize:12,color:"var(--text-secondary)"}} onClick={() => onDrilldown({type:'team',name:r.team})}>{r.team}</td>
-                <td className="num-cell">{r.mat}</td>
-                <td className="num-cell">{r.inns}</td>
-                <td className="num-cell">{r.no}</td>
+                <td className="num-cell mob-hide">{r.mat}</td>
+                <td className="num-cell mob-hide">{r.inns}</td>
+                <td className="num-cell mob-hide">{r.no}</td>
                 <td className="num-cell points-cell">{r.runs}</td>
-                <td className="num-cell">{r.fours}</td>
-                <td className="num-cell">{r.sixes}</td>
-                <td className="num-cell">{r.fifties}</td>
-                <td className="num-cell">{r.hundreds}</td>
+                <td className="num-cell mob-hide">{r.fours}</td>
+                <td className="num-cell mob-hide">{r.sixes}</td>
+                <td className="num-cell mob-hide">{r.fifties}</td>
+                <td className="num-cell mob-hide">{r.hundreds}</td>
                 <td className="num-cell">{r.hs}</td>
-                <td className="num-cell">{r.sr}</td>
+                <td className="num-cell mob-hide">{r.sr}</td>
                 <td className="num-cell">{r.avg}</td>
               </tr>
             ))}
@@ -1580,7 +1599,8 @@ function BattingView({ batting, division, onDrilldown }) {
 function BowlingView({ bowling, division, onDrilldown }) {
   const [sortCol, setSortCol] = useState('wickets');
   const [sortDir, setSortDir] = useState('desc');
-  const [filter, setFilter] = useState('');
+  const [teamFilter, setTeamFilter] = useState('');
+  const [playerFilter, setPlayerFilter] = useState('');
   const isCombined = division === 'combined';
 
   if (!bowling) return <div className="empty-state">No bowling data. Use Sync All in admin to fetch.</div>;
@@ -1593,24 +1613,31 @@ function BowlingView({ bowling, division, onDrilldown }) {
 
   const ts = bowling?.updatedAt;
   function toggleSort(col) { sortCol === col ? setSortDir(d => d==='asc'?'desc':'asc') : (setSortCol(col), setSortDir('asc')); }
-  const q = filter.toLowerCase();
-  const filtered = filter ? raw.filter(r => [r.player,r.team].some(v => String(v||'').toLowerCase().includes(q))) : raw;
+  const teamOptions = [...new Set(raw.map(r => r.team).filter(Boolean))].sort();
+  const playerOptions = [...new Set((teamFilter ? raw.filter(r => r.team===teamFilter) : raw).map(r => r.player).filter(Boolean))].sort();
+  const filtered = raw.filter(r => (!teamFilter || r.team===teamFilter) && (!playerFilter || r.player===playerFilter));
   const rows = sortRows(filtered, sortCol, sortDir);
   const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
   return (
     <div>
       <div className="section-label">Bowling Leaders</div>
       <LeaderSection rows={raw} statKey="wickets" label="Most Wickets"/>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
         <LeaderSection rows={raw} statKey="econ" label="Best Economy" ascending={true} fmt={v => Number(v).toFixed(2)}/>
         <LeaderSection rows={raw} statKey="fiveW" label="5-Wicket Hauls"/>
       </div>
       <div className="section-label">All Bowlers</div>
       {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
-      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
-        <input type="text" placeholder="Filter player / team…" value={filter} onChange={e=>setFilter(e.target.value)}
-          style={{padding:'4px 10px',fontSize:12,border:'1.5px solid var(--border)',borderRadius:6,background:'var(--bg-100)',color:'var(--text-primary)',width:190,outline:'none'}}/>
-        {filter && <button className="small-btn" onClick={()=>setFilter('')}>✕</button>}
+      <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
+        <select className="team-select" value={teamFilter} onChange={e=>{setTeamFilter(e.target.value);setPlayerFilter('');}}>
+          <option value="">All Teams</option>
+          {teamOptions.map(t=><option key={t} value={t}>{t}</option>)}
+        </select>
+        <select className="team-select" value={playerFilter} onChange={e=>setPlayerFilter(e.target.value)}>
+          <option value="">All Players</option>
+          {playerOptions.map(p=><option key={p} value={p}>{p}</option>)}
+        </select>
+        {(teamFilter||playerFilter) && <button className="small-btn" onClick={()=>{setTeamFilter('');setPlayerFilter('');}}>✕</button>}
         <span style={{fontSize:11,color:"var(--text-muted)",marginLeft:"auto"}}>{rows.length} players</span>
       </div>
       <div className="scroll-x">
@@ -1619,17 +1646,17 @@ function BowlingView({ bowling, division, onDrilldown }) {
             <th style={{width:32}}>#</th>
             <Th col="player">Player</Th>
             <Th col="team">Team</Th>
-            <Th col="mat" style={{textAlign:"center"}} title="Matches">Mat</Th>
-            <Th col="overs" style={{textAlign:"center"}} title="Overs">Ovs</Th>
-            <Th col="runs" style={{textAlign:"center"}} title="Runs conceded">Runs</Th>
+            <Th col="mat" style={{textAlign:"center"}} title="Matches" className="mob-hide">Mat</Th>
+            <Th col="overs" style={{textAlign:"center"}} title="Overs" className="mob-hide">Ovs</Th>
+            <Th col="runs" style={{textAlign:"center"}} title="Runs conceded" className="mob-hide">Runs</Th>
             <Th col="wickets" style={{textAlign:"center"}} title="Wickets" className="points-cell">Wkts</Th>
             <Th col="bbf" style={{textAlign:"center"}} title="Best bowling figures">BBF</Th>
-            <Th col="maidens" style={{textAlign:"center"}} title="Maidens">Mdns</Th>
-            <Th col="dots" style={{textAlign:"center"}} title="Dot balls">Dots</Th>
+            <Th col="maidens" style={{textAlign:"center"}} title="Maidens" className="mob-hide">Mdns</Th>
+            <Th col="dots" style={{textAlign:"center"}} title="Dot balls" className="mob-hide">Dots</Th>
             <Th col="econ" style={{textAlign:"center"}} title="Economy">Econ</Th>
-            <Th col="avg" style={{textAlign:"center"}} title="Average">Avg</Th>
-            <Th col="sr" style={{textAlign:"center"}} title="Strike Rate">SR</Th>
-            <Th col="fiveW" style={{textAlign:"center"}} title="Five-wicket hauls">5W</Th>
+            <Th col="avg" style={{textAlign:"center"}} title="Average" className="mob-hide">Avg</Th>
+            <Th col="sr" style={{textAlign:"center"}} title="Strike Rate" className="mob-hide">SR</Th>
+            <Th col="fiveW" style={{textAlign:"center"}} title="Five-wicket hauls" className="mob-hide">5W</Th>
           </tr></thead>
           <tbody>
             {rows.map((r, i) => (
@@ -1637,17 +1664,17 @@ function BowlingView({ bowling, division, onDrilldown }) {
                 <td className="num-cell" style={{color:"var(--text-muted)"}}>{i+1}</td>
                 <td className="team-name clickable" style={{fontWeight:500}} onClick={() => onDrilldown({type:'player',name:r.player})}>{r.player}</td>
                 <td className="clickable" style={{fontSize:12,color:"var(--text-secondary)"}} onClick={() => onDrilldown({type:'team',name:r.team})}>{r.team}</td>
-                <td className="num-cell">{r.mat}</td>
-                <td className="num-cell">{r.overs}</td>
-                <td className="num-cell">{r.runs}</td>
+                <td className="num-cell mob-hide">{r.mat}</td>
+                <td className="num-cell mob-hide">{r.overs}</td>
+                <td className="num-cell mob-hide">{r.runs}</td>
                 <td className="num-cell points-cell">{r.wickets}</td>
-                <td className="num-cell">{r.bbf}</td>
-                <td className="num-cell">{r.maidens}</td>
-                <td className="num-cell">{r.dots}</td>
+                <td className="num-cell" style={{fontWeight:600}}>{r.bbf}</td>
+                <td className="num-cell mob-hide">{r.maidens}</td>
+                <td className="num-cell mob-hide">{r.dots}</td>
                 <td className="num-cell" style={{fontWeight:600}}>{r.econ}</td>
-                <td className="num-cell">{r.avg}</td>
-                <td className="num-cell">{r.sr}</td>
-                <td className="num-cell">{r.fiveW}</td>
+                <td className="num-cell mob-hide">{r.avg}</td>
+                <td className="num-cell mob-hide">{r.sr}</td>
+                <td className="num-cell mob-hide">{r.fiveW}</td>
               </tr>
             ))}
           </tbody>
@@ -1660,7 +1687,8 @@ function BowlingView({ bowling, division, onDrilldown }) {
 function RankingsView({ rankings, division, onDrilldown }) {
   const [sortCol, setSortCol] = useState('total');
   const [sortDir, setSortDir] = useState('desc');
-  const [filter, setFilter] = useState('');
+  const [teamFilter, setTeamFilter] = useState('');
+  const [playerFilter, setPlayerFilter] = useState('');
   const isCombined = division === 'combined';
 
   if (!rankings) return <div className="empty-state">No rankings data. Use Sync All in admin to fetch.</div>;
@@ -1673,25 +1701,32 @@ function RankingsView({ rankings, division, onDrilldown }) {
 
   const ts = rankings?.updatedAt;
   function toggleSort(col) { sortCol === col ? setSortDir(d => d==='asc'?'desc':'asc') : (setSortCol(col), setSortDir('asc')); }
-  const q = filter.toLowerCase();
-  const filtered = filter ? raw.filter(r => [r.player,r.team].some(v => String(v||'').toLowerCase().includes(q))) : raw;
+  const teamOptions = [...new Set(raw.map(r => r.team).filter(Boolean))].sort();
+  const playerOptions = [...new Set((teamFilter ? raw.filter(r => r.team===teamFilter) : raw).map(r => r.player).filter(Boolean))].sort();
+  const filtered = raw.filter(r => (!teamFilter || r.team===teamFilter) && (!playerFilter || r.player===playerFilter));
   const rows = sortRows(filtered, sortCol, sortDir);
   const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
   return (
     <div>
       <div className="section-label">Player Rankings Leaders</div>
       <LeaderSection rows={raw} statKey="total" label="Overall Points"/>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:20}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
         <LeaderSection rows={raw} statKey="batting" label="Batting Pts"/>
         <LeaderSection rows={raw} statKey="bowling" label="Bowling Pts"/>
         <LeaderSection rows={raw} statKey="mom" label="Man of Match"/>
       </div>
       <div className="section-label">Full Rankings</div>
       {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
-      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
-        <input type="text" placeholder="Filter player / team…" value={filter} onChange={e=>setFilter(e.target.value)}
-          style={{padding:'4px 10px',fontSize:12,border:'1.5px solid var(--border)',borderRadius:6,background:'var(--bg-100)',color:'var(--text-primary)',width:190,outline:'none'}}/>
-        {filter && <button className="small-btn" onClick={()=>setFilter('')}>✕</button>}
+      <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
+        <select className="team-select" value={teamFilter} onChange={e=>{setTeamFilter(e.target.value);setPlayerFilter('');}}>
+          <option value="">All Teams</option>
+          {teamOptions.map(t=><option key={t} value={t}>{t}</option>)}
+        </select>
+        <select className="team-select" value={playerFilter} onChange={e=>setPlayerFilter(e.target.value)}>
+          <option value="">All Players</option>
+          {playerOptions.map(p=><option key={p} value={p}>{p}</option>)}
+        </select>
+        {(teamFilter||playerFilter) && <button className="small-btn" onClick={()=>{setTeamFilter('');setPlayerFilter('');}}>✕</button>}
         <span style={{fontSize:11,color:"var(--text-muted)",marginLeft:"auto"}}>{rows.length} players</span>
       </div>
       <div className="scroll-x">
@@ -1700,11 +1735,11 @@ function RankingsView({ rankings, division, onDrilldown }) {
             <th style={{width:32}}>#</th>
             <Th col="player">Player</Th>
             <Th col="team">Team</Th>
-            <Th col="matches" style={{textAlign:"center"}} title="Matches played">Mat</Th>
-            <Th col="batting" style={{textAlign:"center"}} title="Batting points">Bat</Th>
-            <Th col="bowling" style={{textAlign:"center"}} title="Bowling points">Bowl</Th>
-            <Th col="fielding" style={{textAlign:"center"}} title="Fielding points">Field</Th>
-            <Th col="mom" style={{textAlign:"center"}} title="Man of Match awards">MOM</Th>
+            <Th col="matches" style={{textAlign:"center"}} title="Matches played" className="mob-hide">Mat</Th>
+            <Th col="batting" style={{textAlign:"center"}} title="Batting points" className="mob-hide">Bat</Th>
+            <Th col="bowling" style={{textAlign:"center"}} title="Bowling points" className="mob-hide">Bowl</Th>
+            <Th col="fielding" style={{textAlign:"center"}} title="Fielding points" className="mob-hide">Field</Th>
+            <Th col="mom" style={{textAlign:"center"}} title="Man of Match awards" className="mob-hide">MOM</Th>
             <Th col="total" style={{textAlign:"center"}} title="Total points" className="points-cell">Total</Th>
           </tr></thead>
           <tbody>
@@ -1713,11 +1748,11 @@ function RankingsView({ rankings, division, onDrilldown }) {
                 <td className="num-cell" style={{color:"var(--text-muted)"}}>{i+1}</td>
                 <td className="team-name clickable" style={{fontWeight:500}} onClick={() => onDrilldown({type:'player',name:r.player})}>{r.player}</td>
                 <td className="clickable" style={{fontSize:12,color:"var(--text-secondary)"}} onClick={() => onDrilldown({type:'team',name:r.team})}>{r.team}</td>
-                <td className="num-cell">{r.matches}</td>
-                <td className="num-cell">{r.batting}</td>
-                <td className="num-cell">{r.bowling}</td>
-                <td className="num-cell">{r.fielding}</td>
-                <td className="num-cell">{r.mom}</td>
+                <td className="num-cell mob-hide">{r.matches}</td>
+                <td className="num-cell mob-hide">{r.batting}</td>
+                <td className="num-cell mob-hide">{r.bowling}</td>
+                <td className="num-cell mob-hide">{r.fielding}</td>
+                <td className="num-cell mob-hide">{r.mom}</td>
                 <td className="num-cell points-cell">{r.total}</td>
               </tr>
             ))}
@@ -1740,8 +1775,14 @@ function ResultsView({ results, onDrilldown }) {
 
   const ts = results?.updatedAt;
   function toggleSort(col) { sortCol === col ? setSortDir(d => d==='asc'?'desc':'asc') : (setSortCol(col), setSortDir('asc')); }
-  const q = filter.toLowerCase();
-  const filtered = filter ? matches.filter(r => [r.team1,r.team2,r.division,r.result].some(v => String(v||'').toLowerCase().includes(q))) : matches;
+  const teamOptions = [...new Set(matches.flatMap(m => [m.team1,m.team2]).filter(Boolean))].sort();
+  const divOptions  = [...new Set(matches.map(m => m.division).filter(Boolean))].sort();
+  const [teamFilter, setTeamFilter] = [filter, setFilter];
+  const [divFilter, setDivFilter] = useState('');
+  const filtered = matches.filter(m =>
+    (!teamFilter || m.team1===teamFilter || m.team2===teamFilter) &&
+    (!divFilter  || m.division===divFilter)
+  );
   const rows = sortRows(filtered, sortCol, sortDir);
   const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
   return (
@@ -1749,42 +1790,48 @@ function ResultsView({ results, onDrilldown }) {
       <ResultStrip results={results}/>
       <div className="section-label">Match Results</div>
       {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
-      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
-        <input type="text" placeholder="Filter team, division, result…" value={filter} onChange={e=>setFilter(e.target.value)}
-          style={{padding:'4px 10px',fontSize:12,border:'1.5px solid var(--border)',borderRadius:6,background:'var(--bg-100)',color:'var(--text-primary)',width:220,outline:'none'}}/>
-        {filter && <button className="small-btn" onClick={()=>setFilter('')}>✕</button>}
+      <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
+        <select className="team-select" value={teamFilter} onChange={e=>setTeamFilter(e.target.value)}>
+          <option value="">All Teams</option>
+          {teamOptions.map(t=><option key={t} value={t}>{t}</option>)}
+        </select>
+        <select className="team-select" value={divFilter} onChange={e=>setDivFilter(e.target.value)}>
+          <option value="">All Divisions</option>
+          {divOptions.map(d=><option key={d} value={d}>{d}</option>)}
+        </select>
+        {(teamFilter||divFilter) && <button className="small-btn" onClick={()=>{setTeamFilter('');setDivFilter('');}}>✕</button>}
         <span style={{fontSize:11,color:"var(--text-muted)",marginLeft:"auto"}}>{rows.length} result{rows.length!==1?'s':''}</span>
       </div>
       <div className="scroll-x">
         <table>
           <thead><tr>
             <Th col="date" style={{whiteSpace:"nowrap"}}>Date</Th>
-            <Th col="division">Division</Th>
+            <Th col="division" className="mob-hide">Division</Th>
             <Th col="team1">Home</Th>
             <Th col="team2">Away</Th>
-            <th>Score</th>
+            <th className="mob-hide">Score</th>
             <Th col="result">Result</Th>
-            <th></th>
+            <th className="mob-hide"></th>
           </tr></thead>
           <tbody>
             {rows.map((r, i) => (
               <tr key={r.matchId || i}>
                 <td style={{fontSize:12,color:"var(--text-muted)",whiteSpace:"nowrap"}}>{r.date}</td>
-                <td style={{fontSize:11,color:"var(--text-secondary)"}}>{r.division}</td>
+                <td className="mob-hide" style={{fontSize:11,color:"var(--text-secondary)"}}>{r.division}</td>
                 <td className="team-name clickable" onClick={() => onDrilldown({type:'team',name:r.team1})}>
                   {r.team1}{r.team1Score?.won && <span style={{marginLeft:4,fontSize:8,color:"var(--clr-ok)"}}>●</span>}
                 </td>
                 <td className="team-name clickable" onClick={() => onDrilldown({type:'team',name:r.team2})}>
                   {r.team2}{r.team2Score?.won && <span style={{marginLeft:4,fontSize:8,color:"var(--clr-ok)"}}>●</span>}
                 </td>
-                <td style={{fontSize:12,whiteSpace:"nowrap",color:"var(--text-secondary)"}}>
+                <td className="mob-hide" style={{fontSize:12,whiteSpace:"nowrap",color:"var(--text-secondary)"}}>
                   {r.team1Score ? <span>{r.team1Score.score}{r.team1Score.overs && <span style={{fontSize:10,color:"var(--text-muted)"}}> ({r.team1Score.overs})</span>}</span> : null}
                   {r.team1Score && r.team2Score ? <span style={{color:"var(--text-muted)",margin:"0 4px"}}>·</span> : null}
                   {r.team2Score ? <span>{r.team2Score.score}{r.team2Score.overs && <span style={{fontSize:10,color:"var(--text-muted)"}}> ({r.team2Score.overs})</span>}</span> : null}
                   {!r.team1Score && !r.team2Score ? "—" : null}
                 </td>
                 <td style={{fontSize:12}}>{r.result}</td>
-                <td>{r.scorecard ? <a href={r.scorecard} target="_blank" rel="noopener" style={{fontSize:11,color:"var(--a-500)",whiteSpace:"nowrap"}}>Scorecard ↗</a> : null}</td>
+                <td className="mob-hide">{r.scorecard ? <a href={r.scorecard} target="_blank" rel="noopener" style={{fontSize:11,color:"var(--a-500)",whiteSpace:"nowrap"}}>Scorecard ↗</a> : null}</td>
               </tr>
             ))}
           </tbody>
