@@ -278,11 +278,8 @@
       <button class="nav-item" onclick="showSection('sync',this)">
         <span class="nav-icon">↓</span> Sync from CricClubs
       </button>
-      <button class="nav-item" onclick="showSection('standings-sync',this)">
-        <span class="nav-icon">↓</span> Sync Standings
-      </button>
-      <button class="nav-item" onclick="showSection('stats-sync',this)">
-        <span class="nav-icon">↓</span> Sync Stats
+      <button class="nav-item" onclick="showSection('sync-all',this)">
+        <span class="nav-icon">◈</span> Sync All Data
       </button>
       <button class="nav-item" onclick="showSection('upload',this)">
         <span class="nav-icon">↑</span> Upload Excel
@@ -405,50 +402,26 @@
       </div>
     </div>
 
-    <!-- Standings Sync section -->
-    <div id="section-standings-sync" class="section">
-      <div class="section-title">Sync Standings from CricClubs</div>
-      <div class="section-desc">Pull the official points table into the dashboard. Run once per division — each sync merges that division without touching others.</div>
+    <!-- Sync All section -->
+    <div id="section-sync-all" class="section">
+      <div class="section-title">Sync All Data from CricClubs</div>
+      <div class="section-desc">One bookmarklet, one click — pulls match results, standings, batting, bowling, and rankings for every division at once.</div>
 
       <div class="card">
-        <div class="card-header"><span class="card-icon">◎</span><span class="card-title">Bookmarklet setup</span></div>
+        <div class="card-header"><span class="card-icon">◈</span><span class="card-title">Bookmarklet setup</span></div>
         <div class="card-body">
           <ol class="steps">
             <li>Drag the button below into your browser's bookmarks bar <em>(do this once)</em></li>
-            <li>Open the <a href="https://cricclubs.com/SYCLYouth/viewPointsTable.do?year=2026&clubId=10669" target="_blank" style="color:var(--text-primary);font-weight:500">CricClubs Points Table ↗</a></li>
-            <li>Click the bookmarklet — it fetches all divisions at once and syncs them all</li>
+            <li>Open the <a href="https://cricclubs.com/SYCLYouth/listMatches.do?clubId=10669" target="_blank" style="color:var(--text-primary);font-weight:500">CricClubs Match Results page ↗</a></li>
+            <li>Click the bookmarklet — it reads results from the current page, then fetches standings, batting, bowling, and rankings for all divisions in parallel</li>
           </ol>
           <div class="bookmarklet-wrap">
-            <a id="standingsBookmarkletLink" class="bookmarklet-link" href="#">Sync Standings to SYCL</a>
-            <div class="bookmarklet-hint">Drag to bookmarks bar · Click once on the CricClubs Points Table page — syncs all divisions</div>
+            <a id="syncAllBookmarkletLink" class="bookmarklet-link" href="#">◈ Sync All to SYCL</a>
+            <div class="bookmarklet-hint">Drag to bookmarks bar · Click from the CricClubs Match Results page (listMatches.do)</div>
           </div>
         </div>
         <div class="card-footer">
-          <span style="font-size:12px;color:var(--text-muted)">Each division is merged independently — re-syncing one division does not overwrite others.</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Stats Sync section -->
-    <div id="section-stats-sync" class="section">
-      <div class="section-title">Sync Stats from CricClubs</div>
-      <div class="section-desc">Pull batting, bowling, and player rankings for all divisions in one click. Run from the CricClubs Batting Records page.</div>
-
-      <div class="card">
-        <div class="card-header"><span class="card-icon">◎</span><span class="card-title">Bookmarklet setup</span></div>
-        <div class="card-body">
-          <ol class="steps">
-            <li>Drag the button below into your browser's bookmarks bar <em>(do this once)</em></li>
-            <li>Open the <a href="https://cricclubs.com/SYCLYouth/battingRecords.do?league=218&clubId=10669" target="_blank" style="color:var(--text-primary);font-weight:500">CricClubs Batting Records page ↗</a></li>
-            <li>Click the bookmarklet — it syncs batting, bowling, and rankings for all divisions at once</li>
-          </ol>
-          <div class="bookmarklet-wrap">
-            <a id="statsBookmarkletLink" class="bookmarklet-link" href="#">Sync Stats to SYCL</a>
-            <div class="bookmarklet-hint">Drag to bookmarks bar · Click from the CricClubs Batting Records page</div>
-          </div>
-        </div>
-        <div class="card-footer">
-          <span style="font-size:12px;color:var(--text-muted)">Shows batting, bowling, and rankings tabs on the public dashboard. Combined (all-division) view available.</span>
+          <span style="font-size:12px;color:var(--text-muted)">Syncs results, standings, batting, bowling, and rankings in a single write — no 409 conflicts.</span>
         </div>
       </div>
     </div>
@@ -723,8 +696,7 @@ function showAdminShell() {
   document.getElementById('adminShell').style.display = 'flex';
   buildBookmarklet();
   buildAutoFillBookmarklet();
-  buildStandingsBookmarklet();
-  buildStatsBookmarklet();
+  buildSyncAllBookmarklet();
   loadStatus();
   loadFixtures();
 }
@@ -992,142 +964,85 @@ fetch('${origin}/api/schedule?_t='+Date.now())
   document.getElementById('autofillBookmarkletLink').href = 'javascript:' + encodeURIComponent(code);
 }
 
-// ── Standings bookmarklet ─────────────────────────────────────
-function buildStandingsBookmarklet() {
+// ── Sync All bookmarklet ──────────────────────────────────────
+function buildSyncAllBookmarklet() {
   const origin = window.location.origin;
   const password = getPassword();
 
   const code = `(function(){
-// CricClubs uses Bootstrap button+dropdown-menu, NOT <select> elements.
-// Division links are <a href="...?league=N&..."> inside .dropdown-menu
-
-// Collect division links — look for hrefs containing league= that link to viewPointsTable
-var divLinks=Array.from(document.querySelectorAll('.dropdown-menu a[href*="league="]')).filter(function(a){
-  return a.href.includes('viewPointsTable')&&a.textContent.trim()&&!/^\\d+$/.test(a.textContent.trim());
-});
-if(!divLinks.length){
-  alert('Could not find division links on this page.\\nMake sure you are on the CricClubs Points Table page (viewPointsTable.do).');
-  return;
+if(!window.location.href.includes('listMatches.do')){
+  alert('Run this from the CricClubs Match Results page\\n(Results → Match Results)');return;
 }
-var divOptions=divLinks.map(function(a){return{name:a.textContent.trim(),url:a.href};});
 
-// Parse standings table from a document.
-// NOTE: CricClubs uses <th> in tbody rows (not <td>) and hides match-detail rows.
-function parseStandingsTable(doc){
-  var tbl=doc.getElementById('point-table');
-  if(!tbl){
-    Array.from(doc.querySelectorAll('table')).some(function(t){
-      var h=((t.querySelector('thead tr')||t.querySelector('tr'))||{}).textContent||'';
-      if(h.toLowerCase().includes('mat')&&h.toLowerCase().includes('won')&&h.toLowerCase().includes('pts')){tbl=t;return true;}
+// ── Parse match results from current page ────────────────────
+function parseResults(){
+  var out=[];
+  document.querySelectorAll('.row.team-data[id^="deleteRow"]').forEach(function(row){
+    var matchId=row.id.replace('deleteRow','');
+    var timeEl=row.querySelector('.sch-time');
+    var day=timeEl?timeEl.querySelector('h2'):null;
+    var h5s=timeEl?timeEl.querySelectorAll('h5'):[];
+    var monthYear=h5s.length?h5s[h5s.length-1]:null;
+    var dateStr=[(day?day.textContent.trim():''),(monthYear?monthYear.textContent.trim():'')].filter(Boolean).join(' ');
+    var textEl=row.querySelector('.schedule-text');
+    var h4s=textEl?textEl.querySelectorAll('h4'):[];
+    var h3=textEl?textEl.querySelector('h3'):null;
+    var divisionFull=h4s[0]?h4s[0].textContent.trim():'';
+    var divParts=divisionFull.split(' - ');
+    var division=divParts.length>1?divParts[divParts.length-1].trim():divisionFull;
+    var teamsText=h3?h3.textContent.trim():'';
+    var teamParts=teamsText.split(/\\s+v\\s+/);
+    var team1=teamParts[0]?teamParts[0].trim():'';
+    var team2=teamParts[1]?teamParts[1].trim():'';
+    var result=h4s[1]?h4s[1].textContent.trim():'';
+    var logoEl=row.querySelector('.schedule-logo');
+    var scoreLis=logoEl?logoEl.querySelectorAll('.list-inline li'):[];
+    var scores=[];
+    scoreLis.forEach(function(li){
+      var sp=li.querySelector('span');var p=li.querySelector('p');
+      if(sp)scores.push({score:sp.textContent.trim(),overs:p?p.textContent.trim():'',won:li.classList.contains('win')});
     });
-  }
-  if(!tbl)return null;
-  var headerRow=tbl.querySelector('thead tr');
-  if(!headerRow)return null;
-  var colIdx={};
-  var colMap={rank:'#',team:'team',played:'mat',won:'won',lost:'lost',nr:'n/r',tie:'tie',pts:'pts',winPct:'win',nrr:'net rr',runsFor:'for',runsAgainst:'against'};
-  Array.from(headerRow.querySelectorAll('th,td')).forEach(function(th,i){
-    var t=th.textContent.trim().toLowerCase();
-    Object.keys(colMap).forEach(function(k){if(t===colMap[k]||t.startsWith(colMap[k]))colIdx[k]=i;});
+    var scA=row.querySelector('a[href*="viewScorecard"]');
+    if(team1&&team2&&result){
+      out.push({matchId:matchId,date:dateStr,division:division,team1:team1,team2:team2,result:result,team1Score:scores[0]||null,team2Score:scores[1]||null,scorecard:scA?scA.href:''});
+    }
   });
+  return out;
+}
+
+// ── Find per-division league IDs from dropdown ───────────────
+function getDivisionOptions(){
+  var options=[];var seen={};
+  Array.from(document.querySelectorAll('.dropdown-menu a[href*="league="]')).forEach(function(a){
+    var m=a.href.match(/league=(\\d+)/);if(!m)return;
+    var lid=m[1];
+    var name=a.textContent.trim();
+    if(!name||/^all\\s/i.test(name)||name.toLowerCase()==='all divisions')return;
+    if(seen[lid])return;seen[lid]=true;
+    options.push({name:name,leagueId:lid});
+  });
+  return options;
+}
+
+// ── Table parsers ─────────────────────────────────────────────
+function parseStandings(doc){
+  var tbl=doc.getElementById('point-table');
+  if(!tbl){Array.from(doc.querySelectorAll('table')).some(function(t){var h=(t.querySelector('thead tr')||{}).textContent||'';if(h.toLowerCase().includes('mat')&&h.toLowerCase().includes('pts')){tbl=t;return true;}});}
+  if(!tbl)return null;
+  var hRow=tbl.querySelector('thead tr');if(!hRow)return null;
+  var colIdx={};var colMap={rank:'#',team:'team',played:'mat',won:'won',lost:'lost',nr:'n/r',tie:'tie',pts:'pts',winPct:'win',nrr:'net rr',runsFor:'for',runsAgainst:'against'};
+  Array.from(hRow.querySelectorAll('th,td')).forEach(function(th,i){var t=th.textContent.trim().toLowerCase();Object.keys(colMap).forEach(function(k){if(t===colMap[k]||t.startsWith(colMap[k]))colIdx[k]=i;});});
   var rows=[];
   Array.from(tbl.querySelectorAll('tbody tr')).forEach(function(tr){
-    // Skip hidden match-detail rows
     if(tr.style.display==='none'||/^matchesBySeries/.test(tr.id))return;
-    // tbody rows use <th> not <td>
-    var cells=Array.from(tr.querySelectorAll('th,td'));
-    if(cells.length<4)return;
+    var cells=Array.from(tr.querySelectorAll('th,td'));if(cells.length<4)return;
     function get(k){var i=colIdx[k];return(i!=null&&i<cells.length)?cells[i].textContent.replace(/\\s+/g,' ').trim():'';}
-    var team=get('team');
-    if(!team||team==='-')return;
-    // Skip rows where all stats are dashes (registered teams without matches)
-    if(get('played')==='-')return;
+    var team=get('team');if(!team||team==='-'||get('played')==='-')return;
     rows.push({rank:parseInt(get('rank'))||0,team:team,played:parseInt(get('played'))||0,won:parseInt(get('won'))||0,lost:parseInt(get('lost'))||0,nr:parseInt(get('nr'))||0,tie:parseInt(get('tie'))||0,pts:parseInt(get('pts'))||0,winPct:get('winPct'),nrr:get('nrr'),runsFor:get('runsFor'),runsAgainst:get('runsAgainst')});
   });
   return rows.length?rows:null;
 }
 
-var ov=document.createElement('div');
-ov.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;font-family:sans-serif';
-ov.innerHTML='<div style="background:#fff;border-radius:10px;padding:24px 32px;min-width:280px;text-align:center;font-size:14px;color:#09090b">SYCL Sync Standings<br><span id="_syclSt" style="font-size:12px;color:#71717a">Fetching '+divOptions.length+' divisions…</span></div>';
-document.body.appendChild(ov);
-function setMsg(m){var el=document.getElementById('_syclSt');if(el)el.textContent=m;}
-
-function fetchDiv(opt){
-  return fetch(opt.url,{credentials:'include'}).then(function(r){return r.text();}).then(function(html){
-    var doc=new DOMParser().parseFromString(html,'text/html');
-    var rows=parseStandingsTable(doc);
-    return rows?{division:opt.name,rows:rows}:null;
-  });
-}
-
-Promise.all(divOptions.map(fetchDiv)).then(function(results){
-  ov.remove();
-  var valid=results.filter(Boolean);
-  if(!valid.length){alert('Could not parse standings for any division.\\nThe page structure may have changed.');return;}
-  var summary=valid.map(function(d){return d.division+': '+d.rows.length+' teams';}).join('\\n');
-  if(!confirm('Sync standings for '+valid.length+' divisions?\\n\\n'+summary)){return;}
-  document.body.appendChild(ov);setMsg('Saving to dashboard…');
-  // Send ALL divisions in one request — avoids GitHub 409 conflicts from concurrent writes
-  var divisionsMap={};
-  valid.forEach(function(d){divisionsMap[d.division]={rows:d.rows};});
-  return fetch('${origin}/api/standings',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Password':'${password}'},body:JSON.stringify({divisions:divisionsMap})})
-    .then(function(r){return r.json();});
-}).then(function(resp){
-  ov.remove();
-  if(!resp)return;
-  alert(resp.error?('Error: '+resp.error):resp.message);
-}).catch(function(e){ov.remove();alert('Error: '+e.message);});
-})();`;
-
-  document.getElementById('standingsBookmarkletLink').href = 'javascript:' + encodeURIComponent(code);
-}
-
-// ── Stats bookmarklet ─────────────────────────────────────────
-function buildStatsBookmarklet() {
-  const origin = window.location.origin;
-  const password = getPassword();
-
-  const code = `(function(){
-var divSelect=document.getElementById('divisiondropdown');
-if(!divSelect){alert('Run this from the CricClubs Batting Records page\\n(Statistics → Batting Records)');return;}
-
-// Collect all division options (current page + select options)
-var options=[];
-var seen={};
-
-// Current page division
-var curM=window.location.href.match(/league=(\\d+)/);
-if(curM){
-  var curId=curM[1];
-  var curIsAll=window.location.href.includes('divisions=all');
-  var curName=curIsAll?'combined':(divSelect.options[0]?divSelect.options[0].text.trim():'Division');
-  seen[curId]=true;
-  options.push({name:curName,leagueId:curId,isDivAll:curIsAll,battingUrl:window.location.href});
-}
-
-// Other divisions from select
-Array.from(divSelect.options).forEach(function(o){
-  if(!o.value)return;
-  var m=o.value.match(/league=(\\d+)/);if(!m)return;
-  var lid=m[1];if(seen[lid])return;seen[lid]=true;
-  var isAll=o.value.includes('divisions=all');
-  options.push({name:isAll?'combined':o.text.trim(),leagueId:lid,isDivAll:isAll,battingUrl:'https://cricclubs.com'+o.value});
-});
-
-if(!options.length){alert('No division options found.');return;}
-
-// Derive bowling and rankings URLs
-options.forEach(function(opt){
-  opt.bowlingUrl=opt.battingUrl.replace('battingRecords.do','bowlingRecords.do').replace(/[?&]xparam=[^&]*/,'');
-  if(opt.isDivAll){
-    opt.rankingsUrl='https://cricclubs.com/SYCLYouth/playerRankings.do?divisions=all&league='+opt.leagueId+'&year=null&tagId=null&clubId=10669';
-  } else {
-    opt.rankingsUrl='https://cricclubs.com/SYCLYouth/playerRankings.do?league='+opt.leagueId+'&year=null&tagId=null&clubId=10669';
-  }
-});
-
-// Parse batting table (#webrecordtable, <td> in tbody)
 function parseBatting(doc){
   var tbl=doc.getElementById('webrecordtable');if(!tbl)return null;
   var rows=[];
@@ -1140,7 +1055,6 @@ function parseBatting(doc){
   return rows.length?rows:null;
 }
 
-// Parse bowling table (#webrecordtable, <td> in tbody)
 function parseBowling(doc){
   var tbl=doc.getElementById('webrecordtable');if(!tbl)return null;
   var rows=[];
@@ -1153,7 +1067,6 @@ function parseBowling(doc){
   return rows.length?rows:null;
 }
 
-// Parse rankings table (#tablePlayerRankings, <th> in tbody, team in nested table)
 function parseRankings(doc){
   var tbl=doc.getElementById('tablePlayerRankings');if(!tbl)return null;
   var rows=[];
@@ -1161,7 +1074,6 @@ function parseRankings(doc){
     var cells=Array.from(tr.querySelectorAll('th,td'));if(cells.length<8)return;
     function g(i){return cells[i]?cells[i].textContent.replace(/\\s+/g,' ').trim():'';}
     var player=g(1);if(!player)return;
-    // Team is in nested table inside cells[2]
     var teamTds=cells[2]?cells[2].querySelectorAll('td'):[];
     var team=teamTds.length>1?teamTds[teamTds.length-1].textContent.replace(/\\s+/g,' ').trim():g(2);
     rows.push({rank:parseInt(g(0))||0,player:player,team:team,matches:parseInt(g(3))||0,batting:parseInt(g(4))||0,bowling:parseInt(g(5))||0,fielding:parseInt(g(6))||0,other:parseInt(g(7))||0,mom:parseInt(g(8))||0,total:parseInt(g(9))||0});
@@ -1169,35 +1081,52 @@ function parseRankings(doc){
   return rows.length?rows:null;
 }
 
+// ── Main ──────────────────────────────────────────────────────
+var results=parseResults();
+var divOptions=getDivisionOptions();
+
+if(!results.length&&!divOptions.length){
+  alert('No match results or division links found.\\nMake sure you are on the CricClubs Match Results page (listMatches.do).');return;
+}
+
 var ov=document.createElement('div');
 ov.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;font-family:sans-serif';
-ov.innerHTML='<div style="background:#fff;border-radius:10px;padding:24px 32px;min-width:300px;text-align:center;font-size:14px;color:#09090b">SYCL Sync Stats<br><span id="_syclSt" style="font-size:12px;color:#71717a">Fetching '+options.length+' divisions × 3 stat types…</span></div>';
+ov.innerHTML='<div style="background:#fff;border-radius:10px;padding:24px 32px;min-width:320px;text-align:center;font-size:14px;color:#09090b">SYCL Sync All<br><span id="_syclMsg" style="font-size:12px;color:#71717a">Fetching '+(divOptions.length)+' divisions × 4 data types…</span></div>';
 document.body.appendChild(ov);
-function setMsg(m){var el=document.getElementById('_syclSt');if(el)el.textContent=m;}
+function setMsg(m){var el=document.getElementById('_syclMsg');if(el)el.textContent=m;}
 
+var base='https://cricclubs.com/SYCLYouth/';
 var fetchAll=[];
-options.forEach(function(opt){
+divOptions.forEach(function(opt){
   fetchAll.push(
-    fetch(opt.battingUrl,{credentials:'include'}).then(function(r){return r.text();}).then(function(html){return{type:'batting',name:opt.name,rows:parseBatting(new DOMParser().parseFromString(html,'text/html'))};}).catch(function(){return null;}),
-    fetch(opt.bowlingUrl,{credentials:'include'}).then(function(r){return r.text();}).then(function(html){return{type:'bowling',name:opt.name,rows:parseBowling(new DOMParser().parseFromString(html,'text/html'))};}).catch(function(){return null;}),
-    fetch(opt.rankingsUrl,{credentials:'include'}).then(function(r){return r.text();}).then(function(html){return{type:'rankings',name:opt.name,rows:parseRankings(new DOMParser().parseFromString(html,'text/html'))};}).catch(function(){return null;})
+    fetch(base+'viewPointsTable.do?league='+opt.leagueId+'&clubId=10669',{credentials:'include'}).then(function(r){return r.text();}).then(function(h){return{type:'standings',name:opt.name,rows:parseStandings(new DOMParser().parseFromString(h,'text/html'))};}).catch(function(){return null;}),
+    fetch(base+'battingRecords.do?league='+opt.leagueId+'&clubId=10669',{credentials:'include'}).then(function(r){return r.text();}).then(function(h){return{type:'batting',name:opt.name,rows:parseBatting(new DOMParser().parseFromString(h,'text/html'))};}).catch(function(){return null;}),
+    fetch(base+'bowlingRecords.do?league='+opt.leagueId+'&clubId=10669',{credentials:'include'}).then(function(r){return r.text();}).then(function(h){return{type:'bowling',name:opt.name,rows:parseBowling(new DOMParser().parseFromString(h,'text/html'))};}).catch(function(){return null;}),
+    fetch(base+'playerRankings.do?league='+opt.leagueId+'&year=null&tagId=null&clubId=10669',{credentials:'include'}).then(function(r){return r.text();}).then(function(h){return{type:'rankings',name:opt.name,rows:parseRankings(new DOMParser().parseFromString(h,'text/html'))};}).catch(function(){return null;})
   );
 });
 
-Promise.all(fetchAll).then(function(results){
+Promise.all(fetchAll).then(function(fetched){
   ov.remove();
-  var batting={},bowling={},rankings={};
-  results.filter(Boolean).forEach(function(r){
+  var standings={},batting={},bowling={},rankings={};
+  fetched.filter(Boolean).forEach(function(r){
     if(!r.rows)return;
-    if(r.type==='batting')batting[r.name]=r.rows;
+    if(r.type==='standings')standings[r.name]=r.rows;
+    else if(r.type==='batting')batting[r.name]=r.rows;
     else if(r.type==='bowling')bowling[r.name]=r.rows;
     else if(r.type==='rankings')rankings[r.name]=r.rows;
   });
-  var bd=Object.keys(batting).length,bw=Object.keys(bowling).length,rk=Object.keys(rankings).length;
-  if(!bd&&!bw&&!rk){alert('Could not parse any stats. Make sure you are on the CricClubs Batting Records page.');return;}
-  if(!confirm('Sync stats?\\n\\nBatting: '+bd+' divisions\\nBowling: '+bw+' divisions\\nRankings: '+rk+' divisions')){return;}
+  var sd=Object.keys(standings).length,bd=Object.keys(batting).length,bw=Object.keys(bowling).length,rk=Object.keys(rankings).length;
+  var summary='Results: '+results.length+' matches\\nStandings: '+sd+' divisions\\nBatting: '+bd+' divisions\\nBowling: '+bw+' divisions\\nRankings: '+rk+' divisions';
+  if(!confirm('Sync all data to SYCL dashboard?\\n\\n'+summary)){return;}
   document.body.appendChild(ov);setMsg('Saving to dashboard…');
-  return fetch('${origin}/api/sync-stats',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Password':'${password}'},body:JSON.stringify({batting:batting,bowling:bowling,rankings:rankings})}).then(function(r){return r.json();});
+  var payload={};
+  if(results.length)payload.results=results;
+  if(sd)payload.standings=standings;
+  if(bd)payload.batting=batting;
+  if(bw)payload.bowling=bowling;
+  if(rk)payload.rankings=rankings;
+  return fetch('${origin}/api/sync-all',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Password':'${password}'},body:JSON.stringify(payload)}).then(function(r){return r.json();});
 }).then(function(resp){
   ov.remove();
   if(!resp)return;
@@ -1205,7 +1134,7 @@ Promise.all(fetchAll).then(function(results){
 }).catch(function(e){ov.remove();alert('Error: '+e.message);});
 })();`;
 
-  document.getElementById('statsBookmarkletLink').href = 'javascript:' + encodeURIComponent(code);
+  document.getElementById('syncAllBookmarkletLink').href = 'javascript:' + encodeURIComponent(code);
 }
 
 // ── Propagate section ─────────────────────────────────────────

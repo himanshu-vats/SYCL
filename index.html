@@ -414,6 +414,25 @@ const STYLES = `
 `;
 
 
+/* ─── Sort/filter helpers ─── */
+function sortRows(rows, col, dir) {
+  if (!col) return rows;
+  return [...rows].sort((a, b) => {
+    const va = a[col], vb = b[col];
+    const na = parseFloat(va), nb = parseFloat(vb);
+    const cmp = (!isNaN(na) && !isNaN(nb)) ? na - nb : String(va||'').localeCompare(String(vb||''));
+    return dir === 'asc' ? cmp : -cmp;
+  });
+}
+
+function SortableTh({ col, sortCol, sortDir, onSort, children, style, ...rest }) {
+  return (
+    <th onClick={() => onSort(col)} style={{cursor:'pointer',userSelect:'none',...(style||{})}} {...rest}>
+      {children}<span style={{marginLeft:2,opacity:0.4,fontSize:8}}>{sortCol===col?(sortDir==='asc'?'▲':'▼'):'⇅'}</span>
+    </th>
+  );
+}
+
 /* ─── Views ─── */
 function ScheduleView({ matches, division }) {
   const [teamFilter, setTeamFilter] = useState("");
@@ -505,35 +524,49 @@ function ScheduleView({ matches, division }) {
 }
 
 function StandingsView({ matches, division, standings }) {
-  // Use CricClubs synced standings if available for this division
+  const [sortCol, setSortCol] = useState('pts');
+  const [sortDir, setSortDir] = useState('desc');
+  const [filter, setFilter] = useState('');
+
   const ccRows = standings?.[division]?.rows;
+  const ts = standings?.[division]?.updatedAt;
+  function toggleSort(col) { sortCol === col ? setSortDir(d => d==='asc'?'desc':'asc') : (setSortCol(col), setSortDir('asc')); }
+  const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
+
   if (ccRows?.length > 0) {
-    const ts = standings[division].updatedAt;
+    const q = filter.toLowerCase();
+    const raw = filter ? ccRows.filter(s => s.team?.toLowerCase().includes(q)) : ccRows;
+    const rows = sortRows(raw, sortCol, sortDir);
     return (
       <div>
-        <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:10}}>
+        <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>
           Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})} at {new Date(ts).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
+          <input type="text" placeholder="Filter team…" value={filter} onChange={e=>setFilter(e.target.value)}
+            style={{padding:'4px 8px',fontSize:12,border:'1px solid var(--border)',borderRadius:5,background:'var(--bg-100)',color:'var(--text-primary)',width:160}}/>
+          {filter && <button className="small-btn" onClick={()=>setFilter('')}>✕</button>}
         </div>
         <div className="scroll-x">
           <table>
             <thead><tr>
               <th style={{width:32}}>#</th>
-              <th>Team</th>
-              <th style={{textAlign:"center"}} title="Matches played">P</th>
-              <th style={{textAlign:"center"}} title="Wins">W</th>
-              <th style={{textAlign:"center"}} title="Losses">L</th>
-              <th style={{textAlign:"center"}} title="No result">N/R</th>
-              <th style={{textAlign:"center"}} title="Ties">Tie</th>
-              <th style={{textAlign:"center"}} title="Points">Pts</th>
-              <th style={{textAlign:"center"}} title="Win percentage">Win%</th>
-              <th style={{textAlign:"center"}} title="Net Run Rate">NRR</th>
+              <Th col="team">Team</Th>
+              <Th col="played" style={{textAlign:"center"}} title="Matches played">P</Th>
+              <Th col="won" style={{textAlign:"center"}} title="Wins">W</Th>
+              <Th col="lost" style={{textAlign:"center"}} title="Losses">L</Th>
+              <Th col="nr" style={{textAlign:"center"}} title="No result">N/R</Th>
+              <Th col="tie" style={{textAlign:"center"}} title="Ties">Tie</Th>
+              <Th col="pts" style={{textAlign:"center"}} title="Points">Pts</Th>
+              <Th col="winPct" style={{textAlign:"center"}} title="Win percentage">Win%</Th>
+              <Th col="nrr" style={{textAlign:"center"}} title="Net Run Rate">NRR</Th>
               <th style={{textAlign:"center"}} title="Runs scored / overs">For</th>
               <th style={{textAlign:"center"}} title="Runs conceded / overs">Agst</th>
             </tr></thead>
             <tbody>
-              {ccRows.map((s, i) => (
+              {rows.map((s, i) => (
                 <tr key={s.team}>
-                  <td className="num-cell" style={{color:"var(--text-muted)"}}>{s.rank || i+1}</td>
+                  <td className="num-cell" style={{color:"var(--text-muted)"}}>{i+1}</td>
                   <td className="team-name">{s.team}</td>
                   <td className="num-cell">{s.played}</td>
                   <td className="num-cell">{s.won}</td>
@@ -554,13 +587,14 @@ function StandingsView({ matches, division, standings }) {
     );
   }
 
-  // Fallback: derive standings from match results in the schedule
+  // Fallback: derive standings from match results
   const dm = matches.filter(m => m.division === division);
   const teams = [...new Set(dm.flatMap(m => [m.team1, m.team2]))].sort();
   const computed = computeStandings(dm, teams);
   if (!computed.some(s => s.played > 0)) return (
     <div className="empty-state">No results recorded yet for this division.</div>
   );
+  const rows2 = sortRows(computed, sortCol === 'pts' ? 'points' : sortCol, sortDir);
   return (
     <div>
       <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:10}}>
@@ -569,16 +603,17 @@ function StandingsView({ matches, division, standings }) {
       <div className="scroll-x">
         <table>
           <thead><tr>
-            <th style={{width:32}}>#</th><th>Team</th>
-            <th style={{textAlign:"center"}} title="Matches played">P</th>
-            <th style={{textAlign:"center"}} title="Wins">W</th>
-            <th style={{textAlign:"center"}} title="Losses">L</th>
-            <th style={{textAlign:"center"}} title="Abandoned / No result">Abd</th>
-            <th style={{textAlign:"center"}} title="Forfeited">Fft</th>
-            <th style={{textAlign:"center"}} title="Points">Pts</th>
+            <th style={{width:32}}>#</th>
+            <Th col="team">Team</Th>
+            <Th col="played" style={{textAlign:"center"}} title="Matches played">P</Th>
+            <Th col="won" style={{textAlign:"center"}} title="Wins">W</Th>
+            <Th col="lost" style={{textAlign:"center"}} title="Losses">L</Th>
+            <Th col="abandoned" style={{textAlign:"center"}} title="Abandoned / No result">Abd</Th>
+            <Th col="forfeited" style={{textAlign:"center"}} title="Forfeited">Fft</Th>
+            <Th col="points" style={{textAlign:"center"}} title="Points">Pts</Th>
           </tr></thead>
           <tbody>
-            {computed.map((s, i) => (
+            {rows2.map((s, i) => (
               <tr key={s.team}>
                 <td className="num-cell" style={{color:"var(--text-muted)"}}>{i+1}</td>
                 <td className="team-name">{s.team}</td>
@@ -596,36 +631,60 @@ function StandingsView({ matches, division, standings }) {
 }
 
 function BattingView({ batting, division }) {
-  const rows = batting?.[division] || [];
-  if (!rows.length) return (
-    <div className="empty-state">No batting data for this division. Use Sync Stats in admin to fetch.</div>
-  );
+  const [sortCol, setSortCol] = useState('runs');
+  const [sortDir, setSortDir] = useState('desc');
+  const [filter, setFilter] = useState('');
+  const isCombined = division === 'combined';
+
+  if (!batting) return <div className="empty-state">No batting data. Use Sync All in admin to fetch.</div>;
+
+  const raw = isCombined
+    ? Object.entries(batting).filter(([k]) => k !== 'updatedAt' && k !== 'combined').flatMap(([div, r]) => Array.isArray(r) ? r.map(row => ({...row, _div: div})) : [])
+    : (batting[division] || []);
+
+  if (!raw.length) return <div className="empty-state">No batting data for this division. Use Sync All in admin to fetch.</div>;
+
   const ts = batting?.updatedAt;
+  function toggleSort(col) { sortCol === col ? setSortDir(d => d==='asc'?'desc':'asc') : (setSortCol(col), setSortDir('asc')); }
+  const q = filter.toLowerCase();
+  const filtered = filter ? raw.filter(r => [r.player,r.team,r._div].some(v => String(v||'').toLowerCase().includes(q))) : raw;
+  const rows = sortRows(filtered, sortCol, sortDir);
+  const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
   return (
     <div>
-      {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:10}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
+      {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
+      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
+        <input type="text" placeholder="Filter player / team…" value={filter} onChange={e=>setFilter(e.target.value)}
+          style={{padding:'4px 8px',fontSize:12,border:'1px solid var(--border)',borderRadius:5,background:'var(--bg-100)',color:'var(--text-primary)',width:180}}/>
+        {filter && <button className="small-btn" onClick={()=>setFilter('')}>✕</button>}
+        <span style={{fontSize:11,color:"var(--text-muted)",marginLeft:"auto"}}>{rows.length} players</span>
+      </div>
       <div className="scroll-x">
         <table>
           <thead><tr>
-            <th style={{width:32}}>#</th><th>Player</th><th>Team</th>
-            <th style={{textAlign:"center"}} title="Matches">Mat</th>
-            <th style={{textAlign:"center"}} title="Innings">Inns</th>
-            <th style={{textAlign:"center"}} title="Not Out">NO</th>
-            <th style={{textAlign:"center"}} title="Runs" className="points-cell">Runs</th>
-            <th style={{textAlign:"center"}} title="Fours">4s</th>
-            <th style={{textAlign:"center"}} title="Sixes">6s</th>
-            <th style={{textAlign:"center"}} title="Fifties">50s</th>
-            <th style={{textAlign:"center"}} title="Hundreds">100s</th>
-            <th style={{textAlign:"center"}} title="Highest Score">HS</th>
-            <th style={{textAlign:"center"}} title="Strike Rate">SR</th>
-            <th style={{textAlign:"center"}} title="Average">Avg</th>
+            <th style={{width:32}}>#</th>
+            <Th col="player">Player</Th>
+            <Th col="team">Team</Th>
+            {isCombined && <Th col="_div">Division</Th>}
+            <Th col="mat" style={{textAlign:"center"}} title="Matches">Mat</Th>
+            <Th col="inns" style={{textAlign:"center"}} title="Innings">Inns</Th>
+            <Th col="no" style={{textAlign:"center"}} title="Not Out">NO</Th>
+            <Th col="runs" style={{textAlign:"center"}} title="Runs" className="points-cell">Runs</Th>
+            <Th col="fours" style={{textAlign:"center"}} title="Fours">4s</Th>
+            <Th col="sixes" style={{textAlign:"center"}} title="Sixes">6s</Th>
+            <Th col="fifties" style={{textAlign:"center"}} title="Fifties">50s</Th>
+            <Th col="hundreds" style={{textAlign:"center"}} title="Hundreds">100s</Th>
+            <Th col="hs" style={{textAlign:"center"}} title="Highest Score">HS</Th>
+            <Th col="sr" style={{textAlign:"center"}} title="Strike Rate">SR</Th>
+            <Th col="avg" style={{textAlign:"center"}} title="Average">Avg</Th>
           </tr></thead>
           <tbody>
             {rows.map((r, i) => (
               <tr key={r.player + i}>
-                <td className="num-cell" style={{color:"var(--text-muted)"}}>{r.rank || i+1}</td>
+                <td className="num-cell" style={{color:"var(--text-muted)"}}>{i+1}</td>
                 <td className="team-name" style={{fontWeight:500}}>{r.player}</td>
                 <td style={{fontSize:12,color:"var(--text-secondary)"}}>{r.team}</td>
+                {isCombined && <td style={{fontSize:11,color:"var(--text-muted)"}}>{r._div}</td>}
                 <td className="num-cell">{r.mat}</td>
                 <td className="num-cell">{r.inns}</td>
                 <td className="num-cell">{r.no}</td>
@@ -647,36 +706,60 @@ function BattingView({ batting, division }) {
 }
 
 function BowlingView({ bowling, division }) {
-  const rows = bowling?.[division] || [];
-  if (!rows.length) return (
-    <div className="empty-state">No bowling data for this division. Use Sync Stats in admin to fetch.</div>
-  );
+  const [sortCol, setSortCol] = useState('wickets');
+  const [sortDir, setSortDir] = useState('desc');
+  const [filter, setFilter] = useState('');
+  const isCombined = division === 'combined';
+
+  if (!bowling) return <div className="empty-state">No bowling data. Use Sync All in admin to fetch.</div>;
+
+  const raw = isCombined
+    ? Object.entries(bowling).filter(([k]) => k !== 'updatedAt' && k !== 'combined').flatMap(([div, r]) => Array.isArray(r) ? r.map(row => ({...row, _div: div})) : [])
+    : (bowling[division] || []);
+
+  if (!raw.length) return <div className="empty-state">No bowling data for this division. Use Sync All in admin to fetch.</div>;
+
   const ts = bowling?.updatedAt;
+  function toggleSort(col) { sortCol === col ? setSortDir(d => d==='asc'?'desc':'asc') : (setSortCol(col), setSortDir('asc')); }
+  const q = filter.toLowerCase();
+  const filtered = filter ? raw.filter(r => [r.player,r.team,r._div].some(v => String(v||'').toLowerCase().includes(q))) : raw;
+  const rows = sortRows(filtered, sortCol, sortDir);
+  const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
   return (
     <div>
-      {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:10}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
+      {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
+      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
+        <input type="text" placeholder="Filter player / team…" value={filter} onChange={e=>setFilter(e.target.value)}
+          style={{padding:'4px 8px',fontSize:12,border:'1px solid var(--border)',borderRadius:5,background:'var(--bg-100)',color:'var(--text-primary)',width:180}}/>
+        {filter && <button className="small-btn" onClick={()=>setFilter('')}>✕</button>}
+        <span style={{fontSize:11,color:"var(--text-muted)",marginLeft:"auto"}}>{rows.length} players</span>
+      </div>
       <div className="scroll-x">
         <table>
           <thead><tr>
-            <th style={{width:32}}>#</th><th>Player</th><th>Team</th>
-            <th style={{textAlign:"center"}} title="Matches">Mat</th>
-            <th style={{textAlign:"center"}} title="Overs">Ovs</th>
-            <th style={{textAlign:"center"}} title="Runs conceded">Runs</th>
-            <th style={{textAlign:"center"}} title="Wickets" className="points-cell">Wkts</th>
-            <th style={{textAlign:"center"}} title="Best bowling figures">BBF</th>
-            <th style={{textAlign:"center"}} title="Maidens">Mdns</th>
-            <th style={{textAlign:"center"}} title="Dot balls">Dots</th>
-            <th style={{textAlign:"center"}} title="Economy">Econ</th>
-            <th style={{textAlign:"center"}} title="Average">Avg</th>
-            <th style={{textAlign:"center"}} title="Strike Rate">SR</th>
-            <th style={{textAlign:"center"}} title="Five-wicket hauls">5W</th>
+            <th style={{width:32}}>#</th>
+            <Th col="player">Player</Th>
+            <Th col="team">Team</Th>
+            {isCombined && <Th col="_div">Division</Th>}
+            <Th col="mat" style={{textAlign:"center"}} title="Matches">Mat</Th>
+            <Th col="overs" style={{textAlign:"center"}} title="Overs">Ovs</Th>
+            <Th col="runs" style={{textAlign:"center"}} title="Runs conceded">Runs</Th>
+            <Th col="wickets" style={{textAlign:"center"}} title="Wickets" className="points-cell">Wkts</Th>
+            <Th col="bbf" style={{textAlign:"center"}} title="Best bowling figures">BBF</Th>
+            <Th col="maidens" style={{textAlign:"center"}} title="Maidens">Mdns</Th>
+            <Th col="dots" style={{textAlign:"center"}} title="Dot balls">Dots</Th>
+            <Th col="econ" style={{textAlign:"center"}} title="Economy">Econ</Th>
+            <Th col="avg" style={{textAlign:"center"}} title="Average">Avg</Th>
+            <Th col="sr" style={{textAlign:"center"}} title="Strike Rate">SR</Th>
+            <Th col="fiveW" style={{textAlign:"center"}} title="Five-wicket hauls">5W</Th>
           </tr></thead>
           <tbody>
             {rows.map((r, i) => (
               <tr key={r.player + i}>
-                <td className="num-cell" style={{color:"var(--text-muted)"}}>{r.rank || i+1}</td>
+                <td className="num-cell" style={{color:"var(--text-muted)"}}>{i+1}</td>
                 <td className="team-name" style={{fontWeight:500}}>{r.player}</td>
                 <td style={{fontSize:12,color:"var(--text-secondary)"}}>{r.team}</td>
+                {isCombined && <td style={{fontSize:11,color:"var(--text-muted)"}}>{r._div}</td>}
                 <td className="num-cell">{r.mat}</td>
                 <td className="num-cell">{r.overs}</td>
                 <td className="num-cell">{r.runs}</td>
@@ -698,37 +781,125 @@ function BowlingView({ bowling, division }) {
 }
 
 function RankingsView({ rankings, division }) {
-  const rows = rankings?.[division] || [];
-  if (!rows.length) return (
-    <div className="empty-state">No rankings data for this division. Use Sync Stats in admin to fetch.</div>
-  );
+  const [sortCol, setSortCol] = useState('total');
+  const [sortDir, setSortDir] = useState('desc');
+  const [filter, setFilter] = useState('');
+  const isCombined = division === 'combined';
+
+  if (!rankings) return <div className="empty-state">No rankings data. Use Sync All in admin to fetch.</div>;
+
+  const raw = isCombined
+    ? Object.entries(rankings).filter(([k]) => k !== 'updatedAt' && k !== 'combined').flatMap(([div, r]) => Array.isArray(r) ? r.map(row => ({...row, _div: div})) : [])
+    : (rankings[division] || []);
+
+  if (!raw.length) return <div className="empty-state">No rankings data for this division. Use Sync All in admin to fetch.</div>;
+
   const ts = rankings?.updatedAt;
+  function toggleSort(col) { sortCol === col ? setSortDir(d => d==='asc'?'desc':'asc') : (setSortCol(col), setSortDir('asc')); }
+  const q = filter.toLowerCase();
+  const filtered = filter ? raw.filter(r => [r.player,r.team,r._div].some(v => String(v||'').toLowerCase().includes(q))) : raw;
+  const rows = sortRows(filtered, sortCol, sortDir);
+  const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
   return (
     <div>
-      {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:10}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
+      {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
+      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
+        <input type="text" placeholder="Filter player / team…" value={filter} onChange={e=>setFilter(e.target.value)}
+          style={{padding:'4px 8px',fontSize:12,border:'1px solid var(--border)',borderRadius:5,background:'var(--bg-100)',color:'var(--text-primary)',width:180}}/>
+        {filter && <button className="small-btn" onClick={()=>setFilter('')}>✕</button>}
+        <span style={{fontSize:11,color:"var(--text-muted)",marginLeft:"auto"}}>{rows.length} players</span>
+      </div>
       <div className="scroll-x">
         <table>
           <thead><tr>
-            <th style={{width:32}}>#</th><th>Player</th><th>Team</th>
-            <th style={{textAlign:"center"}} title="Matches played">Mat</th>
-            <th style={{textAlign:"center"}} title="Batting points">Bat</th>
-            <th style={{textAlign:"center"}} title="Bowling points">Bowl</th>
-            <th style={{textAlign:"center"}} title="Fielding points">Field</th>
-            <th style={{textAlign:"center"}} title="Man of Match awards">MOM</th>
-            <th style={{textAlign:"center"}} title="Total points" className="points-cell">Total</th>
+            <th style={{width:32}}>#</th>
+            <Th col="player">Player</Th>
+            <Th col="team">Team</Th>
+            {isCombined && <Th col="_div">Division</Th>}
+            <Th col="matches" style={{textAlign:"center"}} title="Matches played">Mat</Th>
+            <Th col="batting" style={{textAlign:"center"}} title="Batting points">Bat</Th>
+            <Th col="bowling" style={{textAlign:"center"}} title="Bowling points">Bowl</Th>
+            <Th col="fielding" style={{textAlign:"center"}} title="Fielding points">Field</Th>
+            <Th col="mom" style={{textAlign:"center"}} title="Man of Match awards">MOM</Th>
+            <Th col="total" style={{textAlign:"center"}} title="Total points" className="points-cell">Total</Th>
           </tr></thead>
           <tbody>
             {rows.map((r, i) => (
               <tr key={r.player + i}>
-                <td className="num-cell" style={{color:"var(--text-muted)"}}>{r.rank || i+1}</td>
+                <td className="num-cell" style={{color:"var(--text-muted)"}}>{i+1}</td>
                 <td className="team-name" style={{fontWeight:500}}>{r.player}</td>
                 <td style={{fontSize:12,color:"var(--text-secondary)"}}>{r.team}</td>
+                {isCombined && <td style={{fontSize:11,color:"var(--text-muted)"}}>{r._div}</td>}
                 <td className="num-cell">{r.matches}</td>
                 <td className="num-cell">{r.batting}</td>
                 <td className="num-cell">{r.bowling}</td>
                 <td className="num-cell">{r.fielding}</td>
                 <td className="num-cell">{r.mom}</td>
                 <td className="num-cell points-cell">{r.total}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function ResultsView({ results }) {
+  const [sortCol, setSortCol] = useState('date');
+  const [sortDir, setSortDir] = useState('desc');
+  const [filter, setFilter] = useState('');
+
+  const matches = results?.matches || [];
+  if (!matches.length) return (
+    <div className="empty-state">No match results yet. Use the Sync All bookmarklet from the CricClubs Match Results page.</div>
+  );
+
+  const ts = results?.updatedAt;
+  function toggleSort(col) { sortCol === col ? setSortDir(d => d==='asc'?'desc':'asc') : (setSortCol(col), setSortDir('asc')); }
+  const q = filter.toLowerCase();
+  const filtered = filter ? matches.filter(r => [r.team1,r.team2,r.division,r.result].some(v => String(v||'').toLowerCase().includes(q))) : matches;
+  const rows = sortRows(filtered, sortCol, sortDir);
+  const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
+  return (
+    <div>
+      {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
+      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
+        <input type="text" placeholder="Filter team, division, result…" value={filter} onChange={e=>setFilter(e.target.value)}
+          style={{padding:'4px 8px',fontSize:12,border:'1px solid var(--border)',borderRadius:5,background:'var(--bg-100)',color:'var(--text-primary)',width:210}}/>
+        {filter && <button className="small-btn" onClick={()=>setFilter('')}>✕</button>}
+        <span style={{fontSize:11,color:"var(--text-muted)",marginLeft:"auto"}}>{rows.length} result{rows.length!==1?'s':''}</span>
+      </div>
+      <div className="scroll-x">
+        <table>
+          <thead><tr>
+            <Th col="date" style={{whiteSpace:"nowrap"}}>Date</Th>
+            <Th col="division">Division</Th>
+            <Th col="team1">Home</Th>
+            <Th col="team2">Away</Th>
+            <th>Score</th>
+            <Th col="result">Result</Th>
+            <th></th>
+          </tr></thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={r.matchId || i}>
+                <td style={{fontSize:12,color:"var(--text-muted)",whiteSpace:"nowrap"}}>{r.date}</td>
+                <td style={{fontSize:11,color:"var(--text-secondary)"}}>{r.division}</td>
+                <td className="team-name">
+                  {r.team1}{r.team1Score?.won && <span style={{marginLeft:4,fontSize:8,color:"var(--clr-ok)"}}>●</span>}
+                </td>
+                <td className="team-name">
+                  {r.team2}{r.team2Score?.won && <span style={{marginLeft:4,fontSize:8,color:"var(--clr-ok)"}}>●</span>}
+                </td>
+                <td style={{fontSize:12,whiteSpace:"nowrap",color:"var(--text-secondary)"}}>
+                  {r.team1Score ? <span>{r.team1Score.score}{r.team1Score.overs && <span style={{fontSize:10,color:"var(--text-muted)"}}> ({r.team1Score.overs})</span>}</span> : null}
+                  {r.team1Score && r.team2Score ? <span style={{color:"var(--text-muted)",margin:"0 4px"}}>·</span> : null}
+                  {r.team2Score ? <span>{r.team2Score.score}{r.team2Score.overs && <span style={{fontSize:10,color:"var(--text-muted)"}}> ({r.team2Score.overs})</span>}</span> : null}
+                  {!r.team1Score && !r.team2Score ? "—" : null}
+                </td>
+                <td style={{fontSize:12}}>{r.result}</td>
+                <td>{r.scorecard ? <a href={r.scorecard} target="_blank" rel="noopener" style={{fontSize:11,color:"var(--a-500)",whiteSpace:"nowrap"}}>Scorecard ↗</a> : null}</td>
               </tr>
             ))}
           </tbody>
@@ -761,7 +932,7 @@ function SYCLDashboard() {
       .then(d => {
         if (d?.matches?.length) {
           const divisions = [...new Set(d.matches.map(m => m.division))];
-          setData({ matches: d.matches, divisions, standings: d.standings || {}, batting: d.batting || null, bowling: d.bowling || null, rankings: d.rankings || null });
+          setData({ matches: d.matches, divisions, standings: d.standings || {}, batting: d.batting || null, bowling: d.bowling || null, rankings: d.rankings || null, results: d.results || null });
           setSelectedDivision(divisions[0]);
           setLastRefresh(d.updatedAt);
         }
@@ -797,7 +968,7 @@ function SYCLDashboard() {
     });
   }, [data]);
 
-  const tabs = [["schedule","Schedule"],["standings","Standings"],["batting","Batting"],["bowling","Bowling"],["rankings","Rankings"]];
+  const tabs = [["schedule","Schedule"],["standings","Standings"],["results","Results"],["batting","Batting"],["bowling","Bowling"],["rankings","Rankings"]];
 
   return (
     <>
@@ -877,8 +1048,9 @@ function SYCLDashboard() {
 
               {selectedDivision && activeTab==="schedule"  && <ScheduleView  matches={data.matches} division={selectedDivision}/>}
               {selectedDivision && activeTab==="standings" && <StandingsView matches={data.matches} division={selectedDivision} standings={data.standings}/>}
-              {activeTab==="batting" && <BattingView batting={data.batting} division={selectedDivision}/>}
-              {activeTab==="bowling" && <BowlingView bowling={data.bowling} division={selectedDivision}/>}
+              {activeTab==="results"  && <ResultsView  results={data.results}/>}
+              {activeTab==="batting"  && <BattingView  batting={data.batting}  division={selectedDivision}/>}
+              {activeTab==="bowling"  && <BowlingView  bowling={data.bowling}  division={selectedDivision}/>}
               {activeTab==="rankings" && <RankingsView rankings={data.rankings} division={selectedDivision}/>}
             </>
           </>
