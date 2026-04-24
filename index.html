@@ -146,8 +146,86 @@ function computeStandings(matches, teams) {
   return Object.entries(s).map(([team,d])=>({team,...d})).sort((a,b)=>b.points-a.points||b.won-a.won||a.lost-b.lost);
 }
 
+/* ─── Aggregation helpers ─── */
+function parseBBF(bbf) {
+  if (!bbf) return [0, 999];
+  const parts = String(bbf).split('/');
+  return [parseInt(parts[0]) || 0, parseInt(parts[1]) || 999];
+}
+
+function addOvers(a, b) {
+  const toBalls = ov => { const p = String(ov||0).split('.'); return parseInt(p[0]||0)*6 + parseInt(p[1]||0); };
+  const fromBalls = b => `${Math.floor(b/6)}.${b%6}`;
+  return fromBalls(toBalls(a) + toBalls(b));
+}
+
+function aggregateBatting(rows) {
+  const map = new Map();
+  rows.forEach(r => {
+    const key = String(r.player||'') + '||' + String(r.team||'');
+    if (!map.has(key)) { map.set(key, { ...r }); return; }
+    const m = map.get(key);
+    m.mat = (m.mat||0) + (r.mat||0);
+    m.inns = (m.inns||0) + (r.inns||0);
+    m.no = (m.no||0) + (r.no||0);
+    m.runs = (m.runs||0) + (r.runs||0);
+    m.fours = (m.fours||0) + (r.fours||0);
+    m.sixes = (m.sixes||0) + (r.sixes||0);
+    m.fifties = (m.fifties||0) + (r.fifties||0);
+    m.hundreds = (m.hundreds||0) + (r.hundreds||0);
+    if ((parseInt(r.hs)||0) > (parseInt(m.hs)||0)) m.hs = r.hs;
+    const denom = m.inns - m.no;
+    m.avg = denom > 0 ? (m.runs / denom).toFixed(2) : (m.runs > 0 ? 'N/O' : '—');
+    m.sr = '—';
+  });
+  return [...map.values()];
+}
+
+function aggregateBowling(rows) {
+  const map = new Map();
+  rows.forEach(r => {
+    const key = String(r.player||'') + '||' + String(r.team||'');
+    if (!map.has(key)) { map.set(key, { ...r }); return; }
+    const m = map.get(key);
+    m.mat = (m.mat||0) + (r.mat||0);
+    m.runs = (m.runs||0) + (r.runs||0);
+    m.wickets = (m.wickets||0) + (r.wickets||0);
+    m.maidens = (m.maidens||0) + (r.maidens||0);
+    m.dots = (m.dots||0) + (r.dots||0);
+    m.fiveW = (m.fiveW||0) + (r.fiveW||0);
+    m.wides = (m.wides||0) + (r.wides||0);
+    m.noballs = (m.noballs||0) + (r.noballs||0);
+    m.overs = addOvers(m.overs, r.overs);
+    const [w2, ru2] = parseBBF(r.bbf), [w1, ru1] = parseBBF(m.bbf);
+    if (w2 > w1 || (w2 === w1 && ru2 < ru1)) m.bbf = r.bbf;
+    const toBalls = ov => { const p = String(ov||0).split('.'); return parseInt(p[0]||0)*6+parseInt(p[1]||0); };
+    const balls = toBalls(m.overs);
+    m.avg = m.wickets > 0 ? (m.runs / m.wickets).toFixed(2) : '—';
+    m.econ = balls > 0 ? (m.runs / (balls/6)).toFixed(2) : '—';
+    m.sr = m.wickets > 0 ? (balls / m.wickets).toFixed(1) : '—';
+  });
+  return [...map.values()];
+}
+
+function aggregateRankings(rows) {
+  const map = new Map();
+  rows.forEach(r => {
+    const key = String(r.player||'') + '||' + String(r.team||'');
+    if (!map.has(key)) { map.set(key, { ...r }); return; }
+    const m = map.get(key);
+    m.matches = (m.matches||0) + (r.matches||0);
+    m.batting = (m.batting||0) + (r.batting||0);
+    m.bowling = (m.bowling||0) + (r.bowling||0);
+    m.fielding = (m.fielding||0) + (r.fielding||0);
+    m.other = (m.other||0) + (r.other||0);
+    m.mom = (m.mom||0) + (r.mom||0);
+    m.total = (m.total||0) + (r.total||0);
+  });
+  return [...map.values()];
+}
+
 /* ─────────────────────────────────────────────────────────────
-   STYLES — Tasko-inspired design system
+   STYLES — Modern sports design system
 ───────────────────────────────────────────────────────────── */
 const STYLES = `
   /* ── Tokens: Light ── */
@@ -187,6 +265,9 @@ const STYLES = `
     --sev-info-bg: #dbeafe;
     --pair-yes-bg: #dcfce7;
     --pair-no-bg: #fee2e2;
+    --row-alt: rgba(0,0,0,0.022);
+    --row-hover: rgba(0,0,0,0.05);
+    --table-shadow: 0 1px 4px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
   }
 
   /* ── Tokens: Dark ── */
@@ -226,6 +307,9 @@ const STYLES = `
     --sev-info-bg: #1e3a5f;
     --pair-yes-bg: #14532d;
     --pair-no-bg: #450a0a;
+    --row-alt: rgba(255,255,255,0.03);
+    --row-hover: rgba(255,255,255,0.07);
+    --table-shadow: 0 1px 4px rgba(0,0,0,0.35);
   }
 
   /* ── Reset & base ── */
@@ -254,19 +338,6 @@ const STYLES = `
   .header-sep { width: 1px; height: 24px; background: var(--border); align-self: center; }
   .header-actions { display: flex; gap: 6px; align-items: center; }
 
-  /* ── Upload zone ── */
-  .upload-zone {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    border: 1px dashed var(--z-300); border-radius: 12px; padding: 72px 48px;
-    text-align: center; cursor: pointer; transition: border-color 0.15s;
-    background: var(--bg-100); margin-top: 32px;
-  }
-  .upload-zone:hover { border-color: var(--z-500); }
-  .upload-zone input { display: none; }
-  .upload-icon { font-size: 28px; margin-bottom: 12px; }
-  .upload-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
-  .upload-sub { font-size: 12px; color: var(--text-muted); }
-
   /* ── Division pill bar ── */
   .division-bar {
     display: flex; gap: 4px; align-items: center; padding: 14px 0 10px;
@@ -280,12 +351,12 @@ const STYLES = `
     font-weight: 500; cursor: pointer; transition: all 0.1s; white-space: nowrap;
   }
   .div-btn {
-    padding: 0 12px; height: 28px; border-radius: 6px;
+    padding: 0 12px; height: 28px; border-radius: 999px;
     border: 1px solid var(--border); background: var(--bg-100);
-    color: var(--text-secondary); font-size: 13px; flex-shrink: 0;
+    color: var(--text-secondary); font-size: 12px; font-weight: 500; flex-shrink: 0;
   }
   .div-btn:hover { background: var(--z-100); color: var(--text-primary); border-color: var(--a-500); }
-  .div-btn.active { background: var(--z-1000); color: var(--bg-100); border-color: var(--z-1000); }
+  .div-btn.active { background: var(--z-1000); color: var(--bg-100); border-color: var(--z-1000); box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
 
   .small-btn {
     display: inline-flex; align-items: center; justify-content: center;
@@ -310,23 +381,46 @@ const STYLES = `
     border-bottom: 2px solid transparent; margin-bottom: -1px;
   }
   .tab-btn:hover { color: var(--text-secondary); }
-  .tab-btn.active { color: var(--text-primary); border-bottom-color: var(--z-1000); }
+  .tab-btn.active { color: var(--text-primary); font-weight: 600; border-bottom-color: var(--z-1000); }
+
+  /* ── Sub-tab bar ── */
+  .sub-tab-bar { display: flex; gap: 6px; margin-bottom: 16px; align-items: center; }
+  .sub-tab-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 0 14px; height: 28px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--bg-100);
+    color: var(--text-secondary); font-size: 12px; font-weight: 500;
+    cursor: pointer; transition: all 0.1s; font-family: 'Inter', sans-serif;
+  }
+  .sub-tab-btn .sub-count {
+    background: var(--z-100); color: var(--text-muted);
+    padding: 0 6px; border-radius: 999px; font-size: 10px; font-weight: 600; min-width: 18px; text-align: center;
+  }
+  .sub-tab-btn:hover { background: var(--z-100); color: var(--text-primary); border-color: var(--z-300); }
+  .sub-tab-btn.active { background: var(--z-1000); color: var(--bg-100); border-color: var(--z-1000); }
+  .sub-tab-btn.active .sub-count { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); }
 
   /* ── Tables ── */
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th {
-    text-align: left; padding: 10px 14px;
-    color: var(--text-muted); font-weight: 500; font-size: 11px;
-    text-transform: uppercase; letter-spacing: 0.5px;
-    border-bottom: 1px solid var(--border); white-space: nowrap;
-    background: var(--bg-100);
+    text-align: left; padding: 9px 14px;
+    color: var(--text-muted); font-weight: 600; font-size: 10.5px;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    border-bottom: 2px solid var(--border); white-space: nowrap;
+    background: var(--bg-200);
   }
   td {
-    padding: 11px 14px; border-bottom: 1px solid var(--a-200);
+    padding: 10px 14px; border-bottom: 1px solid var(--a-200);
     color: var(--text-primary); font-variant-numeric: tabular-nums;
   }
   tr:last-child td { border-bottom: none; }
-  tbody tr:hover td { background: var(--z-100); }
+  tbody tr:nth-child(even) td { background: var(--row-alt); }
+  tbody tr:hover td { background: var(--row-hover) !important; transition: background 0.1s; }
+
+  .scroll-x {
+    overflow-x: auto; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--bg-100); box-shadow: var(--table-shadow);
+  }
 
   .num-cell { text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
   .team-name { font-weight: 500; }
@@ -388,7 +482,6 @@ const STYLES = `
 
   /* ── Misc ── */
   .empty-state { text-align: center; padding: 48px; color: var(--text-muted); font-size: 13px; }
-  .scroll-x { overflow-x: auto; }
 
   /* ── Team filter select ── */
   .team-select {
@@ -436,6 +529,7 @@ function SortableTh({ col, sortCol, sortDir, onSort, children, style, ...rest })
 /* ─── Views ─── */
 function ScheduleView({ matches, division }) {
   const [teamFilter, setTeamFilter] = useState("");
+  const [subTab, setSubTab] = useState("upcoming");
   const dm = matches.filter(m => m.division === division);
   const teams = [...new Set(dm.flatMap(m => [m.team1, m.team2]))].sort();
   const today = new Date(); today.setHours(0,0,0,0);
@@ -484,8 +578,18 @@ function ScheduleView({ matches, division }) {
     ];
   });
 
+  const visibleRows = subTab === "upcoming" ? upcoming : past;
+
   return (
     <div>
+      <div className="sub-tab-bar">
+        <button className={`sub-tab-btn ${subTab==="upcoming"?"active":""}`} onClick={()=>setSubTab("upcoming")}>
+          Upcoming <span className="sub-count">{upcoming.length}</span>
+        </button>
+        <button className={`sub-tab-btn ${subTab==="past"?"active":""}`} onClick={()=>setSubTab("past")}>
+          Past <span className="sub-count">{past.length}</span>
+        </button>
+      </div>
       <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:14,flexWrap:"wrap"}}>
         <span style={{fontSize:11,color:"var(--text-muted)",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.4px"}}>Team</span>
         <select className="team-select" value={teamFilter} onChange={e=>setTeamFilter(e.target.value)}>
@@ -493,9 +597,6 @@ function ScheduleView({ matches, division }) {
           {teams.map(t=><option key={t} value={t}>{t}</option>)}
         </select>
         {teamFilter && <button className="small-btn" onClick={()=>setTeamFilter("")}>✕</button>}
-        <span style={{fontSize:12,color:"var(--text-muted)",marginLeft:"auto"}}>
-          {upcoming.length} upcoming · {past.length} played
-        </span>
       </div>
       <div className="scroll-x">
         <table>
@@ -504,18 +605,10 @@ function ScheduleView({ matches, division }) {
             <th>Ground</th><th>Umpire</th><th>Result</th>
           </tr></thead>
           <tbody>
-            {upcoming.length===0 && past.length===0 && (
+            {visibleRows.length===0 && (
               <tr><td colSpan={7} className="empty-state">No matches found.</td></tr>
             )}
-            {dateRows(upcoming, false)}
-            {past.length > 0 && (
-              <tr key="past-sep">
-                <td colSpan={7} className="section-sep">
-                  Past matches · {past.length} played
-                </td>
-              </tr>
-            )}
-            {dateRows(past, true)}
+            {dateRows(visibleRows, subTab === "past")}
           </tbody>
         </table>
       </div>
@@ -566,7 +659,10 @@ function StandingsView({ matches, division, standings }) {
             <tbody>
               {rows.map((s, i) => (
                 <tr key={s.team}>
-                  <td className="num-cell" style={{color:"var(--text-muted)"}}>{i+1}</td>
+                  <td className="num-cell" style={{
+                    color: i===0?"#b45309":i===1?"#71717a":i===2?"#92400e":"var(--text-muted)",
+                    fontWeight: i<3?700:undefined
+                  }}>{i+1}</td>
                   <td className="team-name">{s.team}</td>
                   <td className="num-cell">{s.played}</td>
                   <td className="num-cell">{s.won}</td>
@@ -639,7 +735,7 @@ function BattingView({ batting, division }) {
   if (!batting) return <div className="empty-state">No batting data. Use Sync All in admin to fetch.</div>;
 
   const raw = isCombined
-    ? Object.entries(batting).filter(([k]) => k !== 'updatedAt' && k !== 'combined').flatMap(([div, r]) => Array.isArray(r) ? r.map(row => ({...row, _div: div})) : [])
+    ? aggregateBatting(Object.entries(batting).filter(([k]) => k !== 'updatedAt' && k !== 'combined').flatMap(([,r]) => Array.isArray(r) ? r : []))
     : (batting[division] || []);
 
   if (!raw.length) return <div className="empty-state">No batting data for this division. Use Sync All in admin to fetch.</div>;
@@ -647,7 +743,7 @@ function BattingView({ batting, division }) {
   const ts = batting?.updatedAt;
   function toggleSort(col) { sortCol === col ? setSortDir(d => d==='asc'?'desc':'asc') : (setSortCol(col), setSortDir('asc')); }
   const q = filter.toLowerCase();
-  const filtered = filter ? raw.filter(r => [r.player,r.team,r._div].some(v => String(v||'').toLowerCase().includes(q))) : raw;
+  const filtered = filter ? raw.filter(r => [r.player,r.team].some(v => String(v||'').toLowerCase().includes(q))) : raw;
   const rows = sortRows(filtered, sortCol, sortDir);
   const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
   return (
@@ -665,7 +761,6 @@ function BattingView({ batting, division }) {
             <th style={{width:32}}>#</th>
             <Th col="player">Player</Th>
             <Th col="team">Team</Th>
-            {isCombined && <Th col="_div">Division</Th>}
             <Th col="mat" style={{textAlign:"center"}} title="Matches">Mat</Th>
             <Th col="inns" style={{textAlign:"center"}} title="Innings">Inns</Th>
             <Th col="no" style={{textAlign:"center"}} title="Not Out">NO</Th>
@@ -684,7 +779,6 @@ function BattingView({ batting, division }) {
                 <td className="num-cell" style={{color:"var(--text-muted)"}}>{i+1}</td>
                 <td className="team-name" style={{fontWeight:500}}>{r.player}</td>
                 <td style={{fontSize:12,color:"var(--text-secondary)"}}>{r.team}</td>
-                {isCombined && <td style={{fontSize:11,color:"var(--text-muted)"}}>{r._div}</td>}
                 <td className="num-cell">{r.mat}</td>
                 <td className="num-cell">{r.inns}</td>
                 <td className="num-cell">{r.no}</td>
@@ -714,7 +808,7 @@ function BowlingView({ bowling, division }) {
   if (!bowling) return <div className="empty-state">No bowling data. Use Sync All in admin to fetch.</div>;
 
   const raw = isCombined
-    ? Object.entries(bowling).filter(([k]) => k !== 'updatedAt' && k !== 'combined').flatMap(([div, r]) => Array.isArray(r) ? r.map(row => ({...row, _div: div})) : [])
+    ? aggregateBowling(Object.entries(bowling).filter(([k]) => k !== 'updatedAt' && k !== 'combined').flatMap(([,r]) => Array.isArray(r) ? r : []))
     : (bowling[division] || []);
 
   if (!raw.length) return <div className="empty-state">No bowling data for this division. Use Sync All in admin to fetch.</div>;
@@ -722,7 +816,7 @@ function BowlingView({ bowling, division }) {
   const ts = bowling?.updatedAt;
   function toggleSort(col) { sortCol === col ? setSortDir(d => d==='asc'?'desc':'asc') : (setSortCol(col), setSortDir('asc')); }
   const q = filter.toLowerCase();
-  const filtered = filter ? raw.filter(r => [r.player,r.team,r._div].some(v => String(v||'').toLowerCase().includes(q))) : raw;
+  const filtered = filter ? raw.filter(r => [r.player,r.team].some(v => String(v||'').toLowerCase().includes(q))) : raw;
   const rows = sortRows(filtered, sortCol, sortDir);
   const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
   return (
@@ -740,7 +834,6 @@ function BowlingView({ bowling, division }) {
             <th style={{width:32}}>#</th>
             <Th col="player">Player</Th>
             <Th col="team">Team</Th>
-            {isCombined && <Th col="_div">Division</Th>}
             <Th col="mat" style={{textAlign:"center"}} title="Matches">Mat</Th>
             <Th col="overs" style={{textAlign:"center"}} title="Overs">Ovs</Th>
             <Th col="runs" style={{textAlign:"center"}} title="Runs conceded">Runs</Th>
@@ -759,7 +852,6 @@ function BowlingView({ bowling, division }) {
                 <td className="num-cell" style={{color:"var(--text-muted)"}}>{i+1}</td>
                 <td className="team-name" style={{fontWeight:500}}>{r.player}</td>
                 <td style={{fontSize:12,color:"var(--text-secondary)"}}>{r.team}</td>
-                {isCombined && <td style={{fontSize:11,color:"var(--text-muted)"}}>{r._div}</td>}
                 <td className="num-cell">{r.mat}</td>
                 <td className="num-cell">{r.overs}</td>
                 <td className="num-cell">{r.runs}</td>
@@ -789,7 +881,7 @@ function RankingsView({ rankings, division }) {
   if (!rankings) return <div className="empty-state">No rankings data. Use Sync All in admin to fetch.</div>;
 
   const raw = isCombined
-    ? Object.entries(rankings).filter(([k]) => k !== 'updatedAt' && k !== 'combined').flatMap(([div, r]) => Array.isArray(r) ? r.map(row => ({...row, _div: div})) : [])
+    ? aggregateRankings(Object.entries(rankings).filter(([k]) => k !== 'updatedAt' && k !== 'combined').flatMap(([,r]) => Array.isArray(r) ? r : []))
     : (rankings[division] || []);
 
   if (!raw.length) return <div className="empty-state">No rankings data for this division. Use Sync All in admin to fetch.</div>;
@@ -797,7 +889,7 @@ function RankingsView({ rankings, division }) {
   const ts = rankings?.updatedAt;
   function toggleSort(col) { sortCol === col ? setSortDir(d => d==='asc'?'desc':'asc') : (setSortCol(col), setSortDir('asc')); }
   const q = filter.toLowerCase();
-  const filtered = filter ? raw.filter(r => [r.player,r.team,r._div].some(v => String(v||'').toLowerCase().includes(q))) : raw;
+  const filtered = filter ? raw.filter(r => [r.player,r.team].some(v => String(v||'').toLowerCase().includes(q))) : raw;
   const rows = sortRows(filtered, sortCol, sortDir);
   const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
   return (
@@ -815,7 +907,6 @@ function RankingsView({ rankings, division }) {
             <th style={{width:32}}>#</th>
             <Th col="player">Player</Th>
             <Th col="team">Team</Th>
-            {isCombined && <Th col="_div">Division</Th>}
             <Th col="matches" style={{textAlign:"center"}} title="Matches played">Mat</Th>
             <Th col="batting" style={{textAlign:"center"}} title="Batting points">Bat</Th>
             <Th col="bowling" style={{textAlign:"center"}} title="Bowling points">Bowl</Th>
@@ -829,7 +920,6 @@ function RankingsView({ rankings, division }) {
                 <td className="num-cell" style={{color:"var(--text-muted)"}}>{i+1}</td>
                 <td className="team-name" style={{fontWeight:500}}>{r.player}</td>
                 <td style={{fontSize:12,color:"var(--text-secondary)"}}>{r.team}</td>
-                {isCombined && <td style={{fontSize:11,color:"var(--text-muted)"}}>{r._div}</td>}
                 <td className="num-cell">{r.matches}</td>
                 <td className="num-cell">{r.batting}</td>
                 <td className="num-cell">{r.bowling}</td>
@@ -995,7 +1085,6 @@ function SYCLDashboard() {
               : <>
                   <div style={{fontSize:36,marginBottom:12}}>🏏</div>
                   <div style={{fontSize:15,fontWeight:600,color:"var(--text-secondary)",marginBottom:6}}>No schedule data yet</div>
-                  <div style={{fontSize:13}}>The admin needs to run the Sync All bookmarklet from CricClubs.</div>
                   <button className="small-btn" style={{marginTop:16}} onClick={() => loadData(true)}>Try again</button>
                 </>
             }
@@ -1025,7 +1114,12 @@ function SYCLDashboard() {
               {/* Tab bar */}
               <div className="tab-bar">
                 {tabs.map(([k,l]) => (
-                  <button key={k} className={`tab-btn ${activeTab===k?"active":""}`} onClick={()=>setActiveTab(k)}>{l}</button>
+                  <button key={k} className={`tab-btn ${activeTab===k?"active":""}`} onClick={()=>{
+                    setActiveTab(k);
+                    if (selectedDivision === "combined" && !["batting","bowling","rankings"].includes(k)) {
+                      setSelectedDivision(sortedDivs[0] || null);
+                    }
+                  }}>{l}</button>
                 ))}
               </div>
 
