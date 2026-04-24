@@ -905,7 +905,11 @@ function renderPropagateSection() {
   const countEl = document.getElementById('propagateChangedCount');
   const badge = document.getElementById('propagateNavBadge');
 
-  const changed = _editorRows.filter(m => String(m.id).startsWith('new_') || _changedIds.has(m.id));
+  // Use saved snapshot (post-save) if available and no new unsaved changes
+  const useSaved = _savedForPropagation.length > 0 && _changedIds.size === 0;
+  const changed = useSaved
+    ? _savedForPropagation
+    : _editorRows.filter(m => String(m.id).startsWith('new_') || _changedIds.has(m.id));
   const n = changed.length;
 
   if (badge) { badge.textContent = n; badge.style.display = n > 0 ? '' : 'none'; }
@@ -923,7 +927,7 @@ function renderPropagateSection() {
 
   container.innerHTML = changed.map(m => {
     const isNew = String(m.id).startsWith('new_');
-    const orig = _originalRows[m.id] || {};
+    const orig = useSaved ? (m._orig || {}) : (_originalRows[m.id] || {});
     const diffs = isNew ? [] : TRACKED.filter(f => (m[f]||'') !== (orig[f]||''));
     const hasId = !isNew && m.fixtureId;
     const updateUrl = hasId
@@ -1036,6 +1040,7 @@ let _allMatches = [];
 let _editorRows = [];
 let _originalRows = {};  // keyed by match id, stores original field values
 let _changedIds = new Set();
+let _savedForPropagation = []; // snapshot of changed matches captured at save time
 
 function parseEditorDate(s) {
   if (!s) return null;
@@ -1086,9 +1091,10 @@ function buildDataLists() {
   container.appendChild(dlTime);
 }
 
-async function loadFixtures() {
+async function loadFixtures(fromSave = false) {
+  if (!fromSave) _savedForPropagation = [];
   try {
-    const r = await fetch('/api/schedule');
+    const r = await fetch('/api/schedule?_t=' + Date.now());
     if (!r.ok) { renderEditorEmpty('No schedule data yet. Sync from CricClubs or upload an Excel file first.'); return; }
     const data = await r.json();
     _allMatches = data.matches || [];
@@ -1154,9 +1160,10 @@ function updateChangedBadge() {
   const filterBtn = document.getElementById('showChangedBtn');
   const navBadge = document.getElementById('propagateNavBadge');
   const n = _changedIds.size;
+  const np = n === 0 ? _savedForPropagation.length : 0;
   if (badge) badge.textContent = n > 0 ? `${n} changed` : '';
   if (filterBtn) filterBtn.style.display = n > 0 ? '' : 'none';
-  if (navBadge) { navBadge.textContent = n; navBadge.style.display = n > 0 ? '' : 'none'; }
+  if (navBadge) { const total = n || np; navBadge.textContent = total; navBadge.style.display = total > 0 ? '' : 'none'; }
 }
 
 function renderEditorTable() {
@@ -1261,9 +1268,13 @@ async function saveFixtures() {
     });
     const d = await r.json();
     if (d.error) { showMsg('editorMsg', 'Error: ' + d.error, 'err'); return; }
+    // Capture changed matches BEFORE loadFixtures resets _changedIds
+    _savedForPropagation = _editorRows
+      .filter(m => String(m.id).startsWith('new_') || _changedIds.has(m.id))
+      .map(m => ({ ...m, _orig: _originalRows[m.id] ? {..._originalRows[m.id]} : null }));
     _allMatches = combined;
-    showMsg('editorMsg', d.message + ' Dashboard updates within 60 seconds.', 'ok');
-    loadStatus(); loadFixtures();
+    showMsg('editorMsg', d.message + ' Now go to Propagate → CricClubs to push changes.', 'ok');
+    loadStatus(); loadFixtures(true);
   } catch(e) {
     showMsg('editorMsg', 'Failed: ' + e.message, 'err');
   }
