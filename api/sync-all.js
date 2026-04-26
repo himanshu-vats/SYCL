@@ -17,7 +17,9 @@ module.exports = async function(req, res) {
     return;
   }
 
-  const { matches, results, standings, batting, bowling, rankings } = req.body || {};
+  const slug = req.body?.league || req.query?.league;
+  const filename = slug ? `${slug}.json` : 'schedule.json';
+  const { matches, results, standings, batting, bowling, rankings, leagueName, season } = req.body || {};
 
   const hasMatches  = Array.isArray(matches) && matches.length > 0;
   const hasResults  = Array.isArray(results) && results.length > 0;
@@ -39,7 +41,7 @@ module.exports = async function(req, res) {
 
     const gist = await getR.json();
     let data = {};
-    try { data = JSON.parse(gist.files?.['schedule.json']?.content || '{}'); } catch {}
+    try { data = JSON.parse(gist.files?.[filename]?.content || '{}'); } catch {}
 
     const now = new Date().toISOString();
 
@@ -62,6 +64,18 @@ module.exports = async function(req, res) {
     if (hasBatting)  data.batting  = { ...batting,  updatedAt: now };
     if (hasBowling)  data.bowling  = { ...bowling,  updatedAt: now };
     if (hasRankings) data.rankings = { ...rankings, updatedAt: now };
+    if (leagueName)  data.leagueName = leagueName;
+    if (season)      data.season = season;
+
+    const filesToUpdate = { [filename]: { content: JSON.stringify(data) } };
+
+    // Update leagues-index.json if slug is provided
+    if (slug) {
+      let indexData = {};
+      try { indexData = JSON.parse(gist.files?.['leagues-index.json']?.content || '{}'); } catch {}
+      indexData[slug] = { name: leagueName || slug, season: season || '', updatedAt: now };
+      filesToUpdate['leagues-index.json'] = { content: JSON.stringify(indexData) };
+    }
 
     const putR = await fetch(`https://api.github.com/gists/${process.env.GIST_ID}`, {
       method: 'PATCH',
@@ -70,7 +84,7 @@ module.exports = async function(req, res) {
         'Content-Type': 'application/json',
         'User-Agent': 'SYCL-Dashboard/1.0'
       },
-      body: JSON.stringify({ files: { 'schedule.json': { content: JSON.stringify(data) } } })
+      body: JSON.stringify({ files: filesToUpdate })
     });
     if (!putR.ok) { res.status(502).json({ error: `GitHub API error: ${putR.status}` }); return; }
 

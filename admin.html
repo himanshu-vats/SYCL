@@ -753,6 +753,14 @@
 <div id="datalistContainer" style="display:none"></div>
 
 <script>
+function getLeagueSlug() {
+  const parts = window.location.pathname.split('/').filter(p => p && p !== 'admin');
+  return parts[0] || null;
+}
+
+const slug = getLeagueSlug();
+if (slug) document.title = `Admin — ${slug}`;
+
 // ── Known columns ──────────────────────────────────────────────
 const KNOWN_COLS = {
   id:['#','no','number'], division:['division'], matchType:['match type','matchtype','type'],
@@ -1323,6 +1331,8 @@ Promise.all(fetchAll).then(function(fetched){
   if(bd)payload.batting=batting;
   if(bw)payload.bowling=bowling;
   if(rk)payload.rankings=rankings;
+  var slugPath=window.location.pathname.split('/').filter(function(p){return p&&p!=='admin';})[0];
+  if(slugPath)payload.league=slugPath;
   return fetch('${origin}/api/sync-all',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Password':'${password}'},body:JSON.stringify(payload)}).then(function(r){return r.json();});
 }).then(function(resp){
   ov.remove();

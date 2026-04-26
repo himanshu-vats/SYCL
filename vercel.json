@@ -2,5 +2,9 @@
   "buildCommand": "",
   "outputDirectory": ".",
   "installCommand": "",
-  "framework": null
+  "framework": null,
+  "rewrites": [
+    { "source": "/:slug([A-Za-z0-9_-]+)/admin", "destination": "/admin.html" },
+    { "source": "/:slug([A-Za-z0-9_-]+)", "destination": "/index.html" }
+  ]
 }

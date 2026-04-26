@@ -31,6 +31,11 @@ const { useState, useMemo, useCallback, useEffect } = React;
 
 const POINTS = { win: 2, abandoned: 1, forfeit_winner: 2, forfeit_loser: 0, loss: 0 };
 
+function getLeagueSlug() {
+  const parts = window.location.pathname.split('/').filter(p => p && p !== 'admin');
+  return parts[0] || null;
+}
+
 function parseSchedule(raw) {
   let headerIdx = -1;
   for (let i = 0; i < Math.min(raw.length, 10); i++) {
@@ -180,7 +185,11 @@ function aggregateBatting(rows) {
     m.avg = denom > 0 ? (m.runs / denom).toFixed(2) : (m.runs > 0 ? 'N/O' : '—');
     m.sr = '—';
   });
-  return [...map.values()];
+  return [...map.values()].map(m => {
+    m.boundaryRuns = (m.fours || 0) * 4 + (m.sixes || 0) * 6;
+    m.boundaryPct = m.runs > 0 ? Math.round(m.boundaryRuns / m.runs * 100) : '—';
+    return m;
+  });
 }
 
 function aggregateBowling(rows) {
@@ -205,6 +214,8 @@ function aggregateBowling(rows) {
     m.avg = m.wickets > 0 ? (m.runs / m.wickets).toFixed(2) : '—';
     m.econ = balls > 0 ? (m.runs / (balls/6)).toFixed(2) : '—';
     m.sr = m.wickets > 0 ? (balls / m.wickets).toFixed(1) : '—';
+    m.dotPct = balls > 0 ? Math.round((m.dots||0) / balls * 100) : '—';
+    m.extrasPer6 = balls > 0 ? +(((m.wides||0) + (m.noballs||0)) / balls * 6).toFixed(1) : '—';
   });
   return [...map.values()];
 }
@@ -775,6 +786,41 @@ const STYLES = `
   .fixture-row:last-child { border-bottom: none; }
   .clickable { cursor: pointer; transition: color 0.1s; }
   .clickable:hover { color: var(--accent) !important; text-decoration: underline; }
+
+  /* Player Profile Page */
+  .player-page { min-height: 100vh; background: var(--bg); padding-bottom: 40px; }
+  .player-page-back { display:flex; align-items:center; gap:8px; padding:14px 16px; background:var(--bg-200); border-bottom:1px solid var(--border); font-size:14px; font-weight:600; color:var(--accent); cursor:pointer; }
+  .player-hero { padding:20px 16px 16px; }
+  .player-name-lg { font-size:26px; font-weight:800; line-height:1.1; margin-bottom:4px; }
+  .player-meta { font-size:13px; color:var(--text-muted); }
+  .headline-pills { display:flex; gap:8px; padding:0 16px 16px; flex-wrap:wrap; }
+  .headline-pill { flex:1; min-width:80px; background:var(--bg-200); border:1px solid var(--border); border-radius:12px; padding:10px 8px; text-align:center; }
+  .headline-pill-val { font-size:22px; font-weight:800; color:var(--accent); }
+  .headline-pill-lbl { font-size:10px; color:var(--text-muted); margin-top:2px; }
+  .spotlight-banner { margin:0 16px 16px; padding:14px 16px; border-radius:12px; background: linear-gradient(135deg, #1a7a2e 0%, #2d9e45 100%); color:#fff; }
+  .spotlight-title { font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; opacity:0.8; margin-bottom:6px; }
+  .spotlight-text { font-size:14px; font-weight:600; line-height:1.4; }
+  .profile-section { padding:0 16px; margin-bottom:20px; }
+  .mega-stat { font-size:52px; font-weight:900; color:var(--accent); line-height:1; }
+  .mega-stat-lbl { font-size:12px; color:var(--text-muted); margin-top:4px; margin-bottom:12px; }
+  .milestone-bar-wrap { margin-bottom:16px; }
+  .milestone-bar-row { display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-bottom:4px; }
+  .milestone-bar { height:6px; background:var(--border); border-radius:4px; overflow:hidden; }
+  .milestone-bar-fill { height:100%; background:var(--accent); border-radius:4px; transition:width 0.6s ease; }
+
+  /* Achievements */
+  .achievements-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:8px; }
+  .achievement-card { padding:12px 10px; border-radius:10px; text-align:center; border:1px solid var(--border); background:var(--bg-200); }
+  .achievement-card.earned { border-color:var(--accent); background:rgba(76,175,80,0.08); }
+  .achievement-card.platinum { border-color:#FFD700; background:rgba(255,215,0,0.1); }
+  .achievement-card.locked { opacity:0.45; }
+  .achievement-emoji { font-size:24px; margin-bottom:4px; }
+  .achievement-label { font-size:11px; font-weight:600; }
+  .achievement-hint { font-size:10px; color:var(--text-muted); margin-top:3px; }
+  .tier-bronze { border-color:#CD7F32; }
+  .tier-silver { border-color:#C0C0C0; }
+  .tier-gold { border-color:#FFD700; }
+  .tier-platinum { border-color:#E8D5FF; }
 `;
 
 
@@ -853,20 +899,24 @@ function StreakBadge({ results, team }) {
 const RANK_CLASS = ['gold','silver','bronze'];
 const RANK_MEDAL = ['🥇','🥈','🥉'];
 
-function LeaderCard({ rank, label, stat, name, sub, pct }) {
+function LeaderCard({ rank, label, stat, name, sub, pct, onClick }) {
   const cls = RANK_CLASS[rank] || '';
   return (
     <div className={`leader-card ${cls}`}>
       <div className="leader-label"><span className="leader-medal">{RANK_MEDAL[rank] || ''}</span>{label}</div>
       <div className="leader-stat">{stat}</div>
-      <div className="leader-name">{name}</div>
+      <div className="leader-name">
+        {onClick
+          ? <span className="clickable" style={{color:'var(--accent)'}} onClick={onClick}>{name}</span>
+          : name}
+      </div>
       {sub && <div className="leader-sub">{sub}</div>}
       <div className="leader-bar" style={{marginTop:'auto',paddingTop:8}}><div className="leader-bar-fill" style={{width:`${pct}%`}}></div></div>
     </div>
   );
 }
 
-function LeaderSection({ rows, statKey, label, nameKey = 'player', teamKey = 'team', fmt, ascending }) {
+function LeaderSection({ rows, statKey, label, nameKey = 'player', teamKey = 'team', fmt, ascending, onDrilldown, drilldownType = 'player' }) {
   if (!rows?.length) return null;
   const sorted = [...rows]
     .filter(r => r[statKey] !== undefined && r[statKey] !== '—' && r[statKey] !== null)
@@ -887,6 +937,7 @@ function LeaderSection({ rows, statKey, label, nameKey = 'player', teamKey = 'te
             ? (ref / (parseFloat(r[statKey]) || 1)) * 100
             : ((parseFloat(r[statKey]) || 0) / ref) * 100
           }
+          onClick={onDrilldown ? () => onDrilldown({type: drilldownType, name: r[nameKey]}) : undefined}
         />
       ))}
     </div>
@@ -1533,10 +1584,10 @@ function BattingView({ batting, division, onDrilldown }) {
   return (
     <div>
       <div className="section-label">Batting Leaders</div>
-      <LeaderSection rows={raw} statKey="runs" label="Most Runs"/>
+      <LeaderSection rows={raw} statKey="runs" label="Most Runs" onDrilldown={onDrilldown}/>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
-        <LeaderSection rows={raw} statKey="fifties" label="Most 50s"/>
-        <LeaderSection rows={raw} statKey="sixes" label="Most 6s"/>
+        <LeaderSection rows={raw} statKey="fifties" label="Most 50s" onDrilldown={onDrilldown}/>
+        <LeaderSection rows={raw} statKey="sixes" label="Most 6s" onDrilldown={onDrilldown}/>
       </div>
       <div className="section-label">All Batters</div>
       {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
@@ -1621,10 +1672,10 @@ function BowlingView({ bowling, division, onDrilldown }) {
   return (
     <div>
       <div className="section-label">Bowling Leaders</div>
-      <LeaderSection rows={raw} statKey="wickets" label="Most Wickets"/>
+      <LeaderSection rows={raw} statKey="wickets" label="Most Wickets" onDrilldown={onDrilldown}/>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
-        <LeaderSection rows={raw} statKey="econ" label="Best Economy" ascending={true} fmt={v => Number(v).toFixed(2)}/>
-        <LeaderSection rows={raw} statKey="fiveW" label="5-Wicket Hauls"/>
+        <LeaderSection rows={raw} statKey="econ" label="Best Economy" ascending={true} fmt={v => Number(v).toFixed(2)} onDrilldown={onDrilldown}/>
+        <LeaderSection rows={raw} statKey="fiveW" label="5-Wicket Hauls" onDrilldown={onDrilldown}/>
       </div>
       <div className="section-label">All Bowlers</div>
       {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
@@ -1709,11 +1760,11 @@ function RankingsView({ rankings, division, onDrilldown }) {
   return (
     <div>
       <div className="section-label">Player Rankings Leaders</div>
-      <LeaderSection rows={raw} statKey="total" label="Overall Points"/>
+      <LeaderSection rows={raw} statKey="total" label="Overall Points" onDrilldown={onDrilldown}/>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
-        <LeaderSection rows={raw} statKey="batting" label="Batting Pts"/>
-        <LeaderSection rows={raw} statKey="bowling" label="Bowling Pts"/>
-        <LeaderSection rows={raw} statKey="mom" label="Man of Match"/>
+        <LeaderSection rows={raw} statKey="batting" label="Batting Pts" onDrilldown={onDrilldown}/>
+        <LeaderSection rows={raw} statKey="bowling" label="Bowling Pts" onDrilldown={onDrilldown}/>
+        <LeaderSection rows={raw} statKey="mom" label="Man of Match" onDrilldown={onDrilldown}/>
       </div>
       <div className="section-label">Full Rankings</div>
       {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
@@ -1841,6 +1892,207 @@ function ResultsView({ results, onDrilldown }) {
   );
 }
 
+/* ─── Landing Page (all leagues) ─── */
+function LandingPage() {
+  const [leagues, setLeagues] = useState({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/leagues')
+      .then(r => r.ok ? r.json() : {})
+      .then(d => { setLeagues(d || {}); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const leagueList = Object.entries(leagues).map(([slug, meta]) => ({ slug, ...meta }));
+
+  return (
+    <div style={{minHeight: '100vh', background: 'var(--bg)', padding: '20px 16px'}}>
+      <div style={{maxWidth: 600, margin: '0 auto'}}>
+        <div style={{textAlign: 'center', marginBottom: 40}}>
+          <div style={{fontSize: 40, marginBottom: 12}}>🏏</div>
+          <h1 style={{fontSize: 28, fontWeight: 800, marginBottom: 8}}>Cricket Season Dashboard</h1>
+          <p style={{fontSize: 14, color: 'var(--text-muted)'}}>Select a league to view season analysis</p>
+        </div>
+        {loading ? (
+          <div style={{textAlign: 'center', color: 'var(--text-muted)', padding: '40px 20px'}}>Loading...</div>
+        ) : leagueList.length > 0 ? (
+          <div style={{display: 'grid', gap: 12}}>
+            {leagueList.map(league => (
+              <a key={league.slug} href={`/${league.slug}`} style={{
+                display: 'block', padding: '16px', background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: 12, textDecoration: 'none', color: 'inherit', transition: 'all 0.2s'
+              }} onMouseOver={e => e.target.style.borderColor = 'var(--accent)'}
+              onMouseOut={e => e.target.style.borderColor = 'var(--border)'}>
+                <div style={{fontSize: 16, fontWeight: 700, marginBottom: 4}}>{league.name}</div>
+                <div style={{fontSize: 12, color: 'var(--text-muted)'}}>
+                  {league.season ? `${league.season}` : 'Season'} {league.updatedAt && <span>• Updated {new Date(league.updatedAt).toLocaleDateString()}</span>}
+                </div>
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div style={{textAlign: 'center', color: 'var(--text-muted)', padding: '40px 20px'}}>No leagues available yet</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Achievements Data ─── */
+const ACHIEVEMENTS = [
+  { id:'first_run', label:'Off the Mark', emoji:'🏏', tier:'bronze',
+    check: (bat) => bat && bat.runs >= 1 },
+  { id:'runs50', label:'50 Run Club', emoji:'⭐', tier:'silver',
+    check: (bat) => bat && bat.runs >= 50,
+    hint: bat => bat ? `${Math.max(0, 50 - bat.runs)} more runs` : null },
+  { id:'runs100', label:'Century Season', emoji:'💯', tier:'gold',
+    check: (bat) => bat && bat.runs >= 100,
+    hint: bat => bat ? `${Math.max(0, 100 - bat.runs)} more runs` : null },
+  { id:'runs200', label:'200 Run Star', emoji:'🌟', tier:'platinum',
+    check: (bat) => bat && bat.runs >= 200 },
+  { id:'hs25', label:'First 25!', emoji:'🥈', tier:'bronze',
+    check: (bat) => bat && parseInt(bat.hs) >= 25 },
+  { id:'hs50', label:'Half-Century Hero', emoji:'🥇', tier:'silver',
+    check: (bat) => bat && parseInt(bat.hs) >= 50 },
+  { id:'boundary_blaster', label:'Boundary Blaster', emoji:'💥', tier:'silver',
+    check: (bat) => bat && bat.sixes >= 5 },
+  { id:'six_machine', label:'Six Machine', emoji:'🚀', tier:'gold',
+    check: (bat) => bat && bat.sixes >= 10 },
+  { id:'first_wicket', label:'First Strike', emoji:'🎯', tier:'bronze',
+    check: (bat,bowl) => bowl && bowl.wickets >= 1 },
+  { id:'wkts5', label:'5 Wicket Club', emoji:'⚡', tier:'silver',
+    check: (bat,bowl) => bowl && bowl.wickets >= 5,
+    hint: (bat,bowl) => bowl ? `${Math.max(0, 5 - bowl.wickets)} more wickets` : null },
+  { id:'wkts10', label:'10 Wicket Hero', emoji:'🔥', tier:'gold',
+    check: (bat,bowl) => bowl && bowl.wickets >= 10 },
+  { id:'wkts20', label:'20 Wicket Legend', emoji:'👑', tier:'platinum',
+    check: (bat,bowl) => bowl && bowl.wickets >= 20 },
+  { id:'economy_ace', label:'Economy Ace', emoji:'🔒', tier:'gold',
+    check: (bat,bowl) => bowl && parseFloat(bowl.econ) <= 6.0 && parseFloat(bowl.overs) >= 5 },
+  { id:'five_haul', label:'Five-For Legend', emoji:'🏆', tier:'gold',
+    check: (bat,bowl) => bowl && bowl.fiveW >= 1 },
+  { id:'maiden_master', label:'Maiden Master', emoji:'🔐', tier:'silver',
+    check: (bat,bowl) => bowl && bowl.maidens >= 3 },
+  { id:'allrounder', label:'All-Rounder', emoji:'⭐', tier:'gold',
+    check: (bat,bowl) => bat && bowl && bat.runs >= 30 && bowl.wickets >= 5 },
+  { id:'mom1', label:'Match Winner', emoji:'🌟', tier:'silver',
+    check: (bat,bowl,rank) => rank && rank.mom >= 1 },
+  { id:'mom3', label:'Hat-trick of MoMs', emoji:'👑', tier:'gold',
+    check: (bat,bowl,rank) => rank && rank.mom >= 3 },
+];
+
+/* ─── Player Profile Page ─── */
+function PlayerProfilePage({ name, batting, bowling, rankings, onClose, onTeamDrilldown }) {
+  const batRows = batting ? Object.entries(batting).filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+    .flatMap(([div, rows]) => Array.isArray(rows) ? rows.filter(r => String(r.player||'').toLowerCase() === name.toLowerCase()).map(r => ({...r, _div:div})) : []) : [];
+  const bowlRows = bowling ? Object.entries(bowling).filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+    .flatMap(([div, rows]) => Array.isArray(rows) ? rows.filter(r => String(r.player||'').toLowerCase() === name.toLowerCase()).map(r => ({...r, _div:div})) : []) : [];
+  const rankRows = rankings ? Object.entries(rankings).filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+    .flatMap(([div, rows]) => Array.isArray(rows) ? rows.filter(r => String(r.player||'').toLowerCase() === name.toLowerCase()).map(r => ({...r, _div:div})) : []) : [];
+
+  const teams = [...new Set([...batRows, ...bowlRows].map(r => r.team).filter(Boolean))];
+  const bat = aggregateBatting(batRows)[0] || null;
+  const bowl = aggregateBowling(bowlRows)[0] || null;
+  const rankTotals = rankRows.reduce((a,r) => ({ total: a.total + (Number(r.total)||0), batting: a.batting + (Number(r.batting)||0), bowling: a.bowling + (Number(r.bowling)||0), mom: a.mom + (Number(r.mom)||0) }), {total:0,batting:0,bowling:0,mom:0});
+
+  const earnedAchievements = ACHIEVEMENTS.filter(a => a.check(bat, bowl, rankTotals)).map(a => ({ ...a, earned: true }));
+  const lockedAchievements = ACHIEVEMENTS.filter(a => !a.check(bat, bowl, rankTotals) && a.hint).slice(0, 4).map(a => ({ ...a, earned: false, hintText: typeof a.hint === 'function' ? a.hint(bat, bowl, rankTotals) : null }));
+
+  const spotlightLines = [];
+  if (bowl && parseFloat(bowl.econ) <= 6.0 && parseFloat(bowl.overs) >= 5) spotlightLines.push(`Economy Rate Expert — Conceding only ${bowl.econ} runs/over!`);
+  if (bat && bat.sixes >= 5) spotlightLines.push(`Boundary Blaster — ${bat.sixes} sixes and counting!`);
+  if (bat && parseInt(bat.hs) >= 50) spotlightLines.push(`Half-Century Hero — Hit a brilliant ${bat.hs}!`);
+  if (bat && bat.inns >= 5 && parseFloat(bat.avg) >= 25) spotlightLines.push(`Consistent Performer — Averaging ${bat.avg} runs per innings`);
+  if (bowl && bowl.wickets >= 10) spotlightLines.push(`Wicket Machine — ${bowl.wickets} wickets this season!`);
+  if (bowl && bowl.fiveW >= 1) spotlightLines.push(`Five-For Legend — Claimed a 5-wicket haul!`);
+  if (rankTotals.mom >= 3) spotlightLines.push(`Match Winner — ${rankTotals.mom} Man of the Match awards!`);
+  if (bowl && bowl.maidens >= 3) spotlightLines.push(`Maiden Master — ${bowl.maidens} maiden overs bowled!`);
+  if (spotlightLines.length === 0) spotlightLines.push(`Keep going — every match makes you better!`);
+
+  const spotlight = spotlightLines.slice(0, 2).join(' ');
+
+  return (
+    <div className="player-page">
+      <div className="player-page-back" onClick={onClose}>← Back</div>
+      <div className="player-hero">
+        <div className="player-name-lg">{name}</div>
+        <div className="player-meta">
+          {teams.length > 0 && <span>{teams.map((t, i) => <span key={t}>{i > 0 ? ', ' : ''}<span className="clickable" onClick={() => { onClose(); onTeamDrilldown({type:'team',name:t}); }}>{t}</span></span>)}</span>}
+        </div>
+      </div>
+
+      <div className="headline-pills">
+        <div className="headline-pill">
+          <div className="headline-pill-val">{bat?.runs || 0}</div>
+          <div className="headline-pill-lbl">Runs</div>
+        </div>
+        <div className="headline-pill">
+          <div className="headline-pill-val">{bowl?.wickets || 0}</div>
+          <div className="headline-pill-lbl">Wickets</div>
+        </div>
+        <div className="headline-pill">
+          <div className="headline-pill-val">{rankTotals.mom || 0}</div>
+          <div className="headline-pill-lbl">MoM</div>
+        </div>
+      </div>
+
+      {spotlight && <div className="spotlight-banner"><div className="spotlight-title">Spotlight</div><div className="spotlight-text">{spotlight}</div></div>}
+
+      {bat && <div className="profile-section">
+        <div style={{fontSize: 13, fontWeight: 700, marginBottom: 12, textTransform: 'uppercase', color: 'var(--text-muted)'}}>Batting</div>
+        <div className="mega-stat">{bat.hs}</div>
+        <div className="mega-stat-lbl">Highest Score</div>
+        {bat.runs < 300 && <div className="milestone-bar-wrap">
+          <div className="milestone-bar-row">
+            <span>{bat.runs} runs</span>
+            <span>{Math.min(300, Math.max(50, bat.runs < 50 ? 50 : bat.runs < 100 ? 100 : bat.runs < 200 ? 200 : 300))} target</span>
+          </div>
+          <div className="milestone-bar">
+            <div className="milestone-bar-fill" style={{width: `${Math.min(100, (bat.runs / (bat.runs < 50 ? 50 : bat.runs < 100 ? 100 : bat.runs < 200 ? 200 : 300)) * 100)}%`}}></div>
+          </div>
+        </div>}
+        <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(68px,1fr))', gap: 8, marginTop: 16}}>
+          {[['Runs', bat.runs], ['Avg', bat.avg], ['SR', bat.sr], ['4s', bat.fours], ['6s', bat.sixes], ['Boundary%', bat.boundaryPct]].map(([l,v]) => <div key={l} className="stat-tile"><div className="stat-tile-val">{v??'—'}</div><div className="stat-tile-lbl">{l}</div></div>)}
+        </div>
+      </div>}
+
+      {bowl && <div className="profile-section">
+        <div style={{fontSize: 13, fontWeight: 700, marginBottom: 12, textTransform: 'uppercase', color: 'var(--text-muted)'}}>Bowling</div>
+        <div className="mega-stat">{bowl.bbf}</div>
+        <div className="mega-stat-lbl">Best Figures</div>
+        {bowl.wickets < 20 && <div className="milestone-bar-wrap">
+          <div className="milestone-bar-row">
+            <span>{bowl.wickets} wickets</span>
+            <span>{Math.min(20, Math.max(5, bowl.wickets < 5 ? 5 : bowl.wickets < 10 ? 10 : 20))} target</span>
+          </div>
+          <div className="milestone-bar">
+            <div className="milestone-bar-fill" style={{width: `${Math.min(100, (bowl.wickets / (bowl.wickets < 5 ? 5 : bowl.wickets < 10 ? 10 : 20)) * 100)}%`}}></div>
+          </div>
+        </div>}
+        <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(68px,1fr))', gap: 8, marginTop: 16}}>
+          {[['Wkts', bowl.wickets], ['Econ', bowl.econ], ['Avg', bowl.avg], ['Maidens', bowl.maidens], ['Dots%', bowl.dotPct], ['Extras/6', bowl.extrasPer6]].map(([l,v]) => <div key={l} className="stat-tile"><div className="stat-tile-val">{v??'—'}</div><div className="stat-tile-lbl">{l}</div></div>)}
+        </div>
+      </div>}
+
+      {(earnedAchievements.length > 0 || lockedAchievements.length > 0) && <div className="profile-section">
+        <div style={{fontSize: 13, fontWeight: 700, marginBottom: 12, textTransform: 'uppercase', color: 'var(--text-muted)'}}>Achievements</div>
+        <div className="achievements-grid">
+          {earnedAchievements.map(a => <div key={a.id} className={`achievement-card earned tier-${a.tier}`}>
+            <div className="achievement-emoji">{a.emoji}</div>
+            <div className="achievement-label">{a.label}</div>
+          </div>)}
+          {lockedAchievements.map(a => <div key={a.id} className={`achievement-card locked`}>
+            <div className="achievement-emoji" style={{opacity: 0.4}}>{a.emoji}</div>
+            <div className="achievement-label">{a.label}</div>
+            {a.hintText && <div className="achievement-hint">{a.hintText}</div>}
+          </div>)}
+        </div>
+      </div>}
+    </div>
+  );
+}
+
 /* ─── Main dashboard ─── */
 function SYCLDashboard() {
   const [data, setData] = useState(null);
@@ -1852,35 +2104,47 @@ function SYCLDashboard() {
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(null);
   const [drilldown, setDrilldown] = useState(null);
-  const handleDrilldown = useCallback((d) => setDrilldown(d), []);
+  const [playerPage, setPlayerPage] = useState(null);
+  const handleDrilldown = useCallback((d) => {
+    if (d.type === 'player') setPlayerPage(d.name);
+    else setDrilldown(d);
+  }, []);
   const closeDrilldown = useCallback(() => setDrilldown(null), []);
+  const closePlayerPage = useCallback(() => setPlayerPage(null), []);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     try { localStorage.setItem('sycl_theme', theme); } catch {}
   }, [theme]);
 
-  const loadData = useCallback((bustCache) => {
+  const loadData = useCallback((bustCache, slug) => {
     setLoading(true);
-    const url = bustCache ? `/api/schedule?_t=${Date.now()}` : "/api/schedule";
+    const leagueParam = slug ? `league=${encodeURIComponent(slug)}&` : '';
+    const url = bustCache ? `/api/schedule?${leagueParam}_t=${Date.now()}` : `/api/schedule${slug ? `?league=${encodeURIComponent(slug)}` : ''}`;
     fetch(url)
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (d?.matches?.length) {
           const divisions = [...new Set(d.matches.map(m => m.division))];
           setData(prev => {
-            const next = { matches: d.matches, divisions, standings: d.standings || {}, batting: d.batting || null, bowling: d.bowling || null, rankings: d.rankings || null, results: d.results || null };
+            const next = { matches: d.matches, divisions, standings: d.standings || {}, batting: d.batting || null, bowling: d.bowling || null, rankings: d.rankings || null, results: d.results || null, leagueName: d.leagueName, season: d.season };
             if (!prev) setSelectedDivision(divisions[0]);
             return next;
           });
           setLastRefresh(d.updatedAt);
+          if (d.leagueName) document.title = `${d.leagueName}${d.season ? ` · ${d.season}` : ''} · Season Dashboard`;
         }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { loadData(false); }, []);
+  const slug = useMemo(() => getLeagueSlug(), []);
+
+  useEffect(() => {
+    if (!slug) return; // No league selected, show landing page
+    loadData(false, slug);
+  }, [slug, loadData]);
 
   const divOrder = ["Emerging Stars","U11A","U11B","U13A","U13B","U15A","U15B"];
   const sortedDivs = useMemo(() => {
@@ -1893,6 +2157,9 @@ function SYCLDashboard() {
 
   const tabs = [["schedule","Schedule"],["standings","Standings"],["results","Results"],["batting","Batting"],["bowling","Bowling"],["rankings","Rankings"]];
 
+  if (!slug) return <LandingPage />;
+  if (playerPage) return <PlayerProfilePage name={playerPage} batting={data?.batting} bowling={data?.bowling} rankings={data?.rankings} onClose={closePlayerPage} onTeamDrilldown={handleDrilldown} />;
+
   return (
     <>
       <style>{STYLES}</style>
@@ -1903,7 +2170,7 @@ function SYCLDashboard() {
             <span className="header-cricket">🏏</span>
             <div className="header-sep"></div>
             <div>
-              <div style={{fontSize:17,fontWeight:800,letterSpacing:"-0.5px",color:"var(--header-text)"}}>SYCL Schedule</div>
+              <div style={{fontSize:17,fontWeight:800,letterSpacing:"-0.5px",color:"var(--header-text)"}}>{data?.leagueName || 'Cricket'}{data?.season ? ` · ${data.season}` : ''}</div>
               {lastRefresh && (
                 <div className="header-sub">
                   Updated {new Date(lastRefresh).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})} at {new Date(lastRefresh).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}
@@ -1912,10 +2179,10 @@ function SYCLDashboard() {
             </div>
           </div>
           <div className="header-actions">
-            <button className="small-btn" onClick={() => loadData(true)} title="Refresh data" disabled={loading}>
+            <button className="small-btn" onClick={() => loadData(true, slug)} title="Refresh data" disabled={loading}>
               {loading ? "…" : "↻"}
             </button>
-            <a href="/admin.html" className="small-btn">Admin</a>
+            <a href={`/${slug}/admin`} className="small-btn">Admin</a>
             <button className="theme-toggle" onClick={() => setTheme(t => t==="light"?"dark":"light")} title="Toggle theme">
               {theme==="light" ? "☾" : "☀"}
             </button>
