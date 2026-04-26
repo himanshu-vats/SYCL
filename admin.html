@@ -1331,8 +1331,18 @@ Promise.all(fetchAll).then(function(fetched){
   if(bd)payload.batting=batting;
   if(bw)payload.bowling=bowling;
   if(rk)payload.rankings=rankings;
-  var slugPath=window.location.pathname.split('/').filter(function(p){return p&&p!=='admin';})[0];
-  if(slugPath)payload.league=slugPath;
+
+  // Auto-generate slug from CricClubs path + match dates
+  var cricclubsPath=window.location.pathname.split('/').filter(Boolean)[0]||'SYCL';
+  var stopWords=/Youth|Cricket|League|Club|Official|Association|Community|Junior/gi;
+  var leagueId=cricclubsPath.replace(stopWords,'').trim().toUpperCase()||cricclubsPath.toUpperCase();
+  var allDates=(results.length?results:[]).map(function(r){return new Date(r.date);}).filter(function(d){return!isNaN(d);});
+  var year=allDates.length?Math.max.apply(null,allDates.map(function(d){return d.getFullYear();})):new Date().getFullYear();
+  var avgMonth=allDates.length?allDates.reduce(function(a,b){return a+b.getMonth();},0)/allDates.length:6;
+  var season=avgMonth<6?'Spring':'Fall';
+  payload.league=leagueId+'-'+season+'-'+year;
+  payload.leagueName=leagueId;
+  payload.season=season+' '+year;
   return fetch('${origin}/api/sync-all',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Password':'${password}'},body:JSON.stringify(payload)}).then(function(r){return r.json();});
 }).then(function(resp){
   ov.remove();
