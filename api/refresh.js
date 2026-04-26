@@ -1,3 +1,5 @@
+const { db } = require('../lib/firebase');
+
 module.exports = async function(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -12,25 +14,23 @@ module.exports = async function(req, res) {
     return;
   }
 
+  const slug = req.body?.league || 'default';
   const { matches } = req.body || {};
   if (!Array.isArray(matches) || !matches.length) {
     res.status(400).json({ error: 'No match data provided' });
     return;
   }
 
-  const data = { matches, updatedAt: new Date().toISOString(), matchCount: matches.length };
+  try {
+    const now = new Date().toISOString();
+    await db.collection('leagues').doc(slug).update({
+      matches: matches,
+      matchCount: matches.length,
+      updatedAt: now
+    });
 
-  const r = await fetch(`https://api.github.com/gists/${process.env.GIST_ID}`, {
-    method: 'PATCH',
-    headers: {
-      Authorization: `token ${process.env.GITHUB_TOKEN}`,
-      'Content-Type': 'application/json',
-      'User-Agent': 'SYCL-Dashboard/1.0'
-    },
-    body: JSON.stringify({ files: { 'schedule.json': { content: JSON.stringify(data) } } })
-  });
-
-  if (!r.ok) { res.status(502).json({ error: `GitHub API error: ${r.status}` }); return; }
-
-  res.json({ message: `${matches.length} matches saved.`, updatedAt: data.updatedAt });
+    res.json({ message: `${matches.length} matches saved.`, updatedAt: now });
+  } catch (e) {
+    res.status(500).json({ error: 'Server error: ' + e.message });
+  }
 };

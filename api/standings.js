@@ -1,3 +1,5 @@
+const { db } = require('../lib/firebase');
+
 module.exports = async function(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -12,11 +14,7 @@ module.exports = async function(req, res) {
     return;
   }
 
-  if (!process.env.GIST_ID || !process.env.GITHUB_TOKEN) {
-    res.status(503).json({ error: 'Not configured' });
-    return;
-  }
-
+  const slug = req.body?.league || 'default';
   const { division, rows, divisions } = req.body || {};
 
   // Build update map: either { divisions: { Name: { rows } } } or legacy { division, rows }
@@ -35,31 +33,13 @@ module.exports = async function(req, res) {
   }
 
   try {
-    const getR = await fetch(`https://api.github.com/gists/${process.env.GIST_ID}`, {
-      headers: { Authorization: `token ${process.env.GITHUB_TOKEN}`, 'User-Agent': 'SYCL-Dashboard/1.0' }
-    });
-    if (!getR.ok) { res.status(502).json({ error: `GitHub API error: ${getR.status}` }); return; }
-
-    const gist = await getR.json();
-    let data = {};
-    try { data = JSON.parse(gist.files?.['schedule.json']?.content || '{}'); } catch {}
-
     const now = new Date().toISOString();
-    if (!data.standings) data.standings = {};
+    const standing = {};
     Object.entries(updates).forEach(([name, divRows]) => {
-      data.standings[name] = { rows: divRows, updatedAt: now };
+      standing[name] = { rows: divRows, updatedAt: now };
     });
 
-    const putR = await fetch(`https://api.github.com/gists/${process.env.GIST_ID}`, {
-      method: 'PATCH',
-      headers: {
-        Authorization: `token ${process.env.GITHUB_TOKEN}`,
-        'Content-Type': 'application/json',
-        'User-Agent': 'SYCL-Dashboard/1.0'
-      },
-      body: JSON.stringify({ files: { 'schedule.json': { content: JSON.stringify(data) } } })
-    });
-    if (!putR.ok) { res.status(502).json({ error: `GitHub API error: ${putR.status}` }); return; }
+    await db.collection('leagues').doc(slug).update({ standings: standing });
 
     const names = Object.keys(updates);
     res.json({ message: `${names.length} division(s) synced: ${names.join(', ')}.`, updatedAt: now });

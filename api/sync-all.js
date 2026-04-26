@@ -1,3 +1,5 @@
+const { db } = require('../lib/firebase');
+
 module.exports = async function(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -12,13 +14,12 @@ module.exports = async function(req, res) {
     return;
   }
 
-  if (!process.env.GIST_ID || !process.env.GITHUB_TOKEN) {
-    res.status(503).json({ error: 'Not configured' });
+  const slug = req.body?.league || req.query?.league;
+  if (!slug) {
+    res.status(400).json({ error: 'league slug required' });
     return;
   }
 
-  const slug = req.body?.league || req.query?.league;
-  const filename = slug ? `${slug}.json` : 'schedule.json';
   const { matches, results, standings, batting, bowling, rankings, leagueName, season } = req.body || {};
 
   const hasMatches  = Array.isArray(matches) && matches.length > 0;
@@ -34,59 +35,39 @@ module.exports = async function(req, res) {
   }
 
   try {
-    const getR = await fetch(`https://api.github.com/gists/${process.env.GIST_ID}`, {
-      headers: { Authorization: `token ${process.env.GITHUB_TOKEN}`, 'User-Agent': 'SYCL-Dashboard/1.0' }
-    });
-    if (!getR.ok) { res.status(502).json({ error: `GitHub API error: ${getR.status}` }); return; }
-
-    const gist = await getR.json();
-    let data = {};
-    try { data = JSON.parse(gist.files?.[filename]?.content || '{}'); } catch {}
-
     const now = new Date().toISOString();
+    const docRef = db.collection('leagues').doc(slug);
+    const existing = (await docRef.get()).data() || {};
 
+    const update = { ...existing, updatedAt: now };
     if (hasMatches) {
-      data.matches = matches;
-      data.matchCount = matches.length;
-      data.updatedAt = now;
+      update.matches = matches;
+      update.matchCount = matches.length;
     }
     if (hasResults) {
-      data.results = { matches: results, updatedAt: now };
+      update.results = { matches: results, updatedAt: now };
     }
     if (hasStandings) {
-      if (!data.standings) data.standings = {};
+      update.standings = { ...(existing.standings || {}) };
       Object.entries(standings).forEach(([name, divRows]) => {
         if (name && Array.isArray(divRows) && divRows.length) {
-          data.standings[name] = { rows: divRows, updatedAt: now };
+          update.standings[name] = { rows: divRows, updatedAt: now };
         }
       });
     }
-    if (hasBatting)  data.batting  = { ...batting,  updatedAt: now };
-    if (hasBowling)  data.bowling  = { ...bowling,  updatedAt: now };
-    if (hasRankings) data.rankings = { ...rankings, updatedAt: now };
-    if (leagueName)  data.leagueName = leagueName;
-    if (season)      data.season = season;
+    if (hasBatting)   update.batting = { ...batting, updatedAt: now };
+    if (hasBowling)   update.bowling = { ...bowling, updatedAt: now };
+    if (hasRankings)  update.rankings = { ...rankings, updatedAt: now };
+    if (leagueName)   update.leagueName = leagueName;
+    if (season)       update.season = season;
 
-    const filesToUpdate = { [filename]: { content: JSON.stringify(data) } };
+    await docRef.set(update);
 
-    // Update leagues-index.json if slug is provided
-    if (slug) {
-      let indexData = {};
-      try { indexData = JSON.parse(gist.files?.['leagues-index.json']?.content || '{}'); } catch {}
-      indexData[slug] = { name: leagueName || slug, season: season || '', updatedAt: now };
-      filesToUpdate['leagues-index.json'] = { content: JSON.stringify(indexData) };
-    }
-
-    const putR = await fetch(`https://api.github.com/gists/${process.env.GIST_ID}`, {
-      method: 'PATCH',
-      headers: {
-        Authorization: `token ${process.env.GITHUB_TOKEN}`,
-        'Content-Type': 'application/json',
-        'User-Agent': 'SYCL-Dashboard/1.0'
-      },
-      body: JSON.stringify({ files: filesToUpdate })
-    });
-    if (!putR.ok) { res.status(502).json({ error: `GitHub API error: ${putR.status}` }); return; }
+    // Update leagues-index
+    await db.collection('meta').doc('leagues-index').set(
+      { [slug]: { name: leagueName || slug, season: season || '', updatedAt: now } },
+      { merge: true }
+    );
 
     const parts = [];
     if (hasMatches)   parts.push(`${matches.length} fixtures`);
