@@ -1906,33 +1906,123 @@ function LandingPage() {
 
   const leagueList = Object.entries(leagues).map(([slug, meta]) => ({ slug, ...meta }));
 
+  // Group by league name, sort seasons by recency
+  const groupedLeagues = {};
+  leagueList.forEach(league => {
+    const leagueName = league.name || 'Unknown';
+    if (!groupedLeagues[leagueName]) groupedLeagues[leagueName] = [];
+    groupedLeagues[leagueName].push(league);
+  });
+
+  Object.keys(groupedLeagues).forEach(name => {
+    groupedLeagues[name].sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+  });
+
+  const sortedLeagueNames = Object.keys(groupedLeagues).sort();
+  const now = new Date();
+  const isRecent = (date) => (now - new Date(date)) < 7 * 24 * 60 * 60 * 1000;
+
   return (
-    <div style={{minHeight: '100vh', background: 'var(--bg-page)', padding: '20px 16px'}}>
-      <div style={{maxWidth: 600, margin: '0 auto'}}>
-        <div style={{textAlign: 'center', marginBottom: 40}}>
-          <div style={{fontSize: 40, marginBottom: 12}}>🏏</div>
-          <h1 style={{fontSize: 28, fontWeight: 800, marginBottom: 8, color: 'var(--text-primary)'}}>Cricket Season Dashboard</h1>
-          <p style={{fontSize: 14, color: 'var(--text-muted)'}}>Select a league to view season analysis</p>
+    <div style={{minHeight: '100vh', background: 'var(--bg-page)'}}>
+      {/* Header */}
+      <div style={{background: 'linear-gradient(135deg, #6001D2 0%, #9333ea 100%)', padding: '48px 24px', textAlign: 'center'}}>
+        <div style={{maxWidth: 900, margin: '0 auto'}}>
+          <div style={{fontSize: 48, marginBottom: 16}}>🏏</div>
+          <h1 style={{fontSize: 36, fontWeight: 900, color: '#ffffff', marginBottom: 12}}>Season Insight</h1>
+          <p style={{fontSize: 16, color: 'rgba(255,255,255,0.85)', marginBottom: 24, maxWidth: 500, margin: '0 auto 24px'}}>
+            Analyze. Compare. Compete. Deep insights into cricket season performance across multiple leagues.
+          </p>
+          {leagueList.length > 0 && (
+            <div style={{display: 'flex', justifyContent: 'center', gap: 32, fontSize: 14, color: 'rgba(255,255,255,0.8)'}}>
+              <div><span style={{fontSize: 24, fontWeight: 800, color: '#fff'}}>{sortedLeagueNames.length}</span><br/>Leagues</div>
+              <div><span style={{fontSize: 24, fontWeight: 800, color: '#fff'}}>{leagueList.length}</span><br/>Seasons</div>
+            </div>
+          )}
         </div>
+      </div>
+
+      {/* Content */}
+      <div style={{maxWidth: 1200, margin: '0 auto', padding: '48px 24px'}}>
         {loading ? (
-          <div style={{textAlign: 'center', color: 'var(--text-muted)', padding: '40px 20px'}}>Loading...</div>
+          <div style={{textAlign: 'center', color: 'var(--text-muted)', padding: '80px 20px', fontSize: 16}}>
+            <div style={{marginBottom: 16}}>Loading seasons...</div>
+            <div style={{fontSize: 12}}>Fetching data from all leagues</div>
+          </div>
         ) : leagueList.length > 0 ? (
-          <div style={{display: 'grid', gap: 12}}>
-            {leagueList.map(league => (
-              <a key={league.slug} href={`/${league.slug}`} style={{
-                display: 'block', padding: '16px', background: 'var(--bg-100)', border: '1px solid var(--border)',
-                borderRadius: 12, textDecoration: 'none', color: 'var(--text-primary)', transition: 'all 0.2s'
-              }} onMouseOver={e => e.target.style.borderColor = 'var(--accent)'}
-              onMouseOut={e => e.target.style.borderColor = 'var(--border)'}>
-                <div style={{fontSize: 16, fontWeight: 700, marginBottom: 4, color: 'var(--text-primary)'}}>{league.name}</div>
-                <div style={{fontSize: 12, color: 'var(--text-muted)'}}>
-                  {league.season ? `${league.season}` : 'Season'} {league.updatedAt && <span>• Updated {new Date(league.updatedAt).toLocaleDateString()}</span>}
+          <div>
+            {sortedLeagueNames.map(leagueName => (
+              <div key={leagueName} style={{marginBottom: 56}}>
+                <div style={{display: 'flex', alignItems: 'center', marginBottom: 20, paddingBottom: 12, borderBottom: '2px solid var(--border)'}}>
+                  <h2 style={{fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', margin: 0}}>
+                    {leagueName}
+                  </h2>
+                  <span style={{fontSize: 12, color: 'var(--text-muted)', marginLeft: 12}}>
+                    {groupedLeagues[leagueName].length} season{groupedLeagues[leagueName].length > 1 ? 's' : ''}
+                  </span>
                 </div>
-              </a>
+
+                <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16}}>
+                  {groupedLeagues[leagueName].map(league => {
+                    const updated = new Date(league.updatedAt);
+                    const daysAgo = Math.floor((now - updated) / (24 * 60 * 60 * 1000));
+                    const dateStr = daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo} days ago`;
+
+                    return (
+                      <a key={league.slug} href={`/${league.slug}`} style={{
+                        display: 'block', padding: '20px', background: 'var(--bg-100)',
+                        border: '1px solid var(--border)', borderRadius: 16,
+                        textDecoration: 'none', color: 'var(--text-primary)',
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        position: 'relative', overflow: 'hidden'
+                      }}
+                      onMouseOver={e => {
+                        e.currentTarget.style.borderColor = 'var(--accent)';
+                        e.currentTarget.style.transform = 'translateY(-4px)';
+                        e.currentTarget.style.boxShadow = '0 12px 24px rgba(96,1,210,0.12)';
+                      }}
+                      onMouseOut={e => {
+                        e.currentTarget.style.borderColor = 'var(--border)';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = 'none';
+                      }}>
+
+                        {isRecent(league.updatedAt) && (
+                          <div style={{
+                            position: 'absolute', top: 12, right: 12,
+                            background: '#17bf63', color: '#fff',
+                            fontSize: 10, fontWeight: 700, padding: '4px 8px',
+                            borderRadius: 4, textTransform: 'uppercase'
+                          }}>New</div>
+                        )}
+
+                        <div style={{fontSize: 18, fontWeight: 700, marginBottom: 4, color: 'var(--accent)', paddingRight: 40}}>
+                          {league.season || 'Season'}
+                        </div>
+                        <div style={{fontSize: 13, color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.5}}>
+                          Updated {dateStr}
+                        </div>
+
+                        <div style={{display: 'flex', gap: 12, fontSize: 12}}>
+                          <div style={{padding: '8px 12px', background: 'var(--bg-200)', borderRadius: 6, color: 'var(--text-primary)'}}>
+                            <strong>Multiple</strong> divisions
+                          </div>
+                        </div>
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
             ))}
           </div>
         ) : (
-          <div style={{textAlign: 'center', color: 'var(--text-muted)', padding: '40px 20px'}}>No leagues available yet</div>
+          <div style={{textAlign: 'center', padding: '80px 20px'}}>
+            <div style={{fontSize: 14, color: 'var(--text-muted)', marginBottom: 16}}>
+              No seasons synced yet
+            </div>
+            <div style={{fontSize: 13, color: 'var(--text-muted)'}}>
+              Go to <strong>/admin</strong> to sync your first league season from CricClubs
+            </div>
+          </div>
         )}
       </div>
     </div>
