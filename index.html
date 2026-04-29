@@ -294,57 +294,57 @@ const STYLES = `
     --tab-active-border: #6001D2;
   }
 
-  /* ── Tokens: Dark ── */
+  /* ── Tokens: ESPNcricinfo Light Theme ── */
   [data-theme="dark"] {
-    --bg-page:   #1c1c1e;
-    --bg-100:    #2c2c2e;
-    --bg-200:    #1c1c1e;
-    --bg-300:    #3a3a3c;
-    --bg-hover:  #3a2a50;
-    --z-100: #3a3a3c;
-    --z-200: #48484a;
-    --z-300: #636366;
-    --z-500: #98989a;
-    --z-700: #d1d1d6;
-    --z-900: #e5e5ea;
-    --z-1000: #f5f5f7;
-    --a-200: rgba(255,255,255,0.05);
-    --a-400: rgba(255,255,255,0.10);
-    --a-500: rgba(255,255,255,0.16);
-    --border: rgba(255,255,255,0.12);
-    --text-primary:   #f5f5f7;
-    --text-secondary: #b0b0b8;
-    --text-muted:     #86868b;
-    --accent:        #a855f7;
-    --accent-dark:   #9333ea;
-    --accent-light:  rgba(168,85,247,0.12);
-    --header-bg:     #1a0a2e;
+    --bg-page:   #f8f8f8;
+    --bg-100:    #ffffff;
+    --bg-200:    #f5f5f5;
+    --bg-300:    #eeeeee;
+    --bg-hover:  #f0f7ff;
+    --z-100: #f5f5f5;
+    --z-200: #e8e8e8;
+    --z-300: #d1d1d1;
+    --z-500: #999999;
+    --z-700: #666666;
+    --z-900: #333333;
+    --z-1000: #000000;
+    --a-200: rgba(0,0,0,0.03);
+    --a-400: rgba(0,0,0,0.06);
+    --a-500: rgba(0,0,0,0.10);
+    --border: #e0e0e0;
+    --text-primary:   #1a1a1a;
+    --text-secondary: #555555;
+    --text-muted:     #888888;
+    --accent:        #1565c0;
+    --accent-dark:   #0d47a1;
+    --accent-light:  rgba(21,101,192,0.08);
+    --header-bg:     #1a3a5c;
     --header-text:   #ffffff;
-    --header-sub:    rgba(255,255,255,0.55);
-    --header-border: rgba(255,255,255,0.10);
-    --clr-ok:   #34d399;
-    --clr-warn: #fbbf24;
-    --clr-bad:  #f87171;
-    --clr-info: #60a5fa;
-    --clr-am:   #60a5fa;
-    --clr-pm:   #c084fc;
-    --badge-ok-bg: #064e3b;   --badge-ok-fg: #34d399;
-    --badge-warn-bg: #78350f; --badge-warn-fg: #fbbf24;
-    --badge-bad-bg: #7f1d1d;  --badge-bad-fg: #f87171;
-    --badge-am-bg: #1e3a5f;   --badge-am-fg: #60a5fa;
-    --badge-pm-bg: #3b1a5e;   --badge-pm-fg: #c084fc;
-    --sev-error-bg: #7f1d1d;
-    --sev-warn-bg:  #78350f;
-    --sev-info-bg:  #1e3a5f;
-    --pair-yes-bg:  #064e3b;
-    --pair-no-bg:   #7f1d1d;
-    --row-alt:   rgba(255,255,255,0.04);
-    --row-hover: rgba(168,85,247,0.10);
-    --table-shadow: 0 1px 6px rgba(0,0,0,0.30);
-    --th-bg: #252527;
-    --th-color: #86868b;
-    --tab-active-color: #a855f7;
-    --tab-active-border: #a855f7;
+    --header-sub:    rgba(255,255,255,0.75);
+    --header-border: rgba(255,255,255,0.15);
+    --clr-ok:   #2e7d32;
+    --clr-warn: #f57c00;
+    --clr-bad:  #d32f2f;
+    --clr-info: #1565c0;
+    --clr-am:   #1565c0;
+    --clr-pm:   #7b1fa2;
+    --badge-ok-bg: #e8f5e9;   --badge-ok-fg: #2e7d32;
+    --badge-warn-bg: #fff3e0; --badge-warn-fg: #f57c00;
+    --badge-bad-bg: #ffebee;  --badge-bad-fg: #d32f2f;
+    --badge-am-bg: #e3f2fd;   --badge-am-fg: #1565c0;
+    --badge-pm-bg: #f3e5f5;   --badge-pm-fg: #7b1fa2;
+    --sev-error-bg: #ffebee;
+    --sev-warn-bg:  #fff3e0;
+    --sev-info-bg:  #e3f2fd;
+    --pair-yes-bg:  #e8f5e9;
+    --pair-no-bg:   #ffebee;
+    --row-alt:   #f9f9f9;
+    --row-hover: rgba(21,101,192,0.05);
+    --table-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    --th-bg: #f5f5f5;
+    --th-color: #666666;
+    --tab-active-color: #1565c0;
+    --tab-active-border: #1565c0;
   }
 
   /* ── Reset & base ── */
@@ -1924,18 +1924,18 @@ function LandingPage() {
 
   return (
     <div style={{minHeight: '100vh', background: 'var(--bg-page)'}}>
-      {/* Header */}
-      <div style={{background: 'linear-gradient(135deg, #6001D2 0%, #9333ea 100%)', padding: '48px 24px', textAlign: 'center'}}>
+      {/* Header - ESPNcricinfo style */}
+      <div style={{background: '#1a3a5c', padding: '40px 24px', textAlign: 'center'}}>
         <div style={{maxWidth: 900, margin: '0 auto'}}>
-          <div style={{fontSize: 48, marginBottom: 16}}>🏏</div>
-          <h1 style={{fontSize: 36, fontWeight: 900, color: '#ffffff', marginBottom: 12}}>Season Insight</h1>
-          <p style={{fontSize: 16, color: 'rgba(255,255,255,0.85)', marginBottom: 24, maxWidth: 500, margin: '0 auto 24px'}}>
-            Analyze. Compare. Compete. Deep insights into cricket season performance across multiple leagues.
+          <div style={{fontSize: 40, marginBottom: 12}}>🏏</div>
+          <h1 style={{fontSize: 32, fontWeight: 800, color: '#ffffff', marginBottom: 8}}>Season Insight</h1>
+          <p style={{fontSize: 14, color: 'rgba(255,255,255,0.80)', marginBottom: 24}}>
+            Analyze cricket season performance across multiple leagues
           </p>
           {leagueList.length > 0 && (
-            <div style={{display: 'flex', justifyContent: 'center', gap: 32, fontSize: 14, color: 'rgba(255,255,255,0.8)'}}>
-              <div><span style={{fontSize: 24, fontWeight: 800, color: '#fff'}}>{sortedLeagueNames.length}</span><br/>Leagues</div>
-              <div><span style={{fontSize: 24, fontWeight: 800, color: '#fff'}}>{leagueList.length}</span><br/>Seasons</div>
+            <div style={{display: 'flex', justifyContent: 'center', gap: 40, fontSize: 13, color: 'rgba(255,255,255,0.75)'}}>
+              <div><span style={{fontSize: 20, fontWeight: 700, color: '#ffffff', display: 'block'}}>{sortedLeagueNames.length}</span>Leagues</div>
+              <div><span style={{fontSize: 20, fontWeight: 700, color: '#ffffff', display: 'block'}}>{leagueList.length}</span>Seasons</div>
             </div>
           )}
         </div>
@@ -1976,9 +1976,9 @@ function LandingPage() {
                         position: 'relative', overflow: 'hidden'
                       }}
                       onMouseOver={e => {
-                        e.currentTarget.style.borderColor = 'var(--accent)';
+                        e.currentTarget.style.borderColor = '#1a3a5c';
                         e.currentTarget.style.transform = 'translateY(-4px)';
-                        e.currentTarget.style.boxShadow = '0 12px 24px rgba(96,1,210,0.12)';
+                        e.currentTarget.style.boxShadow = '0 8px 16px rgba(26,58,92,0.12)';
                       }}
                       onMouseOut={e => {
                         e.currentTarget.style.borderColor = 'var(--border)';
@@ -1995,7 +1995,7 @@ function LandingPage() {
                           }}>New</div>
                         )}
 
-                        <div style={{fontSize: 18, fontWeight: 700, marginBottom: 4, color: 'var(--accent)', paddingRight: 40}}>
+                        <div style={{fontSize: 18, fontWeight: 700, marginBottom: 4, color: '#1a3a5c', paddingRight: 40}}>
                           {league.season || 'Season'}
                         </div>
                         <div style={{fontSize: 13, color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.5}}>
