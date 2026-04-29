@@ -1907,11 +1907,11 @@ function LandingPage() {
   const leagueList = Object.entries(leagues).map(([slug, meta]) => ({ slug, ...meta }));
 
   return (
-    <div style={{minHeight: '100vh', background: 'var(--bg)', padding: '20px 16px'}}>
+    <div style={{minHeight: '100vh', background: 'var(--bg-page)', padding: '20px 16px'}}>
       <div style={{maxWidth: 600, margin: '0 auto'}}>
         <div style={{textAlign: 'center', marginBottom: 40}}>
           <div style={{fontSize: 40, marginBottom: 12}}>🏏</div>
-          <h1 style={{fontSize: 28, fontWeight: 800, marginBottom: 8}}>Cricket Season Dashboard</h1>
+          <h1 style={{fontSize: 28, fontWeight: 800, marginBottom: 8, color: 'var(--text-primary)'}}>Cricket Season Dashboard</h1>
           <p style={{fontSize: 14, color: 'var(--text-muted)'}}>Select a league to view season analysis</p>
         </div>
         {loading ? (
@@ -1920,11 +1920,11 @@ function LandingPage() {
           <div style={{display: 'grid', gap: 12}}>
             {leagueList.map(league => (
               <a key={league.slug} href={`/${league.slug}`} style={{
-                display: 'block', padding: '16px', background: 'var(--surface)', border: '1px solid var(--border)',
-                borderRadius: 12, textDecoration: 'none', color: 'inherit', transition: 'all 0.2s'
+                display: 'block', padding: '16px', background: 'var(--bg-100)', border: '1px solid var(--border)',
+                borderRadius: 12, textDecoration: 'none', color: 'var(--text-primary)', transition: 'all 0.2s'
               }} onMouseOver={e => e.target.style.borderColor = 'var(--accent)'}
               onMouseOut={e => e.target.style.borderColor = 'var(--border)'}>
-                <div style={{fontSize: 16, fontWeight: 700, marginBottom: 4}}>{league.name}</div>
+                <div style={{fontSize: 16, fontWeight: 700, marginBottom: 4, color: 'var(--text-primary)'}}>{league.name}</div>
                 <div style={{fontSize: 12, color: 'var(--text-muted)'}}>
                   {league.season ? `${league.season}` : 'Season'} {league.updatedAt && <span>• Updated {new Date(league.updatedAt).toLocaleDateString()}</span>}
                 </div>
