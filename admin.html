@@ -1280,6 +1280,133 @@ function parseRankings(doc){
   return rows.length?rows:null;
 }
 
+// ── Parse player innings from a viewScorecard.do HTML doc ─────
+// Returns array of {matchId, date, division, team, opponent, player, role: 'bat'|'bowl', ...stats}
+// Defensive: skips tables that don't look like batting/bowling, returns [] on errors.
+function parseScorecard(doc, matchMeta){
+  var innings=[];
+  var tables=Array.from(doc.querySelectorAll('table'));
+  var teamSeen=[];
+
+  tables.forEach(function(tbl){
+    var hdrCells=Array.from(tbl.querySelectorAll('thead th, thead td'));
+    if(!hdrCells.length) hdrCells=Array.from(tbl.querySelectorAll('tr:first-child th, tr:first-child td'));
+    if(hdrCells.length<4) return;
+    var hdrs=hdrCells.map(function(c){return c.textContent.trim().toLowerCase().replace(/[*()\\.\\\\]/g,'').trim();});
+
+    var hasRuns=hdrs.some(function(h){return h==='r'||h==='runs';});
+    var hasBalls=hdrs.some(function(h){return h==='b'||h==='balls';});
+    var has4s=hdrs.some(function(h){return h==='4s'||h==='fours';});
+    var hasOvers=hdrs.some(function(h){return h==='o'||h==='overs';});
+    var hasWickets=hdrs.some(function(h){return h==='w'||h==='wickets'||h==='wkts';});
+    var isBat=hasRuns && (hasBalls||has4s);
+    var isBowl=hasOvers && hasWickets;
+    if(!isBat && !isBowl) return;
+
+    // Find team name from a preceding heading (e.g. "Team A Innings - 167/4 (20.0)")
+    var team='', prev=tbl.previousElementSibling, hops=0;
+    while(prev && hops<6){
+      var txt=(prev.textContent||'').trim();
+      if(/innings/i.test(txt) && txt.length<200){
+        team=txt.replace(/innings.*$/i,'').replace(/\\s+\\d.*$/,'').trim();
+        break;
+      }
+      prev=prev.previousElementSibling; hops++;
+    }
+    if(!team){
+      // Alternate fallback based on what we've seen
+      if(teamSeen.length===0) team=matchMeta.team1;
+      else if(teamSeen.length===1) team=teamSeen[0].toLowerCase()===matchMeta.team1.toLowerCase()?matchMeta.team2:matchMeta.team1;
+      else team=matchMeta.team1;
+    }
+    if(team && teamSeen.indexOf(team)<0) teamSeen.push(team);
+    var opponent=team.toLowerCase()===matchMeta.team1.toLowerCase()?matchMeta.team2:matchMeta.team1;
+
+    // Map column indices
+    var idx={};
+    hdrs.forEach(function(h,i){
+      if((h==='r'||h==='runs')&&idx.runs==null) idx.runs=i;
+      else if((h==='b'||h==='balls')&&idx.balls==null) idx.balls=i;
+      else if((h==='4s'||h==='fours')&&idx.fours==null) idx.fours=i;
+      else if((h==='6s'||h==='sixes')&&idx.sixes==null) idx.sixes=i;
+      else if(h==='sr'&&idx.sr==null) idx.sr=i;
+      else if((h==='o'||h==='overs')&&idx.overs==null) idx.overs=i;
+      else if((h==='m'||h==='maidens'||h==='maid')&&idx.maidens==null) idx.maidens=i;
+      else if((h==='w'||h==='wickets'||h==='wkts')&&idx.wickets==null) idx.wickets=i;
+      else if(h==='econ'&&idx.econ==null) idx.econ=i;
+    });
+
+    var rows=Array.from(tbl.querySelectorAll('tbody tr'));
+    if(!rows.length) rows=Array.from(tbl.querySelectorAll('tr')).slice(1);
+
+    rows.forEach(function(row){
+      var cells=Array.from(row.querySelectorAll('td'));
+      if(cells.length<4) return;
+      var player=(cells[0].textContent||'').trim()
+        .replace(/\\s*\\(c\\)/gi,'').replace(/\\s*\\(wk\\)/gi,'')
+        .replace(/\\u2020/g,'').trim();
+      if(!player||/^extras|^total|^did not bat|^fall of|^bowling|^batting/i.test(player)) return;
+
+      var grab=function(k){return idx[k]!=null && cells[idx[k]] ? (cells[idx[k]].textContent||'').trim() : '';};
+
+      if(isBat){
+        var runs=parseInt(grab('runs'))||0;
+        var balls=parseInt(grab('balls'))||0;
+        var fours=parseInt(grab('fours'))||0;
+        var sixes=parseInt(grab('sixes'))||0;
+        var outText=cells[1]?(cells[1].textContent||'').trim():'';
+        var notOut=/not out|retired/i.test(outText);
+        var didBat=balls>0||runs>0||/not out|c |b |st |run out|lbw/i.test(outText);
+        if(!didBat) return;
+        innings.push({
+          matchId:matchMeta.matchId, date:matchMeta.date, division:matchMeta.division,
+          team:team, opponent:opponent, player:player, role:'bat',
+          runs:runs, balls:balls, fours:fours, sixes:sixes,
+          notOut:notOut, dismissal:outText, result:matchMeta.result
+        });
+      } else if(isBowl){
+        var overs=grab('overs');
+        var maidens=parseInt(grab('maidens'))||0;
+        var bRuns=parseInt(grab('runs'))||0;
+        var wkts=parseInt(grab('wickets'))||0;
+        if(!overs||overs==='0'||overs==='0.0') return;
+        innings.push({
+          matchId:matchMeta.matchId, date:matchMeta.date, division:matchMeta.division,
+          team:team, opponent:opponent, player:player, role:'bowl',
+          overs:overs, maidens:maidens, runs:bRuns, wickets:wkts,
+          result:matchMeta.result
+        });
+      }
+    });
+  });
+  return innings;
+}
+
+// Fetch scorecards with capped concurrency (browser limits ~6 per origin)
+function fetchScorecardsThrottled(matches, concurrency, onProgress){
+  return new Promise(function(resolve){
+    if(!matches.length){resolve([]);return;}
+    var all=[], i=0, inFlight=0, done=0, total=matches.length;
+    function next(){
+      while(inFlight<concurrency && i<total){
+        var m=matches[i++]; inFlight++;
+        fetch(m.scorecard,{credentials:'include'})
+          .then(function(r){return r.text();})
+          .then(function(h){return parseScorecard(new DOMParser().parseFromString(h,'text/html'),m);})
+          .catch(function(){return [];})
+          .then(function(inn){
+            all=all.concat(inn);
+            inFlight--; done++;
+            if(onProgress) onProgress(done,total);
+            if(done===total) resolve(all);
+            else next();
+          });
+      }
+    }
+    next();
+  });
+}
+
 // ── Main ──────────────────────────────────────────────────────
 var results=parseResults();
 var divOptions=getDivisionOptions();
@@ -1343,7 +1470,33 @@ Promise.all(fetchAll).then(function(fetched){
   payload.league=leagueId+'-'+season+'-'+year;
   payload.leagueName=leagueId;
   payload.season=season+' '+year;
-  return fetch('${origin}/api/sync-all',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Password':'${password}'},body:JSON.stringify(payload)}).then(function(r){return r.json();});
+
+  // ── DELTA SYNC: fetch only scorecards we don't have yet ──
+  // 1) Ask backend which matchIds we already have innings for.
+  // 2) Find matches with a scorecard URL that aren't synced yet.
+  // 3) Fetch and parse only those (typically 0-10 per sync after first).
+  setMsg('Checking for new scorecards…');
+  return fetch('${origin}/api/synced-matches?league='+encodeURIComponent(payload.league),{credentials:'omit'})
+    .then(function(r){return r.ok?r.json():{matchIds:[]};})
+    .catch(function(){return {matchIds:[]};})
+    .then(function(syncedData){
+      var syncedSet={};
+      (syncedData.matchIds||[]).forEach(function(id){syncedSet[String(id)]=true;});
+      var newMatches=results.filter(function(m){
+        return m.scorecard && m.matchId && !syncedSet[String(m.matchId)];
+      });
+      var alreadyHave=results.length-newMatches.length;
+      setMsg('Found '+newMatches.length+' new match'+(newMatches.length===1?'':'es')+' to scrape (already have '+alreadyHave+')');
+      if(newMatches.length===0) return [];
+      return fetchScorecardsThrottled(newMatches,6,function(done,total){
+        setMsg('Scraping scorecards… '+done+'/'+total);
+      });
+    })
+    .then(function(playerInnings){
+      if(playerInnings && playerInnings.length) payload.playerInnings=playerInnings;
+      setMsg('Saving '+(playerInnings?playerInnings.length:0)+' new innings to dashboard…');
+      return fetch('${origin}/api/sync-all',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Password':'${password}'},body:JSON.stringify(payload)}).then(function(r){return r.json();});
+    });
 }).then(function(resp){
   ov.remove();
   if(!resp)return;

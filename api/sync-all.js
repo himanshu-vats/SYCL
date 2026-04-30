@@ -20,7 +20,7 @@ module.exports = async function(req, res) {
     return;
   }
 
-  const { matches, results, standings, batting, bowling, rankings, leagueName, season } = req.body || {};
+  const { matches, results, standings, batting, bowling, rankings, playerInnings, leagueName, season } = req.body || {};
 
   const hasMatches  = Array.isArray(matches) && matches.length > 0;
   const hasResults  = Array.isArray(results) && results.length > 0;
@@ -28,8 +28,9 @@ module.exports = async function(req, res) {
   const hasBatting  = batting && typeof batting === 'object' && Object.keys(batting).length > 0;
   const hasBowling  = bowling && typeof bowling === 'object' && Object.keys(bowling).length > 0;
   const hasRankings = rankings && typeof rankings === 'object' && Object.keys(rankings).length > 0;
+  const hasInnings  = Array.isArray(playerInnings) && playerInnings.length > 0;
 
-  if (!hasMatches && !hasResults && !hasStandings && !hasBatting && !hasBowling && !hasRankings) {
+  if (!hasMatches && !hasResults && !hasStandings && !hasBatting && !hasBowling && !hasRankings && !hasInnings) {
     res.status(400).json({ error: 'No data provided' });
     return;
   }
@@ -60,6 +61,27 @@ module.exports = async function(req, res) {
     if (hasRankings)  update.rankings = { ...rankings, updatedAt: now };
     if (leagueName)   update.leagueName = leagueName;
     if (season)       update.season = season;
+
+    // ── DELTA-SAFE MERGE for playerInnings ──
+    // Each innings is keyed by `${matchId}::${player}::${team}::${role}` where
+    // role = 'bat' or 'bowl'. Incoming innings overwrite existing ones with the
+    // same key (handles re-scrapes if scorecard was updated). New keys are
+    // appended. This way multiple incremental syncs accumulate without losing
+    // previously-stored matches.
+    if (hasInnings) {
+      const inningsKey = (inn) =>
+        `${inn.matchId}::${(inn.player||'').toLowerCase().trim()}::${(inn.team||'').toLowerCase().trim()}::${inn.role||''}`;
+
+      const existingInnings = Array.isArray(existing.playerInnings) ? existing.playerInnings : [];
+      const merged = new Map();
+
+      existingInnings.forEach(inn => merged.set(inningsKey(inn), inn));
+      playerInnings.forEach(inn => {
+        if (inn && inn.matchId && inn.player) merged.set(inningsKey(inn), inn);
+      });
+
+      update.playerInnings = [...merged.values()];
+    }
 
     await docRef.set(update);
 
@@ -101,6 +123,10 @@ module.exports = async function(req, res) {
     if (hasBatting)   parts.push(`batting (${Object.keys(batting).length} divs)`);
     if (hasBowling)   parts.push(`bowling (${Object.keys(bowling).length} divs)`);
     if (hasRankings)  parts.push(`rankings (${Object.keys(rankings).length} divs)`);
+    if (hasInnings) {
+      const newMatchIds = new Set(playerInnings.map(i => i.matchId).filter(Boolean));
+      parts.push(`${playerInnings.length} innings from ${newMatchIds.size} match${newMatchIds.size===1?'':'es'}`);
+    }
 
     res.json({ message: `Synced: ${parts.join(', ')}.`, updatedAt: now });
   } catch (e) {
