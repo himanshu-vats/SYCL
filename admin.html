@@ -1280,100 +1280,133 @@ function parseRankings(doc){
   return rows.length?rows:null;
 }
 
-// ── Parse player innings from a viewScorecard.do HTML doc ─────
-// Returns array of {matchId, date, division, team, opponent, player, role: 'bat'|'bowl', ...stats}
-// Defensive: skips tables that don't look like batting/bowling, returns [] on errors.
+// ── Parse player innings from a CricClubs scorecard page ─────
+// CricClubs structure (verified from real page source):
+//   - Innings tabs (#ballByBallTeam1, #ballByBallTeam2) each contain:
+//     1. Batting table: thead row with [Player+OutMethod combined], R, B, 4s, 6s, SR
+//        Body rows use <th> (not <td>!) with 7 cells:
+//          [Player(img+a+name), OutMethod, R, B, 4s, 6s, SR]
+//     2. "Did not bat" sub-table (separate, ignored)
+//     3. Bowling table: thead row with [Bowling], O, M, Dot, R, W, Econ, ""
+//        Body rows use <th> with 9 cells:
+//          [Image, Player, O, M, Dot, R, W, Econ, ExtrasSummary]
+//
+// Team name comes from the BATTING table's own header text, e.g.
+//   "MLCA Tornadoes innings (30 overs maximum)" -> "MLCA Tornadoes"
+// Bowling team = opponent of the most recently seen batting team.
 function parseScorecard(doc, matchMeta){
   var innings=[];
   var tables=Array.from(doc.querySelectorAll('table'));
-  var teamSeen=[];
+  var lastBattingTeam=''; // opposing team's bowlers come right after each innings' batting table
 
   tables.forEach(function(tbl){
     var hdrCells=Array.from(tbl.querySelectorAll('thead th, thead td'));
-    if(!hdrCells.length) hdrCells=Array.from(tbl.querySelectorAll('tr:first-child th, tr:first-child td'));
+    if(!hdrCells.length) hdrCells=Array.from(tbl.querySelectorAll('tr:first-child > th, tr:first-child > td'));
     if(hdrCells.length<4) return;
-    var hdrs=hdrCells.map(function(c){return c.textContent.trim().toLowerCase().replace(/[*()\\.\\\\]/g,'').trim();});
 
-    var hasRuns=hdrs.some(function(h){return h==='r'||h==='runs';});
-    var hasBalls=hdrs.some(function(h){return h==='b'||h==='balls';});
-    var has4s=hdrs.some(function(h){return h==='4s'||h==='fours';});
-    var hasOvers=hdrs.some(function(h){return h==='o'||h==='overs';});
-    var hasWickets=hdrs.some(function(h){return h==='w'||h==='wickets'||h==='wkts';});
-    var isBat=hasRuns && (hasBalls||has4s);
-    var isBowl=hasOvers && hasWickets;
+    var hdrTexts=hdrCells.map(function(c){return (c.textContent||'').trim().toLowerCase();});
+
+    // Detect table type by exact header tokens (CricClubs is consistent here).
+    var hasR=hdrTexts.some(function(t){return t==='r';});
+    var hasB=hdrTexts.some(function(t){return t==='b';});
+    var has4s=hdrTexts.some(function(t){return t==='4s';});
+    var hasO=hdrTexts.some(function(t){return t==='o';});
+    var hasW=hdrTexts.some(function(t){return t==='w';});
+    var hasDot=hdrTexts.some(function(t){return t==='dot';});
+    var hasEcon=hdrTexts.some(function(t){return t==='econ';});
+
+    var isBat=hasR && hasB && has4s;
+    var isBowl=hasO && hasW && (hasDot||hasEcon);
     if(!isBat && !isBowl) return;
 
-    // Find team name from a preceding heading (e.g. "Team A Innings - 167/4 (20.0)")
-    var team='', prev=tbl.previousElementSibling, hops=0;
-    while(prev && hops<6){
-      var txt=(prev.textContent||'').trim();
-      if(/innings/i.test(txt) && txt.length<200){
-        team=txt.replace(/innings.*$/i,'').replace(/\\s+\\d.*$/,'').trim();
-        break;
+    // For batting: extract team name from the first header cell that mentions "innings".
+    // For bowling: team is the OPPOSITE of the most recent batting team in iteration.
+    var team='';
+    if(isBat){
+      for(var i=0;i<hdrCells.length;i++){
+        var t=(hdrCells[i].textContent||'').trim();
+        if(/innings/i.test(t) && t.length<300){
+          team=t.replace(/innings[\\s\\S]*$/i,'').trim();
+          break;
+        }
       }
-      prev=prev.previousElementSibling; hops++;
+      if(!team){
+        // Fallback: alternate batting teams across the doc
+        team=lastBattingTeam && lastBattingTeam.toLowerCase()===matchMeta.team1.toLowerCase()
+          ? matchMeta.team2 : matchMeta.team1;
+      }
+      lastBattingTeam=team;
+    } else {
+      team=lastBattingTeam && lastBattingTeam.toLowerCase()===matchMeta.team1.toLowerCase()
+        ? matchMeta.team2 : (lastBattingTeam ? matchMeta.team1 : matchMeta.team2);
     }
-    if(!team){
-      // Alternate fallback based on what we've seen
-      if(teamSeen.length===0) team=matchMeta.team1;
-      else if(teamSeen.length===1) team=teamSeen[0].toLowerCase()===matchMeta.team1.toLowerCase()?matchMeta.team2:matchMeta.team1;
-      else team=matchMeta.team1;
-    }
-    if(team && teamSeen.indexOf(team)<0) teamSeen.push(team);
-    var opponent=team.toLowerCase()===matchMeta.team1.toLowerCase()?matchMeta.team2:matchMeta.team1;
-
-    // Map column indices
-    var idx={};
-    hdrs.forEach(function(h,i){
-      if((h==='r'||h==='runs')&&idx.runs==null) idx.runs=i;
-      else if((h==='b'||h==='balls')&&idx.balls==null) idx.balls=i;
-      else if((h==='4s'||h==='fours')&&idx.fours==null) idx.fours=i;
-      else if((h==='6s'||h==='sixes')&&idx.sixes==null) idx.sixes=i;
-      else if(h==='sr'&&idx.sr==null) idx.sr=i;
-      else if((h==='o'||h==='overs')&&idx.overs==null) idx.overs=i;
-      else if((h==='m'||h==='maidens'||h==='maid')&&idx.maidens==null) idx.maidens=i;
-      else if((h==='w'||h==='wickets'||h==='wkts')&&idx.wickets==null) idx.wickets=i;
-      else if(h==='econ'&&idx.econ==null) idx.econ=i;
-    });
+    var opponent=team.toLowerCase()===(matchMeta.team1||'').toLowerCase()?matchMeta.team2:matchMeta.team1;
 
     var rows=Array.from(tbl.querySelectorAll('tbody tr'));
     if(!rows.length) rows=Array.from(tbl.querySelectorAll('tr')).slice(1);
 
     rows.forEach(function(row){
-      var cells=Array.from(row.querySelectorAll('td'));
+      // CRITICAL: CricClubs uses <th> for body cells, not <td>. Match both.
+      var cells=Array.from(row.querySelectorAll('th, td'));
       if(cells.length<4) return;
-      var player=(cells[0].textContent||'').trim()
-        .replace(/\\s*\\(c\\)/gi,'').replace(/\\s*\\(wk\\)/gi,'')
-        .replace(/\\u2020/g,'').trim();
-      if(!player||/^extras|^total|^did not bat|^fall of|^bowling|^batting/i.test(player)) return;
 
-      var grab=function(k){return idx[k]!=null && cells[idx[k]] ? (cells[idx[k]].textContent||'').trim() : '';};
+      // Skip rows whose first cell spans multiple cols (Did-not-bat / Extras / Total summary rows).
+      var firstColSpan=parseInt(cells[0].getAttribute('colspan')||'1',10);
+      if(firstColSpan>1) return;
+
+      // Player cell: col 0 for batting, col 1 for bowling (col 0 is the avatar image).
+      var playerCell=isBat?cells[0]:cells[1];
+      if(!playerCell) return;
+
+      // Extract just the player name from <a><b>Name</b></a>; fall back to first text node line.
+      var nameEl=playerCell.querySelector('a b');
+      var player=nameEl ? (nameEl.textContent||'').trim()
+        : (playerCell.textContent||'').trim().split(/[\\n\\r]/)[0].trim();
+      player=player
+        .replace(/\\s*\\(c\\)/gi,'')
+        .replace(/\\s*\\(wk\\)/gi,'')
+        .replace(/\\u2020/g,'')
+        .replace(/\\*+\\s*$/,'')
+        .replace(/\\s+/g,' ')
+        .trim();
+      if(!player) return;
+      if(/^extras\\b|^total\\b|^did not bat|^fall of|^bowling|^batting/i.test(player)) return;
+
+      var cellText=function(idx){return cells[idx]?(cells[idx].textContent||'').trim():'';};
 
       if(isBat){
-        var runs=parseInt(grab('runs'))||0;
-        var balls=parseInt(grab('balls'))||0;
-        var fours=parseInt(grab('fours'))||0;
-        var sixes=parseInt(grab('sixes'))||0;
-        var outText=cells[1]?(cells[1].textContent||'').trim():'';
+        var runs=parseInt(cellText(2))||0;
+        var balls=parseInt(cellText(3))||0;
+        var fours=parseInt(cellText(4))||0;
+        var sixes=parseInt(cellText(5))||0;
+        var sr=parseFloat(cellText(6))||0;
+        // OutMethod cell (col 1) — strip whitespace runs from the embedded links.
+        var outText=(cells[1]?(cells[1].textContent||''):'').replace(/\\s+/g,' ').trim();
         var notOut=/not out|retired/i.test(outText);
-        var didBat=balls>0||runs>0||/not out|c |b |st |run out|lbw/i.test(outText);
+        // Be liberal: count as "did bat" if any score, ball faced, or recognizable dismissal.
+        var didBat=balls>0||runs>0||/not out|^c\\b|\\bb\\b|\\bst\\b|run out|lbw|c&b/i.test(outText);
         if(!didBat) return;
+
         innings.push({
           matchId:matchMeta.matchId, date:matchMeta.date, division:matchMeta.division,
           team:team, opponent:opponent, player:player, role:'bat',
-          runs:runs, balls:balls, fours:fours, sixes:sixes,
+          runs:runs, balls:balls, fours:fours, sixes:sixes, sr:sr,
           notOut:notOut, dismissal:outText, result:matchMeta.result
         });
       } else if(isBowl){
-        var overs=grab('overs');
-        var maidens=parseInt(grab('maidens'))||0;
-        var bRuns=parseInt(grab('runs'))||0;
-        var wkts=parseInt(grab('wickets'))||0;
+        var overs=cellText(2);
+        var maidens=parseInt(cellText(3))||0;
+        // cells[4] is "Dot" balls — capture but not critical
+        var dots=parseInt(cellText(4))||0;
+        var bRuns=parseInt(cellText(5))||0;
+        var wkts=parseInt(cellText(6))||0;
+        var econ=parseFloat(cellText(7))||0;
         if(!overs||overs==='0'||overs==='0.0') return;
+
         innings.push({
           matchId:matchMeta.matchId, date:matchMeta.date, division:matchMeta.division,
           team:team, opponent:opponent, player:player, role:'bowl',
-          overs:overs, maidens:maidens, runs:bRuns, wickets:wkts,
+          overs:overs, maidens:maidens, dots:dots, runs:bRuns, wickets:wkts, econ:econ,
           result:matchMeta.result
         });
       }
