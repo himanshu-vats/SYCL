@@ -370,6 +370,94 @@ function getBowlingArchetype(playerStats, benchmark) {
 }
 
 /* ─────────────────────────────────────────────────────────────
+   PER-MATCH HELPERS (use playerInnings array from delta sync)
+───────────────────────────────────────────────────────────── */
+
+// Parse a CricClubs-style date string into a sortable Date or null.
+function parseInningsDate(s) {
+  if (!s) return null;
+  // Accepts "Apr 26 2026", "26 Apr", "04/26/2026", ISO, etc.
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// Filter+sort a player's innings (oldest -> newest) for a given role.
+function getPlayerInningsHistory(innings, name, role) {
+  if (!Array.isArray(innings) || !name) return [];
+  const lower = name.toLowerCase().trim();
+  return innings
+    .filter(i => i && i.player && i.player.toLowerCase().trim() === lower && i.role === role)
+    .map(i => ({ ...i, _date: parseInningsDate(i.date) }))
+    .sort((a, b) => {
+      if (a._date && b._date) return a._date - b._date;
+      if (a._date) return -1;
+      if (b._date) return 1;
+      return 0;
+    });
+}
+
+// Compute "Best Match" — highest-impact innings (batting only for now).
+// Impact = base runs + bonuses (not out, win, milestones, high SR).
+function computeBestBattingInnings(innings, name) {
+  const history = getPlayerInningsHistory(innings, name, 'bat')
+    .filter(i => (i.runs || 0) > 0 || i.notOut);
+  if (history.length === 0) return null;
+
+  const scored = history.map(inn => {
+    const balls = parseInt(inn.balls) || 0;
+    const runs = parseInt(inn.runs) || 0;
+    const sr = balls > 0 ? (runs / balls) * 100 : 0;
+    const won = inn.result && /\bwon\b|\bwin\b/i.test(inn.result);
+    let impact = runs;
+    if (inn.notOut)         impact += 8;   // unbeaten = harder to dismiss
+    if (won)                impact += 6;   // contributing to a win
+    if (runs >= 30)         impact += 5;
+    if (runs >= 50)         impact += 10;
+    if (runs >= 100)        impact += 25;
+    if (sr >= 130)          impact += 4;
+    if (sr >= 160)          impact += 4;
+    if ((inn.sixes || 0) >= 3) impact += 4;
+    return { ...inn, _impact: impact, _sr: sr };
+  });
+
+  scored.sort((a, b) => b._impact - a._impact);
+  return scored[0];
+}
+
+// Compute best bowling spell (highest wicket count, tiebreak on economy).
+function computeBestBowlingSpell(innings, name) {
+  const history = getPlayerInningsHistory(innings, name, 'bowl')
+    .filter(i => (parseInt(i.wickets)||0) > 0);
+  if (history.length === 0) return null;
+
+  const oversToBalls = ov => { const p = String(ov||0).split('.'); return (parseInt(p[0]||0)*6) + parseInt(p[1]||0); };
+
+  const scored = history.map(inn => {
+    const balls = oversToBalls(inn.overs);
+    const econ = balls > 0 ? (inn.runs * 6 / balls) : 99;
+    let impact = (inn.wickets || 0) * 10;
+    impact += (inn.maidens || 0) * 2;
+    if (econ < 4)  impact += 6;
+    if (econ < 3)  impact += 4;
+    if (inn.wickets >= 3) impact += 5;
+    if (inn.wickets >= 5) impact += 15;
+    const won = inn.result && /\bwon\b|\bwin\b/i.test(inn.result);
+    if (won) impact += 4;
+    return { ...inn, _impact: impact, _econ: econ };
+  });
+
+  scored.sort((a, b) => b._impact - a._impact);
+  return scored[0];
+}
+
+// Format a date string for display ("Apr 26" or original if unparseable).
+function formatMatchDate(s) {
+  const d = parseInningsDate(s);
+  if (!d) return s || '';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/* ─────────────────────────────────────────────────────────────
    STYLES — Yahoo Sports–inspired design
 ───────────────────────────────────────────────────────────── */
 const STYLES = `
@@ -1022,6 +1110,75 @@ const STYLES = `
     font-size:var(--text-xs); font-weight:var(--weight-semibold);
     color:var(--text-secondary); text-align:right;
   }
+
+  /* Career Highlights: Best Match / Best Spell cards (Phase 3B Track 2) */
+  .highlight-grid {
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));
+    gap:var(--space-3);
+  }
+  .highlight-card {
+    padding:var(--space-4);
+    background:var(--bg-100);
+    border:1px solid var(--border);
+    border-radius:var(--radius-lg);
+    border-left:4px solid var(--accent);
+    transition:transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  }
+  .highlight-card:hover {
+    transform:translateY(-1px);
+    box-shadow:var(--shadow-sm);
+  }
+  .highlight-badge {
+    font-size:var(--text-xs); font-weight:var(--weight-bold);
+    color:var(--text-muted); text-transform:uppercase;
+    letter-spacing:0.06em; margin-bottom:var(--space-2);
+  }
+  .highlight-stat {
+    font-size:var(--text-2xl); font-weight:var(--weight-black);
+    color:var(--accent); line-height:1;
+    margin-bottom:var(--space-2);
+  }
+  .highlight-stat-meta {
+    font-size:var(--text-md); font-weight:var(--weight-semibold);
+    color:var(--text-secondary);
+  }
+  .highlight-context {
+    font-size:var(--text-sm); color:var(--text-secondary);
+    line-height:var(--leading-normal);
+  }
+  .highlight-context strong { color:var(--text-primary); font-weight:var(--weight-semibold); }
+  .highlight-meta { color:var(--text-muted); font-size:var(--text-xs); margin-top:var(--space-1); }
+  .highlight-date {
+    color:var(--text-muted); font-size:var(--text-xs);
+    margin-top:var(--space-1); font-weight:var(--weight-medium);
+  }
+
+  /* Form Curve sparkline (Phase 3B Track 2) */
+  .form-curve {
+    margin-top:var(--space-4);
+    padding:var(--space-3) var(--space-4);
+    background:var(--bg-200); border-radius:var(--radius-md);
+  }
+  .form-curve-header {
+    display:flex; justify-content:space-between; align-items:baseline;
+    margin-bottom:var(--space-2);
+  }
+  .form-curve-title {
+    font-size:var(--text-xs); font-weight:var(--weight-bold);
+    color:var(--text-secondary); text-transform:uppercase;
+    letter-spacing:0.06em;
+  }
+  .form-curve-meta {
+    font-size:var(--text-xs); color:var(--text-muted);
+    font-weight:var(--weight-medium);
+  }
+  .form-curve-svg { display:block; width:100%; }
+  .form-curve-footer {
+    display:flex; justify-content:space-between;
+    margin-top:var(--space-1);
+    font-size:var(--text-xs); color:var(--text-secondary);
+  }
+  .form-curve-footer strong { color:var(--text-primary); font-weight:var(--weight-bold); }
 
   /* Achievements */
   .achievements-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:8px; }
@@ -2465,8 +2622,72 @@ const ACHIEVEMENTS = [
     check: (bat,bowl,rank) => rank && rank.mom >= 3 },
 ];
 
+/* ─── FormCurve: SVG sparkline of last N innings ─── */
+/* Renders a horizontal line chart of the player's recent performance.
+   `statKey` picks which numeric field to chart (e.g. 'runs', 'wickets').
+   Highlights the latest data point. Shows average as a dashed reference. */
+function FormCurve({ innings, statKey = 'runs', label = '', lookback = 10 }) {
+  if (!innings || innings.length < 2) return null;
+  const recent = innings.slice(-lookback);
+  const values = recent.map(i => parseFloat(i[statKey]) || 0);
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values);
+  const avg = values.reduce((s, v) => s + v, 0) / values.length;
+  const latest = values[values.length - 1];
+
+  const W = 320, H = 84, P = 14;
+  const innerW = W - 2 * P;
+  const innerH = H - 2 * P;
+  const xFor = (i) => P + (recent.length === 1 ? innerW / 2 : (i * innerW / (recent.length - 1)));
+  const yFor = (v) => H - P - ((v - min) / Math.max(1, max - min)) * innerH;
+  const points = values.map((v, i) => ({ x: xFor(i), y: yFor(v), v, inn: recent[i] }));
+  const polyline = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+
+  // Area-under-line for visual weight
+  const areaPath =
+    `M ${points[0].x},${H - P} ` +
+    points.map(p => `L ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ') +
+    ` L ${points[points.length - 1].x},${H - P} Z`;
+
+  const avgY = yFor(avg);
+  const last = points[points.length - 1];
+  const trendUp = values.length >= 3 && values[values.length - 1] > values[values.length - 3];
+
+  return (
+    <div className="form-curve">
+      <div className="form-curve-header">
+        <span className="form-curve-title">Form — last {recent.length} innings</span>
+        <span className="form-curve-meta">avg {avg.toFixed(1)} {label}</span>
+      </div>
+      <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="form-curve-svg">
+        <defs>
+          <linearGradient id={`fc-grad-${statKey}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={areaPath} fill={`url(#fc-grad-${statKey})`} />
+        <line x1={P} y1={avgY} x2={W - P} y2={avgY}
+              stroke="var(--text-muted)" strokeWidth="1" strokeDasharray="3 3" opacity="0.5" />
+        <polyline fill="none" stroke="var(--accent)" strokeWidth="2.5"
+                  strokeLinecap="round" strokeLinejoin="round" points={polyline} />
+        {points.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y}
+                  r={i === points.length - 1 ? 4.5 : 2.5}
+                  fill={i === points.length - 1 ? 'var(--accent)' : 'var(--bg-100)'}
+                  stroke="var(--accent)" strokeWidth={i === points.length - 1 ? 0 : 1.5} />
+        ))}
+      </svg>
+      <div className="form-curve-footer">
+        <span>Latest: <strong>{latest}</strong> {trendUp ? '📈' : ''}</span>
+        <span>Best: <strong>{max}</strong></span>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Player Profile Page ─── */
-function PlayerProfilePage({ name, batting, bowling, rankings, onClose, onTeamDrilldown }) {
+function PlayerProfilePage({ name, batting, bowling, rankings, playerInnings, onClose, onTeamDrilldown }) {
   const batRows = batting ? Object.entries(batting).filter(([k]) => k !== 'updatedAt' && k !== 'combined')
     .flatMap(([div, rows]) => Array.isArray(rows) ? rows.filter(r => String(r.player||'').toLowerCase() === name.toLowerCase()).map(r => ({...r, _div:div})) : []) : [];
   const bowlRows = bowling ? Object.entries(bowling).filter(([k]) => k !== 'updatedAt' && k !== 'combined')
@@ -2495,6 +2716,14 @@ function PlayerProfilePage({ name, batting, bowling, rankings, onClose, onTeamDr
 
   const battingArchetype = primaryBatRow ? getBattingArchetype(primaryBatRow, battingBenchmark) : null;
   const bowlingArchetype = primaryBowlRow ? getBowlingArchetype(primaryBowlRow, bowlingBenchmark) : null;
+
+  // ── Per-match insights (Phase 3B/Track 2) ──
+  // Powered by playerInnings (populated by delta scorecard sync)
+  const battingHistory = getPlayerInningsHistory(playerInnings || [], name, 'bat');
+  const bowlingHistory = getPlayerInningsHistory(playerInnings || [], name, 'bowl');
+  const bestBattingInnings = computeBestBattingInnings(playerInnings || [], name);
+  const bestBowlingSpell   = computeBestBowlingSpell(playerInnings || [], name);
+  const hasMatchData = battingHistory.length > 0 || bowlingHistory.length > 0;
 
   const earnedAchievements = ACHIEVEMENTS.filter(a => a.check(bat, bowl, rankTotals)).map(a => ({ ...a, earned: true }));
   const lockedAchievements = ACHIEVEMENTS.filter(a => !a.check(bat, bowl, rankTotals) && a.hint).slice(0, 4).map(a => ({ ...a, earned: false, hintText: typeof a.hint === 'function' ? a.hint(bat, bowl, rankTotals) : null }));
@@ -2568,6 +2797,58 @@ function PlayerProfilePage({ name, batting, bowling, rankings, onClose, onTeamDr
         </div>
       )}
 
+      {/* ── Career Highlights: Best Match / Best Spell (Phase 3B Track 2) ── */}
+      {(bestBattingInnings || bestBowlingSpell) && (
+        <div className="profile-section">
+          <div style={{fontSize: 13, fontWeight: 700, marginBottom: 12, textTransform: 'uppercase', color: 'var(--text-muted)'}}>Career Highlights</div>
+          <div className="highlight-grid">
+            {bestBattingInnings && (
+              <div className="highlight-card">
+                <div className="highlight-badge">🌟 Best Innings</div>
+                <div className="highlight-stat">
+                  {bestBattingInnings.runs}{bestBattingInnings.notOut ? '*' : ''}
+                  {bestBattingInnings.balls > 0 && <span className="highlight-stat-meta"> ({bestBattingInnings.balls})</span>}
+                </div>
+                <div className="highlight-context">
+                  {bestBattingInnings.team && bestBattingInnings.opponent && (
+                    <div>vs <strong>{bestBattingInnings.opponent}</strong></div>
+                  )}
+                  {(bestBattingInnings.fours || bestBattingInnings.sixes) ? (
+                    <div className="highlight-meta">
+                      {bestBattingInnings.fours > 0 && `${bestBattingInnings.fours}×4`}
+                      {bestBattingInnings.fours > 0 && bestBattingInnings.sixes > 0 && ' · '}
+                      {bestBattingInnings.sixes > 0 && `${bestBattingInnings.sixes}×6`}
+                      {bestBattingInnings._sr > 0 && ` · SR ${bestBattingInnings._sr.toFixed(0)}`}
+                    </div>
+                  ) : null}
+                  <div className="highlight-date">{formatMatchDate(bestBattingInnings.date)}</div>
+                </div>
+              </div>
+            )}
+            {bestBowlingSpell && (
+              <div className="highlight-card">
+                <div className="highlight-badge">🎯 Best Spell</div>
+                <div className="highlight-stat">
+                  {bestBowlingSpell.wickets}/{bestBowlingSpell.runs}
+                  <span className="highlight-stat-meta"> ({bestBowlingSpell.overs})</span>
+                </div>
+                <div className="highlight-context">
+                  {bestBowlingSpell.opponent && (
+                    <div>vs <strong>{bestBowlingSpell.opponent}</strong></div>
+                  )}
+                  <div className="highlight-meta">
+                    {bestBowlingSpell.maidens > 0 && `${bestBowlingSpell.maidens} maiden${bestBowlingSpell.maidens>1?'s':''}`}
+                    {bestBowlingSpell.maidens > 0 && bestBowlingSpell._econ < 99 && ' · '}
+                    {bestBowlingSpell._econ < 99 && `Econ ${bestBowlingSpell._econ.toFixed(1)}`}
+                  </div>
+                  <div className="highlight-date">{formatMatchDate(bestBowlingSpell.date)}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {bat && <div className="profile-section">
         <div style={{fontSize: 13, fontWeight: 700, marginBottom: 12, textTransform: 'uppercase', color: 'var(--text-muted)'}}>Batting</div>
         <div className="mega-stat">{bat.hs}</div>
@@ -2584,6 +2865,8 @@ function PlayerProfilePage({ name, batting, bowling, rankings, onClose, onTeamDr
         <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(68px,1fr))', gap: 8, marginTop: 16}}>
           {[['Runs', bat.runs], ['Avg', bat.avg], ['SR', bat.sr], ['4s', bat.fours], ['6s', bat.sixes], ['Boundary%', bat.boundaryPct]].map(([l,v]) => <div key={l} className="stat-tile"><div className="stat-tile-val">{v??'—'}</div><div className="stat-tile-lbl">{l}</div></div>)}
         </div>
+        {/* ── Form Curve: last N innings sparkline (Phase 3B Track 2) ── */}
+        {battingHistory.length >= 2 && <FormCurve innings={battingHistory} statKey="runs" label="runs" />}
         {/* ── Where You Stand: division benchmark (Phase 3A) ── */}
         {battingBenchmark && (
           <div className="benchmark-block">
@@ -2623,6 +2906,8 @@ function PlayerProfilePage({ name, batting, bowling, rankings, onClose, onTeamDr
         <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(68px,1fr))', gap: 8, marginTop: 16}}>
           {[['Wkts', bowl.wickets], ['Econ', bowl.econ], ['Avg', bowl.avg], ['Maidens', bowl.maidens], ['Dots%', bowl.dotPct], ['Extras/6', bowl.extrasPer6]].map(([l,v]) => <div key={l} className="stat-tile"><div className="stat-tile-val">{v??'—'}</div><div className="stat-tile-lbl">{l}</div></div>)}
         </div>
+        {/* ── Form Curve: last N spells sparkline (Phase 3B Track 2) ── */}
+        {bowlingHistory.length >= 2 && <FormCurve innings={bowlingHistory} statKey="wickets" label="wkts" />}
         {/* ── Where You Stand: division benchmark (Phase 3A) ── */}
         {bowlingBenchmark && (
           <div className="benchmark-block">
@@ -2696,7 +2981,7 @@ function SYCLDashboard() {
         if (d?.matches?.length) {
           const divisions = [...new Set(d.matches.map(m => m.division))];
           setData(prev => {
-            const next = { matches: d.matches, divisions, standings: d.standings || {}, batting: d.batting || null, bowling: d.bowling || null, rankings: d.rankings || null, results: d.results || null, leagueName: d.leagueName, season: d.season };
+            const next = { matches: d.matches, divisions, standings: d.standings || {}, batting: d.batting || null, bowling: d.bowling || null, rankings: d.rankings || null, results: d.results || null, playerInnings: Array.isArray(d.playerInnings) ? d.playerInnings : [], leagueName: d.leagueName, season: d.season };
             if (!prev) setSelectedDivision(divisions[0]);
             return next;
           });
@@ -2727,7 +3012,7 @@ function SYCLDashboard() {
   const tabs = [["schedule","Schedule"],["standings","Standings"],["results","Results"],["batting","Batting"],["bowling","Bowling"],["rankings","Rankings"]];
 
   if (!slug) return <><style>{STYLES}</style><LandingPage /></>;
-  if (playerPage) return <><style>{STYLES}</style><PlayerProfilePage name={playerPage} batting={data?.batting} bowling={data?.bowling} rankings={data?.rankings} onClose={closePlayerPage} onTeamDrilldown={handleDrilldown} /></>;
+  if (playerPage) return <><style>{STYLES}</style><PlayerProfilePage name={playerPage} batting={data?.batting} bowling={data?.bowling} rankings={data?.rankings} playerInnings={data?.playerInnings} onClose={closePlayerPage} onTeamDrilldown={handleDrilldown} /></>;
 
   return (
     <>
