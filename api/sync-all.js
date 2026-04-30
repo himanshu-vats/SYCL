@@ -63,9 +63,34 @@ module.exports = async function(req, res) {
 
     await docRef.set(update);
 
-    // Update leagues-index
+    // Compute summary stats for the landing page cards
+    const matchCount = hasMatches ? matches.length : (existing.matches?.length || 0);
+    const resultsArr = hasResults ? results : (existing.results?.matches || []);
+    const completedCount = Array.isArray(resultsArr) ? resultsArr.length : 0;
+
+    const divisionSet = new Set();
+    const teamSet = new Set();
+    const sourceMatches = hasMatches ? matches : (existing.matches || []);
+    sourceMatches.forEach(m => {
+      if (m.division) divisionSet.add(m.division);
+      if (m.team1) teamSet.add(m.team1);
+      if (m.team2) teamSet.add(m.team2);
+    });
+    if (hasStandings) Object.keys(standings).forEach(d => divisionSet.add(d));
+
+    // Update leagues-index with enriched metadata
     await db.collection('meta').doc('leagues-index').set(
-      { [slug]: { name: leagueName || slug, season: season || '', updatedAt: now } },
+      {
+        [slug]: {
+          name: leagueName || slug,
+          season: season || '',
+          updatedAt: now,
+          matchCount,
+          completedCount,
+          divisionCount: divisionSet.size,
+          teamCount: teamSet.size,
+        }
+      },
       { merge: true }
     );
 

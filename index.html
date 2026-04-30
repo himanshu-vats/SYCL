@@ -1930,133 +1930,300 @@ function LandingPage() {
 
   const leagueList = Object.entries(leagues).map(([slug, meta]) => ({ slug, ...meta }));
 
-  // Group by league name, sort seasons by recency
+  // Group by league name, sort seasons within each by recency (newest first)
   const groupedLeagues = {};
   leagueList.forEach(league => {
     const leagueName = league.name || 'Unknown';
     if (!groupedLeagues[leagueName]) groupedLeagues[leagueName] = [];
     groupedLeagues[leagueName].push(league);
   });
-
   Object.keys(groupedLeagues).forEach(name => {
     groupedLeagues[name].sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
   });
 
-  const sortedLeagueNames = Object.keys(groupedLeagues).sort();
+  // Sort league groups by their most-recent season (so most active league appears first)
+  const sortedLeagueNames = Object.keys(groupedLeagues).sort((a, b) => {
+    const aLatest = new Date(groupedLeagues[a][0]?.updatedAt || 0);
+    const bLatest = new Date(groupedLeagues[b][0]?.updatedAt || 0);
+    return bLatest - aLatest;
+  });
+
+  // Aggregate totals for hero stats
+  const totals = leagueList.reduce((acc, l) => ({
+    matches: acc.matches + (l.matchCount || 0),
+    completed: acc.completed + (l.completedCount || 0),
+    divisions: acc.divisions + (l.divisionCount || 0),
+    teams: acc.teams + (l.teamCount || 0),
+  }), { matches: 0, completed: 0, divisions: 0, teams: 0 });
+
   const now = new Date();
   const isRecent = (date) => (now - new Date(date)) < 7 * 24 * 60 * 60 * 1000;
-
   const formatTimeAgo = (date) => {
-    const daysAgo = Math.floor((now - new Date(date)) / (24 * 60 * 60 * 1000));
-    const hoursAgo = Math.floor((now - new Date(date)) / (60 * 60 * 1000));
-    if (hoursAgo < 1) return 'Just now';
-    if (hoursAgo < 24) return `${hoursAgo}h ago`;
-    if (daysAgo === 0) return 'Today';
-    if (daysAgo === 1) return 'Yesterday';
-    return `${daysAgo}d ago`;
+    if (!date) return '—';
+    const ms = now - new Date(date);
+    const hours = Math.floor(ms / (60 * 60 * 1000));
+    const days = Math.floor(ms / (24 * 60 * 60 * 1000));
+    if (hours < 1) return 'just now';
+    if (hours < 24) return `${hours}h ago`;
+    if (days === 1) return 'yesterday';
+    if (days < 7) return `${days}d ago`;
+    if (days < 30) return `${Math.floor(days/7)}w ago`;
+    return new Date(date).toLocaleDateString('en-US', {month:'short', day:'numeric'});
   };
 
   return (
-    <div style={{minHeight: '100vh', background: 'var(--bg-page)'}}>
-      {/* Clean Header */}
-      <div style={{background: 'var(--header-bg)', padding: 'var(--space-8) var(--space-6)', borderBottom: '1px solid var(--header-border)'}}>
-        <div style={{maxWidth: 1200, margin: '0 auto'}}>
-          <h1 style={{fontSize: 'var(--text-xl)', fontWeight: 'var(--weight-bold)', color: 'var(--header-text)', margin: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-3)'}}>
-            <span style={{fontSize: 28}}>🏏</span> Season Insight
-          </h1>
-          <p style={{fontSize: 'var(--text-base)', color: 'var(--header-sub)', margin: 'var(--space-2) 0 0 0'}}>
-            Analyze cricket season performance across multiple leagues
-          </p>
+    <div style={{minHeight:'100vh', background:'var(--bg-page)'}}>
+      {/* ── HEADER ── */}
+      <div style={{background:'var(--header-bg)', borderBottom:'1px solid var(--header-border)'}}>
+        <div style={{maxWidth:1200, margin:'0 auto', padding:'var(--space-6) var(--space-6) var(--space-8)'}}>
+          <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:'var(--space-4)', flexWrap:'wrap'}}>
+            <div>
+              <div style={{display:'flex', alignItems:'center', gap:'var(--space-3)', marginBottom:'var(--space-1)'}}>
+                <span style={{fontSize:32, lineHeight:1}}>🏏</span>
+                <h1 style={{fontSize:'var(--text-xl)', fontWeight:'var(--weight-black)', color:'var(--header-text)', margin:0, letterSpacing:'-0.02em'}}>
+                  Season Insight
+                </h1>
+              </div>
+              <p style={{fontSize:'var(--text-base)', color:'var(--header-sub)', margin:0}}>
+                Cricket season analytics across leagues
+              </p>
+            </div>
+            <a href="/admin" style={{
+              fontSize:'var(--text-sm)', color:'var(--header-text)',
+              padding:'var(--space-2) var(--space-4)',
+              border:'1px solid var(--header-border)', borderRadius:'var(--radius-md)',
+              textDecoration:'none', fontWeight:'var(--weight-semibold)',
+              transition:'background 0.15s'
+            }}
+            onMouseOver={e => e.currentTarget.style.background='rgba(255,255,255,0.08)'}
+            onMouseOut={e => e.currentTarget.style.background='transparent'}>
+              + Sync new league
+            </a>
+          </div>
+
+          {/* Hero stats — only show when there's data */}
+          {!loading && leagueList.length > 0 && (
+            <div style={{
+              marginTop:'var(--space-6)',
+              display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(120px, 1fr))',
+              gap:'var(--space-4)',
+              maxWidth: 720
+            }}>
+              {[
+                {label:'Leagues', value: sortedLeagueNames.length},
+                {label:'Seasons', value: leagueList.length},
+                {label:'Divisions', value: totals.divisions || '—'},
+                {label:'Matches', value: totals.matches || '—'},
+              ].map(stat => (
+                <div key={stat.label}>
+                  <div style={{fontSize:'var(--text-xl)', fontWeight:'var(--weight-black)', color:'var(--header-text)', lineHeight:1}}>
+                    {stat.value}
+                  </div>
+                  <div style={{fontSize:'var(--text-xs)', color:'var(--header-sub)', marginTop:'var(--space-1)', textTransform:'uppercase', letterSpacing:'0.06em'}}>
+                    {stat.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Content */}
-      <div style={{maxWidth: 1200, margin: '0 auto', padding: 'var(--space-12) var(--space-6)'}}>
+      {/* ── CONTENT ── */}
+      <div style={{maxWidth:1200, margin:'0 auto', padding:'var(--space-10) var(--space-6) var(--space-12)'}}>
         {loading ? (
-          <div style={{textAlign: 'center', color: 'var(--text-muted)', padding: '80px 20px', fontSize: 'var(--text-base)'}}>
-            <div style={{marginBottom: 'var(--space-3)'}}>⏳ Loading seasons...</div>
+          <div style={{textAlign:'center', color:'var(--text-muted)', padding:'var(--space-16) var(--space-4)', fontSize:'var(--text-base)'}}>
+            Loading seasons…
           </div>
         ) : leagueList.length > 0 ? (
           <div>
             {sortedLeagueNames.map(leagueName => (
-              <div key={leagueName} style={{marginBottom: 'var(--space-12)'}}>
-                {/* League Header */}
-                <div style={{marginBottom: 'var(--space-6)'}}>
-                  <h2 style={{fontSize: 'var(--text-lg)', fontWeight: 'var(--weight-bold)', color: 'var(--text-primary)', margin: '0 0 var(--space-1) 0'}}>
+              <section key={leagueName} style={{marginBottom:'var(--space-12)'}}>
+                {/* League band header */}
+                <div style={{
+                  display:'flex', alignItems:'baseline', justifyContent:'space-between',
+                  paddingBottom:'var(--space-3)', marginBottom:'var(--space-5)',
+                  borderBottom:'2px solid var(--border)'
+                }}>
+                  <h2 style={{
+                    fontSize:'var(--text-lg)', fontWeight:'var(--weight-black)',
+                    color:'var(--text-primary)', margin:0,
+                    letterSpacing:'-0.01em'
+                  }}>
                     {leagueName}
                   </h2>
-                  <p style={{fontSize: 'var(--text-base)', color: 'var(--text-muted)', margin: 0}}>
-                    {groupedLeagues[leagueName].length} season{groupedLeagues[leagueName].length > 1 ? 's' : ''}
-                  </p>
+                  <div style={{fontSize:'var(--text-sm)', color:'var(--text-muted)', fontWeight:'var(--weight-medium)'}}>
+                    {groupedLeagues[leagueName].length} {groupedLeagues[leagueName].length > 1 ? 'seasons' : 'season'}
+                  </div>
                 </div>
 
-                {/* Season Cards Grid */}
-                <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 'var(--space-4)'}}>
-                  {groupedLeagues[leagueName].map(league => (
-                    <a key={league.slug} href={`/${league.slug}`} style={{
-                      display: 'block', padding: 'var(--space-4)', background: 'var(--bg-100)',
-                      border: '1px solid var(--border)', borderRadius: 'var(--radius-md)',
-                      textDecoration: 'none', color: 'var(--text-primary)',
-                      transition: 'all 0.25s ease',
-                      position: 'relative'
-                    }}
-                    onMouseOver={e => {
-                      e.currentTarget.style.borderColor = 'var(--header-bg)';
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-                    }}
-                    onMouseOut={e => {
-                      e.currentTarget.style.borderColor = 'var(--border)';
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = 'none';
-                    }}>
+                {/* Season cards grid */}
+                <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(320px, 1fr))', gap:'var(--space-4)'}}>
+                  {groupedLeagues[leagueName].map(league => {
+                    const completion = league.matchCount
+                      ? Math.round((league.completedCount || 0) / league.matchCount * 100)
+                      : null;
+                    const showStats = league.matchCount || league.divisionCount || league.teamCount;
 
-                      {/* Header Row */}
-                      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-3)'}}>
-                        <div style={{fontSize: 'var(--text-md)', fontWeight: 'var(--weight-semibold)', color: 'var(--header-bg)'}}>
-                          {league.season || 'Season'}
-                        </div>
-                        {isRecent(league.updatedAt) && (
-                          <div style={{
-                            background: 'var(--clr-ok)', color: 'var(--bg-100)',
-                            fontSize: 10, fontWeight: 'var(--weight-semibold)', padding: '3px 6px',
-                            borderRadius: 'var(--radius-sm)', textTransform: 'uppercase'
-                          }}>NEW</div>
-                        )}
-                      </div>
-
-                      {/* Metadata */}
-                      <div style={{fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-3)', lineHeight: 'var(--leading-loose)'}}>
-                        <div style={{display: 'flex', alignItems: 'center', gap: 'var(--space-1)', marginBottom: 'var(--space-1)'}}>
-                          <span>📊</span> Multiple divisions
-                        </div>
-                        <div style={{display: 'flex', alignItems: 'center', gap: 'var(--space-1)'}}>
-                          <span>🕐</span> Updated {formatTimeAgo(league.updatedAt)}
-                        </div>
-                      </div>
-
-                      {/* Footer */}
-                      <div style={{
-                        paddingTop: 'var(--space-3)', borderTop: '1px solid var(--border)',
-                        fontSize: 'var(--text-sm)', color: 'var(--text-muted)',
-                        textAlign: 'right'
+                    return (
+                      <a key={league.slug} href={`/${league.slug}`} style={{
+                        display:'block', padding:'var(--space-5)',
+                        background:'var(--bg-100)',
+                        border:'1px solid var(--border)', borderRadius:'var(--radius-lg)',
+                        textDecoration:'none', color:'var(--text-primary)',
+                        transition:'all 0.2s ease',
+                        position:'relative', overflow:'hidden'
+                      }}
+                      onMouseOver={e => {
+                        e.currentTarget.style.borderColor='var(--accent)';
+                        e.currentTarget.style.transform='translateY(-2px)';
+                        e.currentTarget.style.boxShadow='var(--shadow-md)';
+                      }}
+                      onMouseOut={e => {
+                        e.currentTarget.style.borderColor='var(--border)';
+                        e.currentTarget.style.transform='translateY(0)';
+                        e.currentTarget.style.boxShadow='none';
                       }}>
-                        View details →
-                      </div>
-                    </a>
-                  ))}
+
+                        {/* Top accent bar */}
+                        <div style={{
+                          position:'absolute', top:0, left:0, right:0, height:3,
+                          background:'var(--header-bg)'
+                        }} />
+
+                        {/* Title + NEW badge */}
+                        <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:'var(--space-3)', marginBottom:'var(--space-4)', marginTop:'var(--space-1)'}}>
+                          <div>
+                            <div style={{fontSize:'var(--text-md)', fontWeight:'var(--weight-bold)', color:'var(--text-primary)', lineHeight:'var(--leading-tight)'}}>
+                              {league.season || 'Season'}
+                            </div>
+                            <div style={{fontSize:'var(--text-xs)', color:'var(--text-muted)', marginTop:'var(--space-1)', textTransform:'uppercase', letterSpacing:'0.06em', fontWeight:'var(--weight-semibold)'}}>
+                              Updated {formatTimeAgo(league.updatedAt)}
+                            </div>
+                          </div>
+                          {isRecent(league.updatedAt) && (
+                            <span style={{
+                              background:'var(--clr-ok)', color:'var(--bg-100)',
+                              fontSize:'var(--text-xs)', fontWeight:'var(--weight-bold)',
+                              padding:'2px 8px', borderRadius:'var(--radius-pill)',
+                              letterSpacing:'0.04em', flexShrink:0
+                            }}>NEW</span>
+                          )}
+                        </div>
+
+                        {/* Stats row */}
+                        {showStats ? (
+                          <div style={{
+                            display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'var(--space-3)',
+                            padding:'var(--space-3) 0',
+                            borderTop:'1px solid var(--border)',
+                            borderBottom:'1px solid var(--border)',
+                            marginBottom:'var(--space-3)'
+                          }}>
+                            <div>
+                              <div style={{fontSize:'var(--text-md)', fontWeight:'var(--weight-bold)', color:'var(--accent)', lineHeight:1}}>
+                                {league.divisionCount || '—'}
+                              </div>
+                              <div style={{fontSize:10, color:'var(--text-muted)', marginTop:2, textTransform:'uppercase', letterSpacing:'0.05em'}}>
+                                Divisions
+                              </div>
+                            </div>
+                            <div>
+                              <div style={{fontSize:'var(--text-md)', fontWeight:'var(--weight-bold)', color:'var(--accent)', lineHeight:1}}>
+                                {league.teamCount || '—'}
+                              </div>
+                              <div style={{fontSize:10, color:'var(--text-muted)', marginTop:2, textTransform:'uppercase', letterSpacing:'0.05em'}}>
+                                Teams
+                              </div>
+                            </div>
+                            <div>
+                              <div style={{fontSize:'var(--text-md)', fontWeight:'var(--weight-bold)', color:'var(--accent)', lineHeight:1}}>
+                                {league.matchCount || '—'}
+                              </div>
+                              <div style={{fontSize:10, color:'var(--text-muted)', marginTop:2, textTransform:'uppercase', letterSpacing:'0.05em'}}>
+                                Matches
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{
+                            fontSize:'var(--text-sm)', color:'var(--text-muted)',
+                            padding:'var(--space-2) 0', marginBottom:'var(--space-3)',
+                            fontStyle:'italic'
+                          }}>
+                            Re-sync from /admin to see stats
+                          </div>
+                        )}
+
+                        {/* Completion progress (if data available) */}
+                        {completion !== null && (
+                          <div style={{marginBottom:'var(--space-3)'}}>
+                            <div style={{display:'flex', justifyContent:'space-between', fontSize:'var(--text-xs)', color:'var(--text-secondary)', marginBottom:'var(--space-1)'}}>
+                              <span>Season Progress</span>
+                              <span style={{fontWeight:'var(--weight-semibold)'}}>{completion}%</span>
+                            </div>
+                            <div style={{height:6, background:'var(--bg-300)', borderRadius:'var(--radius-pill)', overflow:'hidden'}}>
+                              <div style={{
+                                height:'100%', width:`${completion}%`,
+                                background: completion === 100 ? 'var(--clr-ok)' : 'var(--accent)',
+                                borderRadius:'var(--radius-pill)',
+                                transition:'width 0.5s ease'
+                              }} />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* CTA */}
+                        <div style={{
+                          display:'flex', justifyContent:'space-between', alignItems:'center',
+                          fontSize:'var(--text-sm)', color:'var(--accent)', fontWeight:'var(--weight-semibold)',
+                          paddingTop:'var(--space-2)'
+                        }}>
+                          <span>View season analysis</span>
+                          <span>→</span>
+                        </div>
+                      </a>
+                    );
+                  })}
                 </div>
-              </div>
+              </section>
             ))}
           </div>
         ) : (
-          <div style={{textAlign: 'center', padding: '80px 24px'}}>
-            <div style={{fontSize: 'var(--text-base)', color: 'var(--text-muted)', marginBottom: 'var(--space-3)'}}>
-              No seasons synced yet
-            </div>
-            <div style={{fontSize: 'var(--text-base)', color: 'var(--text-secondary)'}}>
-              Go to <strong>/admin</strong> and use the bookmarklet to sync your first league season from CricClubs
-            </div>
+          // Empty state
+          <div style={{
+            maxWidth:560, margin:'var(--space-12) auto',
+            background:'var(--bg-100)', border:'1px solid var(--border)',
+            borderRadius:'var(--radius-lg)', padding:'var(--space-10)',
+            textAlign:'center'
+          }}>
+            <div style={{fontSize:48, marginBottom:'var(--space-4)'}}>🏏</div>
+            <h2 style={{fontSize:'var(--text-lg)', fontWeight:'var(--weight-bold)', color:'var(--text-primary)', margin:'0 0 var(--space-3) 0'}}>
+              No leagues synced yet
+            </h2>
+            <p style={{fontSize:'var(--text-base)', color:'var(--text-secondary)', margin:'0 0 var(--space-6) 0', lineHeight:'var(--leading-normal)'}}>
+              Sync your first season from CricClubs to start analyzing player performance, team standings, and match results.
+            </p>
+            <ol style={{
+              textAlign:'left', maxWidth:380, margin:'0 auto var(--space-6)',
+              fontSize:'var(--text-sm)', color:'var(--text-secondary)',
+              lineHeight:'var(--leading-loose)', paddingLeft:'var(--space-5)'
+            }}>
+              <li>Open <a href="/admin" style={{color:'var(--accent)', fontWeight:'var(--weight-semibold)'}}>/admin</a> and grab the bookmarklet</li>
+              <li>Visit your CricClubs <code style={{background:'var(--bg-200)', padding:'1px 6px', borderRadius:'var(--radius-sm)', fontSize:'var(--text-xs)'}}>listMatches.do</code> page</li>
+              <li>Click the bookmarklet to sync everything</li>
+            </ol>
+            <a href="/admin" style={{
+              display:'inline-block', padding:'var(--space-3) var(--space-5)',
+              background:'var(--accent)', color:'var(--bg-100)',
+              borderRadius:'var(--radius-md)', textDecoration:'none',
+              fontSize:'var(--text-base)', fontWeight:'var(--weight-semibold)',
+              transition:'background 0.15s'
+            }}
+            onMouseOver={e => e.currentTarget.style.background='var(--accent-dark)'}
+            onMouseOut={e => e.currentTarget.style.background='var(--accent)'}>
+              Open Admin →
+            </a>
           </div>
         )}
       </div>
