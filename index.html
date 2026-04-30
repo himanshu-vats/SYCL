@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#1a0533">
+  <meta name="theme-color" content="#1a3a5c">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="mobile-web-app-capable" content="yes">
-  <title>SYCL Schedule Dashboard</title>
+  <title>Season Insight — Cricket Analytics</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏏</text></svg>">
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -17,10 +17,16 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    /* Pre-React boot styles — match design tokens to prevent flash */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { height: 100%; }
-    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; min-height: 100%; background: #ffffff; color: #1a1a1a; }
-    [data-theme="dark"] body, [data-theme="dark"] #root { background: #ffffff; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100%;
+      background: #f8f9fa;
+      color: #1a1a1a;
+    }
     #root { min-height: 100%; }
   </style>
 </head>
@@ -241,66 +247,19 @@ function aggregateRankings(rows) {
    STYLES — Yahoo Sports–inspired design
 ───────────────────────────────────────────────────────────── */
 const STYLES = `
-  /* ── Tokens: Light (Yahoo Sports) ── */
-  :root, [data-theme="light"] {
-    --bg-page:   #f2f2f2;
-    --bg-100:    #ffffff;
-    --bg-200:    #f7f7f7;
-    --bg-300:    #eeeeee;
-    --bg-hover:  #f0eaff;
-    --z-100: #f0f0f0;
-    --z-200: #e0e0e0;
-    --z-300: #c8c8c8;
-    --z-500: #767676;
-    --z-700: #444444;
-    --z-900: #222222;
-    --z-1000: #14171a;
-    --a-200: rgba(0,0,0,0.04);
-    --a-400: rgba(0,0,0,0.08);
-    --a-500: rgba(0,0,0,0.13);
-    --border: #e5e5e5;
-    --text-primary:   #14171a;
-    --text-secondary: #536471;
-    --text-muted:     #8b98a5;
-    --accent:        #6001D2;
-    --accent-dark:   #4a009f;
-    --accent-light:  rgba(96,1,210,0.07);
-    --header-bg:     #1a0533;
-    --header-text:   #ffffff;
-    --header-sub:    rgba(255,255,255,0.65);
-    --header-border: rgba(255,255,255,0.10);
-    --clr-ok:   #17bf63;
-    --clr-warn: #f0a500;
-    --clr-bad:  #e0245e;
-    --clr-info: #1da1f2;
-    --clr-am:   #1da1f2;
-    --clr-pm:   #6001D2;
-    --badge-ok-bg: #e6f7ee;   --badge-ok-fg: #0d6832;
-    --badge-warn-bg: #fff4e0; --badge-warn-fg: #7a4c00;
-    --badge-bad-bg: #fce8ef;  --badge-bad-fg: #8c0023;
-    --badge-am-bg: #e6f2ff;   --badge-am-fg: #0a66c2;
-    --badge-pm-bg: #f0e6ff;   --badge-pm-fg: #5000b8;
-    --sev-error-bg: #fce8ef;
-    --sev-warn-bg:  #fff4e0;
-    --sev-info-bg:  #e6f2ff;
-    --pair-yes-bg:  #e6f7ee;
-    --pair-no-bg:   #fce8ef;
-    --row-alt:   #f7f7f7;
-    --row-hover: rgba(96,1,210,0.05);
-    --table-shadow: 0 1px 4px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
-    --th-bg: #f2f2f2;
-    --th-color: #536471;
-    --tab-active-color: #6001D2;
-    --tab-active-border: #6001D2;
-  }
-
-  /* ── Tokens: ESPNcricinfo Light Theme ── */
-  [data-theme="dark"] {
-    --bg-page:   #f8f8f8;
+  /* ─────────────────────────────────────────────────────────────
+     DESIGN TOKENS — ESPNcricinfo-inspired light theme
+     Single source of truth for all colors, spacing, typography
+  ───────────────────────────────────────────────────────────── */
+  :root {
+    /* ── Color: Surfaces ── */
+    --bg-page:   #f8f9fa;
     --bg-100:    #ffffff;
     --bg-200:    #f5f5f5;
     --bg-300:    #eeeeee;
     --bg-hover:  #f0f7ff;
+
+    /* ── Color: Neutral scale ── */
     --z-100: #f5f5f5;
     --z-200: #e8e8e8;
     --z-300: #d1d1d1;
@@ -308,43 +267,108 @@ const STYLES = `
     --z-700: #666666;
     --z-900: #333333;
     --z-1000: #000000;
+
+    /* ── Color: Alpha overlays ── */
     --a-200: rgba(0,0,0,0.03);
     --a-400: rgba(0,0,0,0.06);
     --a-500: rgba(0,0,0,0.10);
+
+    /* ── Color: Borders ── */
     --border: #e0e0e0;
+    --border-strong: #c8c8c8;
+
+    /* ── Color: Text ── */
     --text-primary:   #1a1a1a;
     --text-secondary: #555555;
     --text-muted:     #888888;
+
+    /* ── Color: Brand ── */
     --accent:        #1565c0;
     --accent-dark:   #0d47a1;
     --accent-light:  rgba(21,101,192,0.08);
+
+    /* ── Color: Header ── */
     --header-bg:     #1a3a5c;
     --header-text:   #ffffff;
     --header-sub:    rgba(255,255,255,0.75);
     --header-border: rgba(255,255,255,0.15);
+
+    /* ── Color: Status ── */
     --clr-ok:   #2e7d32;
     --clr-warn: #f57c00;
     --clr-bad:  #d32f2f;
     --clr-info: #1565c0;
     --clr-am:   #1565c0;
     --clr-pm:   #7b1fa2;
+
+    /* ── Color: Badge backgrounds ── */
     --badge-ok-bg: #e8f5e9;   --badge-ok-fg: #2e7d32;
     --badge-warn-bg: #fff3e0; --badge-warn-fg: #f57c00;
     --badge-bad-bg: #ffebee;  --badge-bad-fg: #d32f2f;
     --badge-am-bg: #e3f2fd;   --badge-am-fg: #1565c0;
     --badge-pm-bg: #f3e5f5;   --badge-pm-fg: #7b1fa2;
+
+    /* ── Color: Severity backgrounds ── */
     --sev-error-bg: #ffebee;
     --sev-warn-bg:  #fff3e0;
     --sev-info-bg:  #e3f2fd;
     --pair-yes-bg:  #e8f5e9;
     --pair-no-bg:   #ffebee;
+
+    /* ── Color: Tables ── */
     --row-alt:   #f9f9f9;
     --row-hover: rgba(21,101,192,0.05);
     --table-shadow: 0 1px 3px rgba(0,0,0,0.08);
     --th-bg: #f5f5f5;
     --th-color: #666666;
+
+    /* ── Color: Tabs ── */
     --tab-active-color: #1565c0;
     --tab-active-border: #1565c0;
+
+    /* ── Spacing scale (4px base grid) ── */
+    --space-1:  4px;
+    --space-2:  8px;
+    --space-3:  12px;
+    --space-4:  16px;
+    --space-5:  20px;
+    --space-6:  24px;
+    --space-8:  32px;
+    --space-10: 40px;
+    --space-12: 48px;
+    --space-16: 64px;
+
+    /* ── Typography scale ── */
+    --text-xs:   11px;
+    --text-sm:   12px;
+    --text-base: 14px;
+    --text-md:   16px;
+    --text-lg:   18px;
+    --text-xl:   24px;
+    --text-2xl:  32px;
+    --leading-tight:  1.2;
+    --leading-normal: 1.5;
+    --leading-loose:  1.6;
+    --weight-regular: 400;
+    --weight-medium:  500;
+    --weight-semibold: 600;
+    --weight-bold:    700;
+    --weight-black:   800;
+
+    /* ── Radius scale ── */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-pill: 999px;
+
+    /* ── Shadow scale ── */
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-md: 0 2px 6px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 16px rgba(0,0,0,0.10);
+
+    /* ── Special: Spotlight gradient (cricket green) ── */
+    --spotlight-gradient: linear-gradient(135deg, #1a7a2e 0%, #2d9e45 100%);
+    --spotlight-text: #ffffff;
   }
 
   /* ── Reset & base ── */
@@ -352,11 +376,11 @@ const STYLES = `
   body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     background: var(--bg-page); color: var(--text-primary);
-    font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased;
+    font-size: var(--text-base); line-height: var(--leading-loose); -webkit-font-smoothing: antialiased;
   }
 
   /* ── App shell ── */
-  .app { max-width: 1200px; margin: 0 auto; padding: 0 0 48px; padding-bottom: max(48px, env(safe-area-inset-bottom)); }
+  .app { max-width: 1200px; margin: 0 auto; padding: 0 0 var(--space-12); padding-bottom: max(var(--space-12), env(safe-area-inset-bottom)); }
 
   /* ── Header (Yahoo Sports dark purple bar) ── */
   .header {
@@ -797,7 +821,7 @@ const STYLES = `
   .headline-pill { flex:1; min-width:80px; background:var(--bg-200); border:1px solid var(--border); border-radius:12px; padding:10px 8px; text-align:center; }
   .headline-pill-val { font-size:22px; font-weight:800; color:var(--accent); }
   .headline-pill-lbl { font-size:10px; color:var(--text-muted); margin-top:2px; }
-  .spotlight-banner { margin:0 16px 16px; padding:14px 16px; border-radius:12px; background: linear-gradient(135deg, #1a7a2e 0%, #2d9e45 100%); color:#fff; }
+  .spotlight-banner { margin:0 var(--space-4) var(--space-4); padding:var(--space-3) var(--space-4); border-radius:var(--radius-lg); background: var(--spotlight-gradient); color: var(--spotlight-text); }
   .spotlight-title { font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; opacity:0.8; margin-bottom:6px; }
   .spotlight-text { font-size:14px; font-weight:600; line-height:1.4; }
   .profile-section { padding:0 16px; margin-bottom:20px; }
@@ -1935,51 +1959,51 @@ function LandingPage() {
   return (
     <div style={{minHeight: '100vh', background: 'var(--bg-page)'}}>
       {/* Clean Header */}
-      <div style={{background: '#1a3a5c', padding: '32px 24px', borderBottom: '1px solid rgba(255,255,255,0.1)'}}>
+      <div style={{background: 'var(--header-bg)', padding: 'var(--space-8) var(--space-6)', borderBottom: '1px solid var(--header-border)'}}>
         <div style={{maxWidth: 1200, margin: '0 auto'}}>
-          <h1 style={{fontSize: 24, fontWeight: 700, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: 12}}>
+          <h1 style={{fontSize: 'var(--text-xl)', fontWeight: 'var(--weight-bold)', color: 'var(--header-text)', margin: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-3)'}}>
             <span style={{fontSize: 28}}>🏏</span> Season Insight
           </h1>
-          <p style={{fontSize: 13, color: 'rgba(255,255,255,0.70)', margin: '8px 0 0 0'}}>
+          <p style={{fontSize: 'var(--text-base)', color: 'var(--header-sub)', margin: 'var(--space-2) 0 0 0'}}>
             Analyze cricket season performance across multiple leagues
           </p>
         </div>
       </div>
 
       {/* Content */}
-      <div style={{maxWidth: 1200, margin: '0 auto', padding: '48px 24px'}}>
+      <div style={{maxWidth: 1200, margin: '0 auto', padding: 'var(--space-12) var(--space-6)'}}>
         {loading ? (
-          <div style={{textAlign: 'center', color: 'var(--text-muted)', padding: '80px 20px', fontSize: 14}}>
-            <div style={{marginBottom: 12}}>⏳ Loading seasons...</div>
+          <div style={{textAlign: 'center', color: 'var(--text-muted)', padding: '80px 20px', fontSize: 'var(--text-base)'}}>
+            <div style={{marginBottom: 'var(--space-3)'}}>⏳ Loading seasons...</div>
           </div>
         ) : leagueList.length > 0 ? (
           <div>
             {sortedLeagueNames.map(leagueName => (
-              <div key={leagueName} style={{marginBottom: 48}}>
+              <div key={leagueName} style={{marginBottom: 'var(--space-12)'}}>
                 {/* League Header */}
-                <div style={{marginBottom: 24}}>
-                  <h2 style={{fontSize: 20, fontWeight: 700, color: '#1a1a1a', margin: '0 0 4px 0'}}>
+                <div style={{marginBottom: 'var(--space-6)'}}>
+                  <h2 style={{fontSize: 'var(--text-lg)', fontWeight: 'var(--weight-bold)', color: 'var(--text-primary)', margin: '0 0 var(--space-1) 0'}}>
                     {leagueName}
                   </h2>
-                  <p style={{fontSize: 13, color: 'var(--text-muted)', margin: 0}}>
+                  <p style={{fontSize: 'var(--text-base)', color: 'var(--text-muted)', margin: 0}}>
                     {groupedLeagues[leagueName].length} season{groupedLeagues[leagueName].length > 1 ? 's' : ''}
                   </p>
                 </div>
 
                 {/* Season Cards Grid */}
-                <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16}}>
+                <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 'var(--space-4)'}}>
                   {groupedLeagues[leagueName].map(league => (
                     <a key={league.slug} href={`/${league.slug}`} style={{
-                      display: 'block', padding: '16px', background: 'var(--bg-100)',
-                      border: '1px solid var(--border)', borderRadius: 8,
+                      display: 'block', padding: 'var(--space-4)', background: 'var(--bg-100)',
+                      border: '1px solid var(--border)', borderRadius: 'var(--radius-md)',
                       textDecoration: 'none', color: 'var(--text-primary)',
                       transition: 'all 0.25s ease',
                       position: 'relative'
                     }}
                     onMouseOver={e => {
-                      e.currentTarget.style.borderColor = '#1a3a5c';
+                      e.currentTarget.style.borderColor = 'var(--header-bg)';
                       e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
+                      e.currentTarget.style.boxShadow = 'var(--shadow-md)';
                     }}
                     onMouseOut={e => {
                       e.currentTarget.style.borderColor = 'var(--border)';
@@ -1988,33 +2012,33 @@ function LandingPage() {
                     }}>
 
                       {/* Header Row */}
-                      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12}}>
-                        <div style={{fontSize: 16, fontWeight: 600, color: '#1a3a5c'}}>
+                      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-3)'}}>
+                        <div style={{fontSize: 'var(--text-md)', fontWeight: 'var(--weight-semibold)', color: 'var(--header-bg)'}}>
                           {league.season || 'Season'}
                         </div>
                         {isRecent(league.updatedAt) && (
                           <div style={{
-                            background: '#2e7d32', color: '#fff',
-                            fontSize: 10, fontWeight: 600, padding: '3px 6px',
-                            borderRadius: 3, textTransform: 'uppercase'
+                            background: 'var(--clr-ok)', color: 'var(--bg-100)',
+                            fontSize: 10, fontWeight: 'var(--weight-semibold)', padding: '3px 6px',
+                            borderRadius: 'var(--radius-sm)', textTransform: 'uppercase'
                           }}>NEW</div>
                         )}
                       </div>
 
                       {/* Metadata */}
-                      <div style={{fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.6}}>
-                        <div style={{display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6}}>
+                      <div style={{fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-3)', lineHeight: 'var(--leading-loose)'}}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: 'var(--space-1)', marginBottom: 'var(--space-1)'}}>
                           <span>📊</span> Multiple divisions
                         </div>
-                        <div style={{display: 'flex', alignItems: 'center', gap: 6}}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: 'var(--space-1)'}}>
                           <span>🕐</span> Updated {formatTimeAgo(league.updatedAt)}
                         </div>
                       </div>
 
                       {/* Footer */}
                       <div style={{
-                        paddingTop: 10, borderTop: '1px solid var(--border)',
-                        fontSize: 12, color: 'var(--text-muted)',
+                        paddingTop: 'var(--space-3)', borderTop: '1px solid var(--border)',
+                        fontSize: 'var(--text-sm)', color: 'var(--text-muted)',
                         textAlign: 'right'
                       }}>
                         View details →
@@ -2027,10 +2051,10 @@ function LandingPage() {
           </div>
         ) : (
           <div style={{textAlign: 'center', padding: '80px 24px'}}>
-            <div style={{fontSize: 14, color: 'var(--text-muted)', marginBottom: 12}}>
+            <div style={{fontSize: 'var(--text-base)', color: 'var(--text-muted)', marginBottom: 'var(--space-3)'}}>
               No seasons synced yet
             </div>
-            <div style={{fontSize: 13, color: 'var(--text-secondary)'}}>
+            <div style={{fontSize: 'var(--text-base)', color: 'var(--text-secondary)'}}>
               Go to <strong>/admin</strong> and use the bookmarklet to sync your first league season from CricClubs
             </div>
           </div>

@@ -139,19 +139,51 @@ function reviewDesign() {
       successes.push('✅ Body background is light/white');
     }
 
-    // Check for whitespace
-    if (html.includes('padding: \'16px\'') || html.includes('padding: \'20px\'')) {
-      successes.push('✅ Proper card padding detected (16-20px)');
+    // Check that design tokens exist
+    if (html.includes('--space-1:') && html.includes('--space-12:')) {
+      successes.push('✅ Spacing scale tokens defined (--space-1 through --space-12)');
+    } else {
+      issues.push('⚠️  Spacing scale tokens missing — add --space-* to :root');
     }
 
-    // Check for gap spacing
-    if (html.includes('gap: 16') || html.includes('gap: 12')) {
-      successes.push('✅ Consistent gap spacing detected');
+    if (html.includes('--text-xs:') && html.includes('--text-2xl:')) {
+      successes.push('✅ Typography scale tokens defined (--text-xs through --text-2xl)');
+    } else {
+      issues.push('⚠️  Typography scale tokens missing — add --text-* to :root');
     }
 
-    // Check for header
-    if (html.includes('background: \'#1a3a5c\'')) {
-      successes.push('✅ Navy header color used (good!)');
+    if (html.includes('--radius-sm:') && html.includes('--radius-lg:')) {
+      successes.push('✅ Radius scale tokens defined (--radius-sm/md/lg)');
+    } else {
+      issues.push('⚠️  Radius scale tokens missing — add --radius-* to :root');
+    }
+
+    // Check that LandingPage uses var() instead of hardcoded colors
+    const landingSection = html.match(/function LandingPage\(\)[\s\S]{0,8000}?^\}/m);
+    if (landingSection) {
+      const hardcodedHex = landingSection[0].match(/['"]#[0-9a-fA-F]{3,8}['"]/g);
+      if (!hardcodedHex || hardcodedHex.length === 0) {
+        successes.push('✅ LandingPage uses CSS variables (no hardcoded hex colors)');
+      } else {
+        issues.push(`⚠️  LandingPage has ${hardcodedHex.length} hardcoded hex colors — replace with var()`);
+      }
+    }
+
+    // Check for confused theme blocks
+    if (html.includes('[data-theme="dark"]') &&
+        html.match(/\[data-theme="dark"\][\s\S]{0,2000}--bg-page:\s*#f/)) {
+      issues.push('⚠️  [data-theme="dark"] block contains LIGHT values — confusing labeling');
+    } else {
+      successes.push('✅ Theme labels are coherent (no light values under dark selector)');
+    }
+
+    // Check that navy header is themed (not hardcoded everywhere)
+    // Expected: 1 in --header-bg token + 1 in <meta theme-color> (can't use vars in HTML)
+    const navyOccurrences = (html.match(/#1a3a5c/g) || []).length;
+    if (navyOccurrences <= 2) {
+      successes.push(`✅ Navy header color centralized (${navyOccurrences} legitimate refs: token + meta tag)`);
+    } else {
+      issues.push(`⚠️  #1a3a5c appears ${navyOccurrences} times — should only be in --header-bg token + meta`);
     }
   } catch (err) {
     console.log('⚠️  Could not read HTML file for analysis');
