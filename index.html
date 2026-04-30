@@ -2282,8 +2282,8 @@ function SYCLDashboard() {
 
   const tabs = [["schedule","Schedule"],["standings","Standings"],["results","Results"],["batting","Batting"],["bowling","Bowling"],["rankings","Rankings"]];
 
-  if (!slug) return <LandingPage />;
-  if (playerPage) return <PlayerProfilePage name={playerPage} batting={data?.batting} bowling={data?.bowling} rankings={data?.rankings} onClose={closePlayerPage} onTeamDrilldown={handleDrilldown} />;
+  if (!slug) return <><style>{STYLES}</style><LandingPage /></>;
+  if (playerPage) return <><style>{STYLES}</style><PlayerProfilePage name={playerPage} batting={data?.batting} bowling={data?.bowling} rankings={data?.rankings} onClose={closePlayerPage} onTeamDrilldown={handleDrilldown} /></>;
 
   return (
     <>
