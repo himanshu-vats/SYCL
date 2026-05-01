@@ -1561,6 +1561,35 @@ const STYLES = `
   .story-score { font-size:18px; font-weight:800; color:var(--text-primary); line-height:1.1; }
   .story-meta  { font-size:10px; color:var(--text-muted); }
   .story-date  { font-size:10px; color:var(--text-muted); margin-top:2px; }
+
+  /* ── Feedback Widget ── */
+  .fb-fab { position:fixed; bottom:24px; right:24px; width:48px; height:48px; border-radius:50%; background:var(--accent); color:#fff; border:none; font-size:20px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.2); z-index:9000; display:flex; align-items:center; justify-content:center; transition:transform .15s, box-shadow .15s; }
+  .fb-fab:hover { transform:scale(1.1); box-shadow:0 6px 18px rgba(0,0,0,0.25); }
+  .fb-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:9100; display:flex; align-items:flex-end; justify-content:center; padding:0 0 80px; }
+  @media(min-width:500px) { .fb-overlay { align-items:center; padding:0; } }
+  .fb-modal { background:var(--bg-100); border-radius:16px 16px 0 0; width:100%; max-width:480px; box-shadow:0 -4px 24px rgba(0,0,0,0.15); overflow:hidden; }
+  @media(min-width:500px) { .fb-modal { border-radius:16px; } }
+  .fb-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); }
+  .fb-title { font-size:16px; font-weight:700; color:var(--text-primary); }
+  .fb-close { background:none; border:none; font-size:18px; color:var(--text-muted); cursor:pointer; padding:4px 8px; border-radius:6px; }
+  .fb-close:hover { background:var(--bg-200); }
+  .fb-body { padding:20px; display:flex; flex-direction:column; gap:16px; }
+  .fb-field { display:flex; flex-direction:column; gap:6px; }
+  .fb-label { font-size:12px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.4px; }
+  .fb-types { display:flex; flex-wrap:wrap; gap:6px; }
+  .fb-type-btn { padding:6px 12px; border:1px solid var(--border); border-radius:20px; background:var(--bg-100); font-size:12px; cursor:pointer; color:var(--text-secondary); transition:all .15s; }
+  .fb-type-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; }
+  .fb-type-btn:hover:not(.active) { background:var(--bg-200); }
+  .fb-textarea { width:100%; border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-size:14px; font-family:inherit; color:var(--text-primary); background:var(--bg-100); resize:vertical; outline:none; box-sizing:border-box; }
+  .fb-textarea:focus { border-color:var(--accent); }
+  .fb-input { width:100%; border:1px solid var(--border); border-radius:8px; padding:9px 12px; font-size:14px; font-family:inherit; color:var(--text-primary); background:var(--bg-100); outline:none; box-sizing:border-box; }
+  .fb-input:focus { border-color:var(--accent); }
+  .fb-context { font-size:11px; color:var(--text-muted); }
+  .fb-submit { padding:12px; background:var(--accent); color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:opacity .15s; }
+  .fb-submit:disabled { opacity:0.5; cursor:default; }
+  .fb-submit:not(:disabled):hover { opacity:0.88; }
+  .fb-success { text-align:center; font-size:16px; padding:20px 0; color:var(--clr-ok); font-weight:600; }
+  .fb-error { font-size:12px; color:#dc2626; }
 `;
 
 
@@ -3753,8 +3782,118 @@ function SYCLDashboard() {
   );
 }
 
+/* ─── Feedback Widget ─── */
+function FeedbackWidget() {
+  const [open, setOpen] = useState(false);
+  const [type, setType] = useState('suggestion');
+  const [message, setMessage] = useState('');
+  const [name, setName] = useState('');
+  const [status, setStatus] = useState(null); // null | 'sending' | 'ok' | 'err'
+
+  const page = (() => {
+    try {
+      const h = window.location.hash;
+      if (h.startsWith('#player=')) return 'player:' + decodeURIComponent(h.slice(8));
+      const path = window.location.pathname.replace(/^\//, '') || 'landing';
+      return path;
+    } catch { return 'unknown'; }
+  })();
+
+  const league = (() => {
+    try {
+      const parts = window.location.pathname.split('/').filter(Boolean);
+      return parts[0] || null;
+    } catch { return null; }
+  })();
+
+  const submit = () => {
+    if (!message.trim()) return;
+    setStatus('sending');
+    fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, type, page, league, name }),
+    })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(() => { setStatus('ok'); setMessage(''); setName(''); setTimeout(() => { setOpen(false); setStatus(null); }, 2000); })
+      .catch(() => setStatus('err'));
+  };
+
+  const TYPES = [
+    { id:'suggestion', label:'💡 Suggestion' },
+    { id:'data_error', label:'📊 Data looks wrong' },
+    { id:'bug',        label:'🐛 Something broken' },
+    { id:'other',      label:'💬 Other' },
+  ];
+
+  return (
+    <>
+      <button className="fb-fab" onClick={() => { setOpen(true); setStatus(null); }} title="Send feedback">
+        💬
+      </button>
+
+      {open && (
+        <div className="fb-overlay" onClick={e => { if (e.target === e.currentTarget) setOpen(false); }}>
+          <div className="fb-modal">
+            <div className="fb-header">
+              <span className="fb-title">Send Feedback</span>
+              <button className="fb-close" onClick={() => setOpen(false)}>✕</button>
+            </div>
+            <div className="fb-body">
+              {status === 'ok' ? (
+                <div className="fb-success">Thanks! We got your feedback. 🙏</div>
+              ) : (
+                <>
+                  <div className="fb-field">
+                    <label className="fb-label">What kind of feedback?</label>
+                    <div className="fb-types">
+                      {TYPES.map(t => (
+                        <button key={t.id} className={`fb-type-btn${type === t.id ? ' active' : ''}`} onClick={() => setType(t.id)}>
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="fb-field">
+                    <label className="fb-label">Your feedback <span style={{color:'var(--accent)'}}>*</span></label>
+                    <textarea
+                      className="fb-textarea"
+                      placeholder="Tell us what you noticed, what you'd like to see, or what looks wrong..."
+                      value={message}
+                      onChange={e => setMessage(e.target.value)}
+                      rows={4}
+                    />
+                  </div>
+                  <div className="fb-field">
+                    <label className="fb-label">Your name <span style={{fontSize:11,color:'var(--text-muted)'}}>(optional)</span></label>
+                    <input className="fb-input" placeholder="e.g. Priya" value={name} onChange={e => setName(e.target.value)} />
+                  </div>
+                  <div className="fb-context">Sending from: <strong>{page}</strong></div>
+                  {status === 'err' && <div className="fb-error">Something went wrong — please try again.</div>}
+                  <button className="fb-submit" onClick={submit} disabled={!message.trim() || status === 'sending'}>
+                    {status === 'sending' ? 'Sending…' : 'Send Feedback'}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function App() {
+  return (
+    <>
+      {React.createElement(SYCLDashboard)}
+      {React.createElement(FeedbackWidget)}
+    </>
+  );
+}
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(React.createElement(SYCLDashboard));
+root.render(React.createElement(App));
   </script>
 </body>
 </html>
