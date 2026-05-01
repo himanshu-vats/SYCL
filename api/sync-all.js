@@ -38,7 +38,14 @@ module.exports = async function(req, res) {
   try {
     const now = new Date().toISOString();
     const docRef = db.collection('leagues').doc(slug);
-    const existing = (await docRef.get()).data() || {};
+    const existingFull = (await docRef.get()).data() || {};
+
+    // ── Strip legacy `playerInnings` field from parent doc ──
+    // Earlier syncs accidentally inlined innings into the parent document and
+    // pushed it past Firestore's 1MB hard limit. Innings now live in a
+    // per-match subcollection (see below). Destructure to drop it from the
+    // parent write and let set() (without merge) wipe it from the doc.
+    const { playerInnings: _legacyInnings, ...existing } = existingFull;
 
     const update = { ...existing, updatedAt: now };
     if (hasMatches) {
@@ -62,28 +69,68 @@ module.exports = async function(req, res) {
     if (leagueName)   update.leagueName = leagueName;
     if (season)       update.season = season;
 
-    // ── DELTA-SAFE MERGE for playerInnings ──
-    // Each innings is keyed by `${matchId}::${player}::${team}::${role}` where
-    // role = 'bat' or 'bowl'. Incoming innings overwrite existing ones with the
-    // same key (handles re-scrapes if scorecard was updated). New keys are
-    // appended. This way multiple incremental syncs accumulate without losing
-    // previously-stored matches.
-    if (hasInnings) {
+    await docRef.set(update);
+
+    // ── Write innings to per-match subcollection: leagues/{slug}/matches/{matchId} ──
+    // Each match gets its own document (~10-30 KB), well under the 1MB limit.
+    // Incoming innings are merged with any existing innings for the same match,
+    // deduped by composite key (matchId::player::team::role) — re-scrapes update
+    // in place; previously-recorded innings from other syncs are preserved.
+    let migratedFromLegacy = 0;
+    if (hasInnings || (Array.isArray(_legacyInnings) && _legacyInnings.length)) {
       const inningsKey = (inn) =>
         `${inn.matchId}::${(inn.player||'').toLowerCase().trim()}::${(inn.team||'').toLowerCase().trim()}::${inn.role||''}`;
 
-      const existingInnings = Array.isArray(existing.playerInnings) ? existing.playerInnings : [];
-      const merged = new Map();
+      // Merge incoming innings with any legacy innings still on the parent doc.
+      // This one-time migration moves stranded data into the subcollection.
+      const allIncoming = [];
+      if (Array.isArray(_legacyInnings)) {
+        allIncoming.push(..._legacyInnings);
+        migratedFromLegacy = _legacyInnings.length;
+      }
+      if (hasInnings) allIncoming.push(...playerInnings);
 
-      existingInnings.forEach(inn => merged.set(inningsKey(inn), inn));
-      playerInnings.forEach(inn => {
-        if (inn && inn.matchId && inn.player) merged.set(inningsKey(inn), inn);
+      // Group by matchId
+      const byMatch = new Map();
+      allIncoming.forEach(inn => {
+        if (!inn || !inn.matchId) return;
+        const id = String(inn.matchId);
+        if (!byMatch.has(id)) byMatch.set(id, []);
+        byMatch.get(id).push(inn);
       });
 
-      update.playerInnings = [...merged.values()];
-    }
+      const matchesCol = docRef.collection('matches');
 
-    await docRef.set(update);
+      // For each match: read existing subcoll doc, merge innings, write back.
+      // Done in parallel — typically 0-10 match docs to update per delta sync.
+      await Promise.all([...byMatch.entries()].map(async ([matchId, newInnings]) => {
+        const matchDocRef = matchesCol.doc(matchId);
+        const existingMatchDoc = await matchDocRef.get();
+        const existingInnings = existingMatchDoc.exists && Array.isArray(existingMatchDoc.data().innings)
+          ? existingMatchDoc.data().innings : [];
+
+        const merged = new Map();
+        existingInnings.forEach(inn => merged.set(inningsKey(inn), inn));
+        newInnings.forEach(inn => {
+          if (inn && inn.player) merged.set(inningsKey(inn), inn);
+        });
+
+        const innArr = [...merged.values()];
+        const sample = innArr[0] || newInnings[0] || {};
+
+        await matchDocRef.set({
+          matchId: String(matchId),
+          date: sample.date || '',
+          division: sample.division || '',
+          // team1/team2 helps queries without scanning innings array
+          team1: sample.team || '',
+          team2: sample.opponent || '',
+          result: sample.result || '',
+          innings: innArr,
+          updatedAt: now,
+        });
+      }));
+    }
 
     // Compute summary stats for the landing page cards
     const matchCount = hasMatches ? matches.length : (existing.matches?.length || 0);
@@ -126,6 +173,9 @@ module.exports = async function(req, res) {
     if (hasInnings) {
       const newMatchIds = new Set(playerInnings.map(i => i.matchId).filter(Boolean));
       parts.push(`${playerInnings.length} innings from ${newMatchIds.size} match${newMatchIds.size===1?'':'es'}`);
+    }
+    if (migratedFromLegacy > 0) {
+      parts.push(`migrated ${migratedFromLegacy} legacy innings to subcollection`);
     }
 
     res.json({ message: `Synced: ${parts.join(', ')}.`, updatedAt: now });

@@ -30,25 +30,22 @@ module.exports = async function(req, res) {
   }
 
   try {
-    const doc = await db.collection('leagues').doc(slug).get();
-    if (!doc.exists) {
-      res.json({ matchIds: [], count: 0, lastSync: null });
-      return;
-    }
+    const docRef = db.collection('leagues').doc(slug);
 
-    const data = doc.data();
-    const innings = Array.isArray(data.playerInnings) ? data.playerInnings : [];
+    // Innings are stored per-match in the `matches` subcollection. Each subcoll
+    // doc id IS the matchId — listDocuments() returns refs without reading
+    // field data, so this is cheap (1 listDocuments call, no doc reads billed).
+    const matchRefs = await docRef.collection('matches').listDocuments();
+    const matchIds = matchRefs.map(ref => ref.id);
 
-    // Unique match IDs that have at least one innings recorded
-    const matchIdSet = new Set();
-    innings.forEach(inn => {
-      if (inn && inn.matchId) matchIdSet.add(String(inn.matchId));
-    });
+    // Fall back to parent doc's lastSync timestamp (legacy or empty cases).
+    const parentSnap = await docRef.get();
+    const lastSync = parentSnap.exists ? (parentSnap.data().updatedAt || null) : null;
 
     res.json({
-      matchIds: [...matchIdSet],
-      count: matchIdSet.size,
-      lastSync: data.updatedAt || null,
+      matchIds,
+      count: matchIds.length,
+      lastSync,
     });
   } catch (e) {
     console.error('synced-matches error:', e);
