@@ -546,6 +546,153 @@ function computeOpponentBowlingStats(history) {
 }
 
 /* ─────────────────────────────────────────────────────────────
+   PHASE 3D-1 — Story-tier player insights
+   Warm, encouraging tone for kids/parents. Each insight returns a
+   small object the component renders (data + a friendly headline).
+───────────────────────────────────────────────────────────── */
+
+// Smart Milestones — pick the 3 closest unearned achievements as "goals
+// to chase". Sorted by % progress so the player sees their nearest wins
+// first. Returns [] when player has earned everything in scope.
+function getNearestMilestones(bat, bowl, rankTotals) {
+  const runs    = bat?.runs || 0;
+  const sixes   = bat?.sixes || 0;
+  const hs      = parseInt(bat?.hs) || 0;
+  const wickets = bowl?.wickets || 0;
+  const moms    = rankTotals?.mom || 0;
+
+  const all = [
+    { id:'hs50',    label:'Half-Century Hero',  emoji:'🏆', current: hs,      target: 50,  unit: 'runs in one innings' },
+    { id:'runs50',  label:'50 Run Club',         emoji:'⭐', current: runs,    target: 50,  unit: 'runs' },
+    { id:'runs100', label:'Century Season',      emoji:'💯', current: runs,    target: 100, unit: 'runs' },
+    { id:'runs200', label:'200 Run Star',        emoji:'🌟', current: runs,    target: 200, unit: 'runs' },
+    { id:'runs300', label:'Triple Century Crew', emoji:'👑', current: runs,    target: 300, unit: 'runs' },
+    { id:'sixes5',  label:'Boundary Blaster',    emoji:'💥', current: sixes,   target: 5,   unit: 'sixes' },
+    { id:'sixes10', label:'Six Machine',         emoji:'🚀', current: sixes,   target: 10,  unit: 'sixes' },
+    { id:'wkts5',   label:'5 Wicket Club',       emoji:'⚡', current: wickets, target: 5,   unit: 'wickets' },
+    { id:'wkts10',  label:'10 Wicket Hero',      emoji:'🔥', current: wickets, target: 10,  unit: 'wickets' },
+    { id:'wkts20',  label:'20 Wicket Legend',    emoji:'👑', current: wickets, target: 20,  unit: 'wickets' },
+    { id:'mom1',    label:'Match Winner',        emoji:'🌟', current: moms,    target: 1,   unit: 'Player of Match' },
+    { id:'mom3',    label:'Triple POM',          emoji:'👑', current: moms,    target: 3,   unit: 'Player of Match awards' },
+    { id:'mom5',    label:'Five Star',           emoji:'⭐', current: moms,    target: 5,   unit: 'Player of Match awards' },
+  ];
+
+  return all
+    .filter(m => m.current < m.target && m.current >= 0)
+    .map(m => ({
+      ...m,
+      pct: Math.round(m.current / m.target * 100),
+      remaining: m.target - m.current,
+    }))
+    .sort((a, b) => b.pct - a.pct)
+    .slice(0, 3);
+}
+
+// Boundary Distribution — splits a batter's runs into fours/sixes/running.
+// Returns null if too few runs to be meaningful. Insight is encouraging.
+function computeBoundaryDistribution(bat) {
+  if (!bat) return null;
+  const runs  = parseInt(bat.runs) || 0;
+  const fours = parseInt(bat.fours) || 0;
+  const sixes = parseInt(bat.sixes) || 0;
+  if (runs < 10) return null;
+
+  const fourRuns   = fours * 4;
+  const sixRuns    = sixes * 6;
+  const boundaryRuns = fourRuns + sixRuns;
+  const runningRuns  = Math.max(0, runs - boundaryRuns);
+  const total = runs;
+
+  const pct = (n) => total > 0 ? Math.round(n / total * 100) : 0;
+  const fourPct    = pct(fourRuns);
+  const sixPct     = pct(sixRuns);
+  const runningPct = Math.max(0, 100 - fourPct - sixPct);
+  const boundaryPct = fourPct + sixPct;
+
+  // Pick a warm, kid-friendly headline based on the breakdown
+  let insight;
+  if (boundaryPct >= 90) {
+    insight = sixPct >= 35
+      ? `You're a six machine — ${sixes} sixes already! When you connect, the ball goes far. 🚀`
+      : `Pure boundary hitter — ${boundaryPct}% of your runs come from the rope! 🎯`;
+  } else if (boundaryPct >= 65) {
+    insight = `Big-shot batter — ${boundaryPct}% of your runs come from boundaries. Smart shot selection!`;
+  } else if (boundaryPct >= 35) {
+    insight = `Smart cricket — you balance boundaries (${boundaryPct}%) with running between the wickets. That's mature batting!`;
+  } else {
+    insight = `You build innings the classic way — ${runningPct}% of your runs come from singles and twos. Hard work pays off!`;
+  }
+
+  return {
+    fourRuns, sixRuns, runningRuns, total,
+    fourPct, sixPct, runningPct, boundaryPct,
+    fours, sixes,
+    insight,
+  };
+}
+
+// Categorize a dismissal text into a coarse type for charting.
+// Defensive: if the text doesn't match any pattern, returns 'other'.
+function categorizeDismissal(text) {
+  if (!text) return null;
+  const t = text.toLowerCase().trim();
+  if (!t || /not out|did not bat|retired/i.test(t)) return null;
+  if (/c\s*&\s*b|caught and bowled/i.test(t)) return 'caught & bowled';
+  if (/^c\b|^ct\b|caught/i.test(t)) return 'caught';
+  if (/^st\b|stumped/i.test(t)) return 'stumped';
+  if (/lbw/i.test(t)) return 'lbw';
+  if (/run out|ro\b/i.test(t)) return 'run out';
+  if (/^b\b|bowled/i.test(t)) return 'bowled';
+  return 'other';
+}
+
+// Dismissal Profile — count each dismissal type, pick the dominant one,
+// and write an encouraging coaching tip. Returns null if no dismissals.
+function computeDismissalProfile(history) {
+  if (!history || !history.length) return null;
+  const counts = new Map();
+  let total = 0;
+  history.forEach(inn => {
+    const cat = categorizeDismissal(inn.dismissal);
+    if (!cat) return;
+    counts.set(cat, (counts.get(cat) || 0) + 1);
+    total++;
+  });
+  if (total === 0) return null;
+
+  const items = [...counts.entries()]
+    .map(([type, count]) => ({ type, count, pct: Math.round(count / total * 100) }))
+    .sort((a, b) => b.count - a.count);
+
+  // Color/emoji per type — same family, friendly tone
+  const TYPE_META = {
+    'caught':           { emoji:'🥊', tip:'Try keeping the ball low — half your dismissals are catches!' },
+    'caught & bowled':  { emoji:'🥊', tip:'Watch the bowler\'s follow-through, hit through cleaner gaps!' },
+    'bowled':           { emoji:'🎯', tip:'Watch the ball longer — bowled means it beat your defense!' },
+    'lbw':              { emoji:'🦵', tip:'Get your foot to the pitch of the ball, not across it!' },
+    'run out':          { emoji:'🏃', tip:'Communicate with your partner — run-outs are the sneakiest dismissals!' },
+    'stumped':          { emoji:'🧤', tip:'Stay grounded against the spinners — stumped means you stepped out!' },
+    'other':            { emoji:'❓', tip:'Mixed dismissals — keep working on every part of your game!' },
+  };
+
+  const top = items[0];
+  let insight;
+  if (total < 3) {
+    insight = `You're hard to get out — only ${total} dismissal${total>1?'s':''} all season! That's the mark of a real batter. 🛡️`;
+  } else if (top.pct >= 50) {
+    insight = (TYPE_META[top.type] || TYPE_META.other).tip;
+  } else {
+    insight = `Your dismissals are spread across ${items.length} types — that means bowlers can't predict you. Keep them guessing! 🎩`;
+  }
+
+  return {
+    items: items.map(i => ({ ...i, emoji: (TYPE_META[i.type] || TYPE_META.other).emoji })),
+    total,
+    insight,
+  };
+}
+
+/* ─────────────────────────────────────────────────────────────
    STYLES — Yahoo Sports–inspired design
 ───────────────────────────────────────────────────────────── */
 const STYLES = `
@@ -1358,6 +1505,65 @@ const STYLES = `
   .tier-silver { border-color:#C0C0C0; }
   .tier-gold { border-color:#FFD700; }
   .tier-platinum { border-color:#E8D5FF; }
+
+  /* ── Smart Milestones (Phase 3D-1) ── */
+  .smart-milestones { margin-bottom:16px; display:flex; flex-direction:column; gap:8px; }
+  .smart-milestone {}
+  .sm-header { display:flex; align-items:center; gap:6px; margin-bottom:4px; }
+  .sm-emoji { font-size:14px; }
+  .sm-label { font-size:12px; font-weight:600; color:var(--text-primary); flex:1; }
+  .sm-remaining { font-size:11px; color:var(--text-muted); white-space:nowrap; }
+
+  /* ── Boundary Distribution (Phase 3D-1) ── */
+  .boundary-dist { margin:16px 0; }
+  .boundary-dist-title { font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:8px; text-transform:uppercase; letter-spacing:.5px; }
+  .boundary-bar { display:flex; height:18px; border-radius:6px; overflow:hidden; gap:1px; margin-bottom:8px; }
+  .bd-seg { height:100%; transition:width .4s ease; }
+  .bd-four { background:#2563eb; }
+  .bd-six  { background:#7c3aed; }
+  .bd-run  { background:#d1d5db; }
+  .boundary-legend { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
+  .bd-item { font-size:11px; display:flex; align-items:center; gap:4px; }
+  .bd-item::before { content:''; width:10px; height:10px; border-radius:2px; display:inline-block; }
+  .bd-item.bd-four::before { background:#2563eb; }
+  .bd-item.bd-six::before  { background:#7c3aed; }
+  .bd-item.bd-run::before  { background:#d1d5db; }
+
+  /* ── Dismissal Profile (Phase 3D-1) ── */
+  .dismissal-profile { margin:16px 0; }
+  .dismissal-profile-title { font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:10px; text-transform:uppercase; letter-spacing:.5px; }
+  .dismissal-bars { display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+  .dismissal-row { display:flex; align-items:center; gap:8px; }
+  .dismissal-emoji { width:20px; text-align:center; font-size:13px; }
+  .dismissal-type { width:110px; font-size:12px; color:var(--text-secondary); text-transform:capitalize; }
+  .dismissal-bar-wrap { flex:1; height:8px; background:var(--z-200); border-radius:4px; overflow:hidden; }
+  .dismissal-bar-fill { height:100%; background:var(--accent); border-radius:4px; transition:width .4s ease; }
+  .dismissal-count { width:24px; text-align:right; font-size:11px; color:var(--text-muted); font-weight:600; }
+
+  /* ── Win/Loss split (Phase 3D-1) ── */
+  .win-split { margin:16px 0; }
+  .win-split-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+  .win-split-col { padding:12px; border-radius:8px; text-align:center; }
+  .win-col  { background:#f0fdf4; border:1px solid #86efac; }
+  .loss-col { background:#fdf2f2; border:1px solid #fca5a5; }
+  .win-split-badge { font-size:11px; font-weight:600; color:var(--text-muted); margin-bottom:6px; }
+  .win-split-avg { font-size:26px; font-weight:800; color:var(--text-primary); line-height:1; }
+  .win-split-meta { font-size:11px; color:var(--text-muted); margin-top:4px; }
+
+  /* ── Shared insight text ── */
+  .insight-text { font-size:12px; color:var(--text-secondary); line-height:1.5; font-style:italic; padding:8px 10px; background:var(--bg-200); border-radius:6px; border-left:3px solid var(--accent); }
+
+  /* ── Match-by-Match story strip (Phase 3D-1) ── */
+  .story-strip { display:flex; gap:8px; overflow-x:auto; padding-bottom:8px; -webkit-overflow-scrolling:touch; scrollbar-width:thin; }
+  .story-strip::-webkit-scrollbar { height:4px; }
+  .story-strip::-webkit-scrollbar-thumb { background:var(--z-300); border-radius:2px; }
+  .story-card { flex:0 0 100px; padding:10px 8px; border:1px solid var(--border); border-radius:8px; background:var(--bg-100); display:flex; flex-direction:column; gap:3px; min-width:100px; }
+  .story-card.story-win  { border-color:#86efac; background:#f0fdf4; }
+  .story-card.story-loss { border-color:#fca5a5; background:#fdf2f2; }
+  .story-opp   { font-size:10px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .story-score { font-size:18px; font-weight:800; color:var(--text-primary); line-height:1.1; }
+  .story-meta  { font-size:10px; color:var(--text-muted); }
+  .story-date  { font-size:10px; color:var(--text-muted); margin-top:2px; }
 `;
 
 
@@ -1558,7 +1764,7 @@ function PlayerPanel({ name, batting, bowling, rankings, results, matches, onClo
   const bowl = aggregateBowling(bowlRows)[0] || null;
   const rankTotals = rankRows.reduce((acc, r) => ({
     total: acc.total + (Number(r.total)||0), batting: acc.batting + (Number(r.batting)||0),
-    bowling: acc.bowling + (Number(r.bowling)||0), mom: acc.mom + (Number(r.mom)||0),
+    bowling: acc.bowling + (Number(r.bowling)||0), mom: Math.max(acc.mom, Number(r.mom)||0),
   }), { total:0, batting:0, bowling:0, mom:0 });
 
   const teamResults = (results?.matches||[])
@@ -1624,7 +1830,7 @@ function PlayerPanel({ name, batting, bowling, rankings, results, matches, onClo
       {rankTotals.total > 0 && <>
         <div className="section-label">Rankings Points</div>
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(68px,1fr))',gap:8,marginBottom:20}}>
-          {[['Total',rankTotals.total],['Batting',rankTotals.batting],['Bowling',rankTotals.bowling],['MoM',rankTotals.mom]].map(([l,v]) => (
+          {[['Total',rankTotals.total],['Batting',rankTotals.batting],['Bowling',rankTotals.bowling],['POM',rankTotals.mom]].map(([l,v]) => (
             <div key={l} className="stat-tile"><div className="stat-tile-val">{v}</div><div className="stat-tile-lbl">{l}</div></div>
           ))}
         </div>
@@ -2327,7 +2533,7 @@ function RankingsView({ rankings, division, onDrilldown }) {
             <Th col="batting" style={{textAlign:"center"}} title="Batting points" className="mob-hide">Bat</Th>
             <Th col="bowling" style={{textAlign:"center"}} title="Bowling points" className="mob-hide">Bowl</Th>
             <Th col="fielding" style={{textAlign:"center"}} title="Fielding points" className="mob-hide">Field</Th>
-            <Th col="mom" style={{textAlign:"center"}} title="Man of Match awards" className="mob-hide">MOM</Th>
+            <Th col="mom" style={{textAlign:"center"}} title="Player of Match awards" className="mob-hide">POM</Th>
             <Th col="total" style={{textAlign:"center"}} title="Total points" className="points-cell">Total</Th>
           </tr></thead>
           <tbody>
@@ -2783,7 +2989,7 @@ const ACHIEVEMENTS = [
     check: (bat,bowl) => bat && bowl && bat.runs >= 30 && bowl.wickets >= 5 },
   { id:'mom1', label:'Match Winner', emoji:'🌟', tier:'silver',
     check: (bat,bowl,rank) => rank && rank.mom >= 1 },
-  { id:'mom3', label:'Hat-trick of MoMs', emoji:'👑', tier:'gold',
+  { id:'mom3', label:'Hat-trick of POM', emoji:'👑', tier:'gold',
     check: (bat,bowl,rank) => rank && rank.mom >= 3 },
 ];
 
@@ -2927,7 +3133,7 @@ function PlayerProfilePage({ name, batting, bowling, rankings, playerInnings, on
   const teams = [...new Set([...batRows, ...bowlRows].map(r => r.team).filter(Boolean))];
   const bat = aggregateBatting(batRows)[0] || null;
   const bowl = aggregateBowling(bowlRows)[0] || null;
-  const rankTotals = rankRows.reduce((a,r) => ({ total: a.total + (Number(r.total)||0), batting: a.batting + (Number(r.batting)||0), bowling: a.bowling + (Number(r.bowling)||0), mom: a.mom + (Number(r.mom)||0) }), {total:0,batting:0,bowling:0,mom:0});
+  const rankTotals = rankRows.reduce((a,r) => ({ total: a.total + (Number(r.total)||0), batting: a.batting + (Number(r.batting)||0), bowling: a.bowling + (Number(r.bowling)||0), mom: Math.max(a.mom, Number(r.mom)||0) }), {total:0,batting:0,bowling:0,mom:0});
 
   // ── Player Insights (Phase 3A) ──
   // Primary division = where player has most innings (for benchmarking)
@@ -2958,6 +3164,24 @@ function PlayerProfilePage({ name, batting, bowling, rankings, playerInnings, on
   const bowlingVsOpps = computeOpponentBowlingStats(bowlingHistory).slice(0, 5);
   const hasMatchData = battingHistory.length > 0 || bowlingHistory.length > 0;
 
+  // Phase 3D-1 insights
+  const milestones = getNearestMilestones(bat, bowl, rankTotals);
+  const boundaryDist = computeBoundaryDistribution(bat);
+  const dismissalProfile = computeDismissalProfile(battingHistory);
+
+  const splitAvg = (inns) => {
+    const runs = inns.reduce((s,i) => s + (parseInt(i.runs)||0), 0);
+    const dism = inns.filter(i => !i.notOut).length;
+    if (!inns.length) return '—';
+    return dism === 0 ? runs + '*' : (runs / dism).toFixed(1);
+  };
+  const wonBatInns  = battingHistory.filter(i => i.result && /\bwon\b|\bwin\b/i.test(i.result));
+  const lostBatInns = battingHistory.filter(i => i.result && /\blo(?:s[st])\b/i.test(i.result));
+  const winSplit = (wonBatInns.length + lostBatInns.length >= 3) ? {
+    won:  { inns: wonBatInns.length,  avg: splitAvg(wonBatInns),  runs: wonBatInns.reduce((s,i)=>s+(parseInt(i.runs)||0),0) },
+    lost: { inns: lostBatInns.length, avg: splitAvg(lostBatInns), runs: lostBatInns.reduce((s,i)=>s+(parseInt(i.runs)||0),0) },
+  } : null;
+
   const earnedAchievements = ACHIEVEMENTS.filter(a => a.check(bat, bowl, rankTotals)).map(a => ({ ...a, earned: true }));
   const lockedAchievements = ACHIEVEMENTS.filter(a => !a.check(bat, bowl, rankTotals) && a.hint).slice(0, 4).map(a => ({ ...a, earned: false, hintText: typeof a.hint === 'function' ? a.hint(bat, bowl, rankTotals) : null }));
 
@@ -2968,7 +3192,7 @@ function PlayerProfilePage({ name, batting, bowling, rankings, playerInnings, on
   if (bat && bat.inns >= 5 && parseFloat(bat.avg) >= 25) spotlightLines.push(`Consistent Performer — Averaging ${bat.avg} runs per innings`);
   if (bowl && bowl.wickets >= 10) spotlightLines.push(`Wicket Machine — ${bowl.wickets} wickets this season!`);
   if (bowl && bowl.fiveW >= 1) spotlightLines.push(`Five-For Legend — Claimed a 5-wicket haul!`);
-  if (rankTotals.mom >= 3) spotlightLines.push(`Match Winner — ${rankTotals.mom} Man of the Match awards!`);
+  if (rankTotals.mom >= 3) spotlightLines.push(`Match Winner — ${rankTotals.mom} Player of the Match awards!`);
   if (bowl && bowl.maidens >= 3) spotlightLines.push(`Maiden Master — ${bowl.maidens} maiden overs bowled!`);
   if (spotlightLines.length === 0) spotlightLines.push(`Keep going — every match makes you better!`);
 
@@ -2993,7 +3217,7 @@ function PlayerProfilePage({ name, batting, bowling, rankings, playerInnings, on
           <div className="headline-pill-val">{bowl?.wickets || 0}</div>
           <div className="headline-pill-lbl">Wickets</div>
         </div>
-        <div className="headline-pill" title="Number of matches where this player was awarded Player of the Match">
+        <div className="headline-pill" title="Player of Match awards this season">
           <div className="headline-pill-val">{rankTotals.mom || 0}</div>
           <div className="headline-pill-lbl">Player of Match</div>
         </div>
@@ -3086,15 +3310,22 @@ function PlayerProfilePage({ name, batting, bowling, rankings, playerInnings, on
         <div style={{fontSize: 13, fontWeight: 700, marginBottom: 12, textTransform: 'uppercase', color: 'var(--text-muted)'}}>Batting</div>
         <div className="mega-stat">{bat.hs}</div>
         <div className="mega-stat-lbl">Highest Score</div>
-        {bat.runs < 300 && <div className="milestone-bar-wrap">
-          <div className="milestone-bar-row">
-            <span>{bat.runs} runs</span>
-            <span>{Math.min(300, Math.max(50, bat.runs < 50 ? 50 : bat.runs < 100 ? 100 : bat.runs < 200 ? 200 : 300))} target</span>
+        {milestones.filter(m => m.id.startsWith('runs') || m.id.startsWith('hs') || m.id.startsWith('sixes') || m.id === 'mom1' || m.id === 'mom3' || m.id === 'mom5').length > 0 && (
+          <div className="smart-milestones">
+            {milestones.filter(m => m.id.startsWith('runs') || m.id.startsWith('hs') || m.id.startsWith('sixes') || m.id === 'mom1' || m.id === 'mom3' || m.id === 'mom5').slice(0,3).map(m => (
+              <div key={m.id} className="smart-milestone">
+                <div className="sm-header">
+                  <span className="sm-emoji">{m.emoji}</span>
+                  <span className="sm-label">{m.label}</span>
+                  <span className="sm-remaining">{m.remaining} more {m.unit} to go</span>
+                </div>
+                <div className="milestone-bar">
+                  <div className="milestone-bar-fill" style={{width:`${m.pct}%`}} />
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="milestone-bar">
-            <div className="milestone-bar-fill" style={{width: `${Math.min(100, (bat.runs / (bat.runs < 50 ? 50 : bat.runs < 100 ? 100 : bat.runs < 200 ? 200 : 300)) * 100)}%`}}></div>
-          </div>
-        </div>}
+        )}
         <div className="stat-tile-grid">
           {[
             ['Runs', bat.runs, 'Total runs scored this season'],
@@ -3110,6 +3341,23 @@ function PlayerProfilePage({ name, batting, bowling, rankings, playerInnings, on
             </div>
           ))}
         </div>
+        {/* ── Boundary Distribution (Phase 3D-1) ── */}
+        {boundaryDist && (
+          <div className="boundary-dist">
+            <div className="boundary-dist-title">Where Your Runs Come From</div>
+            <div className="boundary-bar">
+              {boundaryDist.fourPct > 0 && <div className="bd-seg bd-four" style={{width:`${boundaryDist.fourPct}%`}} title={`Fours: ${boundaryDist.fourRuns} runs`} />}
+              {boundaryDist.sixPct  > 0 && <div className="bd-seg bd-six"  style={{width:`${boundaryDist.sixPct}%`}}  title={`Sixes: ${boundaryDist.sixRuns} runs`} />}
+              {boundaryDist.runningPct > 0 && <div className="bd-seg bd-run" style={{width:`${boundaryDist.runningPct}%`}} title={`Running: ${boundaryDist.runningRuns} runs`} />}
+            </div>
+            <div className="boundary-legend">
+              {boundaryDist.fourPct > 0 && <span className="bd-item bd-four">{boundaryDist.fourPct}% Fours ({boundaryDist.fours}×4)</span>}
+              {boundaryDist.sixPct  > 0 && <span className="bd-item bd-six">{boundaryDist.sixPct}% Sixes ({boundaryDist.sixes}×6)</span>}
+              <span className="bd-item bd-run">{boundaryDist.runningPct}% Running</span>
+            </div>
+            <div className="insight-text">{boundaryDist.insight}</div>
+          </div>
+        )}
         {/* ── Form Curve: last N innings sparkline (Phase 3B Track 2) ── */}
         {battingHistory.length >= 2 && (
           <>
@@ -3141,6 +3389,50 @@ function PlayerProfilePage({ name, batting, bowling, rankings, playerInnings, on
             </div>
           </div>
         )}
+        {/* ── Dismissal Profile (Phase 3D-1) ── */}
+        {dismissalProfile && (
+          <div className="dismissal-profile">
+            <div className="dismissal-profile-title">How You Get Out</div>
+            <div className="dismissal-bars">
+              {dismissalProfile.items.map(item => (
+                <div key={item.type} className="dismissal-row">
+                  <span className="dismissal-emoji">{item.emoji}</span>
+                  <span className="dismissal-type">{item.type}</span>
+                  <div className="dismissal-bar-wrap">
+                    <div className="dismissal-bar-fill" style={{width:`${item.pct}%`}} />
+                  </div>
+                  <span className="dismissal-count">{item.count}×</span>
+                </div>
+              ))}
+            </div>
+            <div className="insight-text">{dismissalProfile.insight}</div>
+          </div>
+        )}
+        {/* ── Win vs Loss split (Phase 3D-1) ── */}
+        {winSplit && (
+          <div className="win-split">
+            <div className="win-split-grid">
+              <div className="win-split-col win-col">
+                <div className="win-split-badge">When Team Wins</div>
+                <div className="win-split-avg">{winSplit.won.avg}</div>
+                <div className="win-split-meta">{winSplit.won.inns} inns · {winSplit.won.runs} runs</div>
+              </div>
+              <div className="win-split-col loss-col">
+                <div className="win-split-badge">When Team Loses</div>
+                <div className="win-split-avg">{winSplit.lost.avg}</div>
+                <div className="win-split-meta">{winSplit.lost.inns} inns · {winSplit.lost.runs} runs</div>
+              </div>
+            </div>
+            {(() => {
+              const wA = parseFloat(winSplit.won.avg), lA = parseFloat(winSplit.lost.avg);
+              if (!isNaN(wA) && !isNaN(lA) && wA > 0 && lA > 0) {
+                if (wA >= lA * 1.3) return <div className="insight-text">You lift when the team needs it most — your average in wins ({winSplit.won.avg}) is noticeably higher. Keep bringing that big-match energy!</div>;
+                if (lA >= wA * 1.3) return <div className="insight-text">You're a fighter! You actually score more when the team is under pressure ({winSplit.lost.avg} avg vs {winSplit.won.avg}). A true match-saver in the making!</div>;
+              }
+              return <div className="insight-text">Consistent performer — you deliver in both winning and losing matches. That reliability is priceless!</div>;
+            })()}
+          </div>
+        )}
         {/* ── Where You Stand: division benchmark (Phase 3A) ── */}
         {battingBenchmark && (
           <div className="benchmark-block">
@@ -3168,15 +3460,22 @@ function PlayerProfilePage({ name, batting, bowling, rankings, playerInnings, on
         <div style={{fontSize: 13, fontWeight: 700, marginBottom: 12, textTransform: 'uppercase', color: 'var(--text-muted)'}}>Bowling</div>
         <div className="mega-stat">{bowl.bbf}</div>
         <div className="mega-stat-lbl">Best Figures</div>
-        {bowl.wickets < 20 && <div className="milestone-bar-wrap">
-          <div className="milestone-bar-row">
-            <span>{bowl.wickets} wickets</span>
-            <span>{Math.min(20, Math.max(5, bowl.wickets < 5 ? 5 : bowl.wickets < 10 ? 10 : 20))} target</span>
+        {milestones.filter(m => m.id.startsWith('wkts')).length > 0 && (
+          <div className="smart-milestones">
+            {milestones.filter(m => m.id.startsWith('wkts')).map(m => (
+              <div key={m.id} className="smart-milestone">
+                <div className="sm-header">
+                  <span className="sm-emoji">{m.emoji}</span>
+                  <span className="sm-label">{m.label}</span>
+                  <span className="sm-remaining">{m.remaining} more {m.unit} to go</span>
+                </div>
+                <div className="milestone-bar">
+                  <div className="milestone-bar-fill" style={{width:`${m.pct}%`}} />
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="milestone-bar">
-            <div className="milestone-bar-fill" style={{width: `${Math.min(100, (bowl.wickets / (bowl.wickets < 5 ? 5 : bowl.wickets < 10 ? 10 : 20)) * 100)}%`}}></div>
-          </div>
-        </div>}
+        )}
         <div className="stat-tile-grid">
           {[
             ['Wickets', bowl.wickets, 'Total wickets taken'],
@@ -3258,6 +3557,36 @@ function PlayerProfilePage({ name, batting, bowling, rankings, playerInnings, on
           </div>)}
         </div>
       </div>}
+
+      {/* ── Match-by-Match story strip (Phase 3D-1) ── */}
+      {hasMatchData && (
+        <div className="profile-section">
+          <div style={{fontSize:13,fontWeight:700,marginBottom:12,textTransform:'uppercase',color:'var(--text-muted)'}}>Match by Match</div>
+          <div className="story-strip">
+            {(battingHistory.length > 0 ? [...battingHistory].reverse() : [...bowlingHistory].reverse()).slice(0, 15).map((inn, idx) => {
+              const isBat = inn.role === 'bat';
+              const won  = inn.result && /\bwon\b|\bwin\b/i.test(inn.result);
+              const lost = inn.result && /\blo(?:s[st])\b/i.test(inn.result);
+              return (
+                <div key={idx} className={`story-card${won ? ' story-win' : lost ? ' story-loss' : ''}`}>
+                  <div className="story-opp">{inn.opponent || 'vs ?'}</div>
+                  {isBat
+                    ? <div className="story-score">{inn.runs ?? '—'}{inn.notOut ? '*' : ''}</div>
+                    : <div className="story-score">{inn.wickets}/{inn.runs}</div>
+                  }
+                  <div className="story-meta">
+                    {isBat
+                      ? (inn.balls > 0 ? `${inn.balls}b` : '') + (inn.fours > 0 ? ` ${inn.fours}×4` : '') + (inn.sixes > 0 ? ` ${inn.sixes}×6` : '')
+                      : `${inn.overs || '?'} ov${inn.maidens > 0 ? ` ${inn.maidens}m` : ''}`
+                    }
+                  </div>
+                  <div className="story-date">{formatMatchDate(inn.date)}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
