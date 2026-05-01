@@ -572,9 +572,6 @@ function getNearestMilestones(bat, bowl, rankTotals) {
     { id:'wkts5',   label:'5 Wicket Club',       emoji:'⚡', current: wickets, target: 5,   unit: 'wickets' },
     { id:'wkts10',  label:'10 Wicket Hero',      emoji:'🔥', current: wickets, target: 10,  unit: 'wickets' },
     { id:'wkts20',  label:'20 Wicket Legend',    emoji:'👑', current: wickets, target: 20,  unit: 'wickets' },
-    { id:'mom1',    label:'Match Winner',        emoji:'🌟', current: moms,    target: 1,   unit: 'Player of Match' },
-    { id:'mom3',    label:'Triple POM',          emoji:'👑', current: moms,    target: 3,   unit: 'Player of Match awards' },
-    { id:'mom5',    label:'Five Star',           emoji:'⭐', current: moms,    target: 5,   unit: 'Player of Match awards' },
   ];
 
   return all
@@ -2987,10 +2984,6 @@ const ACHIEVEMENTS = [
     check: (bat,bowl) => bowl && bowl.maidens >= 3 },
   { id:'allrounder', label:'All-Rounder', emoji:'⭐', tier:'gold',
     check: (bat,bowl) => bat && bowl && bat.runs >= 30 && bowl.wickets >= 5 },
-  { id:'mom1', label:'Match Winner', emoji:'🌟', tier:'silver',
-    check: (bat,bowl,rank) => rank && rank.mom >= 1 },
-  { id:'mom3', label:'Hat-trick of POM', emoji:'👑', tier:'gold',
-    check: (bat,bowl,rank) => rank && rank.mom >= 3 },
 ];
 
 /* ─── FormCurve: SVG sparkline of last N innings ─── */
@@ -3192,7 +3185,6 @@ function PlayerProfilePage({ name, batting, bowling, rankings, playerInnings, on
   if (bat && bat.inns >= 5 && parseFloat(bat.avg) >= 25) spotlightLines.push(`Consistent Performer — Averaging ${bat.avg} runs per innings`);
   if (bowl && bowl.wickets >= 10) spotlightLines.push(`Wicket Machine — ${bowl.wickets} wickets this season!`);
   if (bowl && bowl.fiveW >= 1) spotlightLines.push(`Five-For Legend — Claimed a 5-wicket haul!`);
-  if (rankTotals.mom >= 3) spotlightLines.push(`Match Winner — ${rankTotals.mom} Player of the Match awards!`);
   if (bowl && bowl.maidens >= 3) spotlightLines.push(`Maiden Master — ${bowl.maidens} maiden overs bowled!`);
   if (spotlightLines.length === 0) spotlightLines.push(`Keep going — every match makes you better!`);
 
@@ -3217,9 +3209,9 @@ function PlayerProfilePage({ name, batting, bowling, rankings, playerInnings, on
           <div className="headline-pill-val">{bowl?.wickets || 0}</div>
           <div className="headline-pill-lbl">Wickets</div>
         </div>
-        <div className="headline-pill" title="Player of Match awards this season">
-          <div className="headline-pill-val">{rankTotals.mom || 0}</div>
-          <div className="headline-pill-lbl">Player of Match</div>
+        <div className="headline-pill">
+          <div className="headline-pill-val">{bat?.matches || bowl?.matches || battingHistory.length || bowlingHistory.length || 0}</div>
+          <div className="headline-pill-lbl">Matches</div>
         </div>
       </div>
 
@@ -3310,9 +3302,9 @@ function PlayerProfilePage({ name, batting, bowling, rankings, playerInnings, on
         <div style={{fontSize: 13, fontWeight: 700, marginBottom: 12, textTransform: 'uppercase', color: 'var(--text-muted)'}}>Batting</div>
         <div className="mega-stat">{bat.hs}</div>
         <div className="mega-stat-lbl">Highest Score</div>
-        {milestones.filter(m => m.id.startsWith('runs') || m.id.startsWith('hs') || m.id.startsWith('sixes') || m.id === 'mom1' || m.id === 'mom3' || m.id === 'mom5').length > 0 && (
+        {milestones.filter(m => m.id.startsWith('runs') || m.id.startsWith('hs') || m.id.startsWith('sixes')).length > 0 && (
           <div className="smart-milestones">
-            {milestones.filter(m => m.id.startsWith('runs') || m.id.startsWith('hs') || m.id.startsWith('sixes') || m.id === 'mom1' || m.id === 'mom3' || m.id === 'mom5').slice(0,3).map(m => (
+            {milestones.filter(m => m.id.startsWith('runs') || m.id.startsWith('hs') || m.id.startsWith('sixes')).slice(0,3).map(m => (
               <div key={m.id} className="smart-milestone">
                 <div className="sm-header">
                   <span className="sm-emoji">{m.emoji}</span>
@@ -3602,13 +3594,26 @@ function SYCLDashboard() {
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(null);
   const [drilldown, setDrilldown] = useState(null);
-  const [playerPage, setPlayerPage] = useState(null);
+  const [playerPage, setPlayerPage] = useState(() => {
+    try {
+      const h = window.location.hash;
+      if (h.startsWith('#player=')) return decodeURIComponent(h.slice(8));
+    } catch {}
+    return null;
+  });
   const handleDrilldown = useCallback((d) => {
-    if (d.type === 'player') setPlayerPage(d.name);
-    else setDrilldown(d);
+    if (d.type === 'player') {
+      setPlayerPage(d.name);
+      try { window.location.hash = 'player=' + encodeURIComponent(d.name); } catch {}
+    } else {
+      setDrilldown(d);
+    }
   }, []);
   const closeDrilldown = useCallback(() => setDrilldown(null), []);
-  const closePlayerPage = useCallback(() => setPlayerPage(null), []);
+  const closePlayerPage = useCallback(() => {
+    setPlayerPage(null);
+    try { window.location.hash = ''; history.replaceState(null, '', window.location.pathname + window.location.search); } catch {}
+  }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
