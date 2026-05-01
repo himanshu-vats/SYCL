@@ -1114,7 +1114,16 @@ const STYLES = `
   .clickable:hover { color: var(--accent) !important; text-decoration: underline; }
 
   /* Player Profile Page */
-  .player-page { min-height: 100vh; background: var(--bg); padding-bottom: 40px; }
+  .player-page {
+    min-height: 100vh;
+    background: var(--bg-page);
+    padding-bottom: var(--space-12);
+    /* Constrain to a comfortable reading width on desktop — without this
+       cap, charts and 1fr stat tiles stretched to full viewport width
+       (1500px+) and looked unusable. */
+    max-width: 1100px;
+    margin: 0 auto;
+  }
   .player-page-back { display:flex; align-items:center; gap:8px; padding:14px 16px; background:var(--bg-200); border-bottom:1px solid var(--border); font-size:14px; font-weight:600; color:var(--accent); cursor:pointer; }
   .player-hero { padding:20px 16px 16px; }
   .player-name-lg { font-size:26px; font-weight:800; line-height:1.1; margin-bottom:4px; }
@@ -1246,6 +1255,8 @@ const STYLES = `
     margin-top:var(--space-4);
     padding:var(--space-3) var(--space-4);
     background:var(--bg-200); border-radius:var(--radius-md);
+    /* Cap the sparkline width so it reads as a chart, not a stretched line */
+    max-width:560px;
   }
   .form-curve-header {
     display:flex; justify-content:space-between; align-items:baseline;
