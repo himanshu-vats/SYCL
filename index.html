@@ -1593,6 +1593,24 @@ const STYLES = `
   .fb-fab { display:none; }
 
   /* ── NavBar ── */
+  /* ── Rankings podium ── */
+  .podium-row { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px; }
+  .podium-card { padding:14px 12px; border:1px solid var(--border); border-radius:10px; background:var(--bg-100); cursor:pointer; text-align:center; transition:box-shadow .15s, transform .15s; }
+  .podium-card:hover { box-shadow:0 4px 12px rgba(0,0,0,0.1); transform:translateY(-2px); }
+  .podium-medal { font-size:22px; margin-bottom:6px; }
+  .podium-name { font-size:13px; font-weight:700; color:var(--accent); margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .podium-team { font-size:11px; color:var(--text-muted); margin-bottom:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .podium-pts { font-size:18px; font-weight:800; color:var(--text-primary); }
+  @media(max-width:480px) { .podium-card { padding:10px 8px; } .podium-pts { font-size:15px; } }
+
+  /* ── Player search input ── */
+  .player-search { height:34px; padding:0 10px; border:1px solid var(--border); border-radius:6px; font-size:13px; background:var(--bg-100); color:var(--text-primary); outline:none; width:160px; }
+  .player-search:focus { border-color:var(--accent); }
+  @media(max-width:480px) { .player-search { width:120px; } }
+
+  /* ── Table discovery hint ── */
+  .table-hint { font-size:12px; color:var(--accent); margin-bottom:8px; font-style:italic; }
+
   .nav-bar { position:sticky; top:0; z-index:100; }
   .nav-row-1 { display:flex; align-items:center; gap:10px; padding:0 16px; height:50px; background:var(--header-bg); }
   .nav-brand { display:flex; align-items:center; gap:8px; cursor:pointer; flex-shrink:0; }
@@ -2078,7 +2096,8 @@ function DrilldownPanel({ drilldown, data, onClose, onDrilldown }) {
 function ScheduleView({ matches, division, onDrilldown }) {
   const [teamFilter, setTeamFilter] = useState("");
   const [subTab, setSubTab] = useState("upcoming");
-  const dm = matches.filter(m => m.division === division);
+  const isCombined = division === 'combined';
+  const dm = isCombined ? matches : matches.filter(m => m.division === division);
   const teams = [...new Set(dm.flatMap(m => [m.team1, m.team2]))].sort();
   const today = new Date(); today.setHours(0,0,0,0);
 
@@ -2362,7 +2381,7 @@ function BattingView({ batting, division, onDrilldown }) {
   const [sortCol, setSortCol] = useState('runs');
   const [sortDir, setSortDir] = useState('desc');
   const [teamFilter, setTeamFilter] = useState('');
-  const [playerFilter, setPlayerFilter] = useState('');
+  const [playerSearch, setPlayerSearch] = useState('');
   const isCombined = division === 'combined';
 
   if (!batting) return <div className="empty-state">No batting data. Use Sync All in admin to fetch.</div>;
@@ -2376,8 +2395,10 @@ function BattingView({ batting, division, onDrilldown }) {
   const ts = batting?.updatedAt;
   function toggleSort(col) { sortCol === col ? setSortDir(d => d==='asc'?'desc':'asc') : (setSortCol(col), setSortDir('asc')); }
   const teamOptions = [...new Set(raw.map(r => r.team).filter(Boolean))].sort();
-  const playerOptions = [...new Set((teamFilter ? raw.filter(r => r.team===teamFilter) : raw).map(r => r.player).filter(Boolean))].sort();
-  const filtered = raw.filter(r => (!teamFilter || r.team===teamFilter) && (!playerFilter || r.player===playerFilter));
+  const filtered = raw.filter(r =>
+    (!teamFilter || r.team===teamFilter) &&
+    (!playerSearch || r.player?.toLowerCase().includes(playerSearch.toLowerCase()))
+  );
   const rows = sortRows(filtered, sortCol, sortDir);
   const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
   return (
@@ -2389,17 +2410,15 @@ function BattingView({ batting, division, onDrilldown }) {
         <LeaderSection rows={raw} statKey="sixes" label="Most 6s" onDrilldown={onDrilldown}/>
       </div>
       <div className="section-label">All Batters</div>
+      <div className="table-hint">Click a player name to see their full profile and insights</div>
       {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
       <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
-        <select className="team-select" value={teamFilter} onChange={e=>{setTeamFilter(e.target.value);setPlayerFilter('');}}>
+        <select className="team-select" value={teamFilter} onChange={e=>{setTeamFilter(e.target.value);setPlayerSearch('');}}>
           <option value="">All Teams</option>
           {teamOptions.map(t=><option key={t} value={t}>{t}</option>)}
         </select>
-        <select className="team-select" value={playerFilter} onChange={e=>setPlayerFilter(e.target.value)}>
-          <option value="">All Players</option>
-          {playerOptions.map(p=><option key={p} value={p}>{p}</option>)}
-        </select>
-        {(teamFilter||playerFilter) && <button className="small-btn" onClick={()=>{setTeamFilter('');setPlayerFilter('');}}>✕</button>}
+        <input className="player-search" type="text" placeholder="Search player…" value={playerSearch} onChange={e=>setPlayerSearch(e.target.value)} />
+        {(teamFilter||playerSearch) && <button className="small-btn" onClick={()=>{setTeamFilter('');setPlayerSearch('');}}>✕</button>}
         <span style={{fontSize:11,color:"var(--text-muted)",marginLeft:"auto"}}>{rows.length} players</span>
       </div>
       <div className="scroll-x">
@@ -2450,7 +2469,7 @@ function BowlingView({ bowling, division, onDrilldown }) {
   const [sortCol, setSortCol] = useState('wickets');
   const [sortDir, setSortDir] = useState('desc');
   const [teamFilter, setTeamFilter] = useState('');
-  const [playerFilter, setPlayerFilter] = useState('');
+  const [playerSearch, setPlayerSearch] = useState('');
   const isCombined = division === 'combined';
 
   if (!bowling) return <div className="empty-state">No bowling data. Use Sync All in admin to fetch.</div>;
@@ -2464,8 +2483,10 @@ function BowlingView({ bowling, division, onDrilldown }) {
   const ts = bowling?.updatedAt;
   function toggleSort(col) { sortCol === col ? setSortDir(d => d==='asc'?'desc':'asc') : (setSortCol(col), setSortDir('asc')); }
   const teamOptions = [...new Set(raw.map(r => r.team).filter(Boolean))].sort();
-  const playerOptions = [...new Set((teamFilter ? raw.filter(r => r.team===teamFilter) : raw).map(r => r.player).filter(Boolean))].sort();
-  const filtered = raw.filter(r => (!teamFilter || r.team===teamFilter) && (!playerFilter || r.player===playerFilter));
+  const filtered = raw.filter(r =>
+    (!teamFilter || r.team===teamFilter) &&
+    (!playerSearch || r.player?.toLowerCase().includes(playerSearch.toLowerCase()))
+  );
   const rows = sortRows(filtered, sortCol, sortDir);
   const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
   return (
@@ -2477,17 +2498,15 @@ function BowlingView({ bowling, division, onDrilldown }) {
         <LeaderSection rows={raw} statKey="fiveW" label="5-Wicket Hauls" onDrilldown={onDrilldown}/>
       </div>
       <div className="section-label">All Bowlers</div>
+      <div className="table-hint">Click a player name to see their full profile and insights</div>
       {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
       <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
-        <select className="team-select" value={teamFilter} onChange={e=>{setTeamFilter(e.target.value);setPlayerFilter('');}}>
+        <select className="team-select" value={teamFilter} onChange={e=>{setTeamFilter(e.target.value);setPlayerSearch('');}}>
           <option value="">All Teams</option>
           {teamOptions.map(t=><option key={t} value={t}>{t}</option>)}
         </select>
-        <select className="team-select" value={playerFilter} onChange={e=>setPlayerFilter(e.target.value)}>
-          <option value="">All Players</option>
-          {playerOptions.map(p=><option key={p} value={p}>{p}</option>)}
-        </select>
-        {(teamFilter||playerFilter) && <button className="small-btn" onClick={()=>{setTeamFilter('');setPlayerFilter('');}}>✕</button>}
+        <input className="player-search" type="text" placeholder="Search player…" value={playerSearch} onChange={e=>setPlayerSearch(e.target.value)} />
+        {(teamFilter||playerSearch) && <button className="small-btn" onClick={()=>{setTeamFilter('');setPlayerSearch('');}}>✕</button>}
         <span style={{fontSize:11,color:"var(--text-muted)",marginLeft:"auto"}}>{rows.length} players</span>
       </div>
       <div className="scroll-x">
@@ -2538,7 +2557,7 @@ function RankingsView({ rankings, division, onDrilldown }) {
   const [sortCol, setSortCol] = useState('total');
   const [sortDir, setSortDir] = useState('desc');
   const [teamFilter, setTeamFilter] = useState('');
-  const [playerFilter, setPlayerFilter] = useState('');
+  const [playerSearch, setPlayerSearch] = useState('');
   const isCombined = division === 'combined';
 
   if (!rankings) return <div className="empty-state">No rankings data. Use Sync All in admin to fetch.</div>;
@@ -2552,31 +2571,37 @@ function RankingsView({ rankings, division, onDrilldown }) {
   const ts = rankings?.updatedAt;
   function toggleSort(col) { sortCol === col ? setSortDir(d => d==='asc'?'desc':'asc') : (setSortCol(col), setSortDir('asc')); }
   const teamOptions = [...new Set(raw.map(r => r.team).filter(Boolean))].sort();
-  const playerOptions = [...new Set((teamFilter ? raw.filter(r => r.team===teamFilter) : raw).map(r => r.player).filter(Boolean))].sort();
-  const filtered = raw.filter(r => (!teamFilter || r.team===teamFilter) && (!playerFilter || r.player===playerFilter));
+  const top3 = [...raw].sort((a,b) => (Number(b.total)||0) - (Number(a.total)||0)).slice(0,3);
+  const filtered = raw.filter(r =>
+    (!teamFilter || r.team===teamFilter) &&
+    (!playerSearch || r.player?.toLowerCase().includes(playerSearch.toLowerCase()))
+  );
   const rows = sortRows(filtered, sortCol, sortDir);
   const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
   return (
     <div>
-      <div className="section-label">Player Rankings Leaders</div>
-      <LeaderSection rows={raw} statKey="total" label="Overall Points" onDrilldown={onDrilldown}/>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
-        <LeaderSection rows={raw} statKey="batting" label="Batting Pts" onDrilldown={onDrilldown}/>
-        <LeaderSection rows={raw} statKey="bowling" label="Bowling Pts" onDrilldown={onDrilldown}/>
-        <LeaderSection rows={raw} statKey="mom" label="Man of Match" onDrilldown={onDrilldown}/>
-      </div>
+      {top3.length > 0 && (
+        <div className="podium-row">
+          {top3.map((r, i) => (
+            <div key={r.player} className="podium-card" onClick={() => onDrilldown({type:'player', name:r.player})}>
+              <div className="podium-medal">{['🥇','🥈','🥉'][i]}</div>
+              <div className="podium-name">{r.player}</div>
+              <div className="podium-team">{r.team}</div>
+              <div className="podium-pts">{r.total} pts</div>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="section-label">Full Rankings</div>
+      <div className="table-hint">Click a player name to see their full stats, milestones, and insights</div>
       {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
       <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
-        <select className="team-select" value={teamFilter} onChange={e=>{setTeamFilter(e.target.value);setPlayerFilter('');}}>
+        <select className="team-select" value={teamFilter} onChange={e=>{setTeamFilter(e.target.value);setPlayerSearch('');}}>
           <option value="">All Teams</option>
           {teamOptions.map(t=><option key={t} value={t}>{t}</option>)}
         </select>
-        <select className="team-select" value={playerFilter} onChange={e=>setPlayerFilter(e.target.value)}>
-          <option value="">All Players</option>
-          {playerOptions.map(p=><option key={p} value={p}>{p}</option>)}
-        </select>
-        {(teamFilter||playerFilter) && <button className="small-btn" onClick={()=>{setTeamFilter('');setPlayerFilter('');}}>✕</button>}
+        <input className="player-search" type="text" placeholder="Search player…" value={playerSearch} onChange={e=>setPlayerSearch(e.target.value)} />
+        {(teamFilter||playerSearch) && <button className="small-btn" onClick={()=>{setTeamFilter('');setPlayerSearch('');}}>✕</button>}
         <span style={{fontSize:11,color:"var(--text-muted)",marginLeft:"auto"}}>{rows.length} players</span>
       </div>
       <div className="scroll-x">
@@ -2586,10 +2611,10 @@ function RankingsView({ rankings, division, onDrilldown }) {
             <Th col="player">Player</Th>
             <Th col="team">Team</Th>
             <Th col="matches" style={{textAlign:"center"}} title="Matches played" className="mob-hide">Mat</Th>
-            <Th col="batting" style={{textAlign:"center"}} title="Batting points" className="mob-hide">Bat</Th>
-            <Th col="bowling" style={{textAlign:"center"}} title="Bowling points" className="mob-hide">Bowl</Th>
-            <Th col="fielding" style={{textAlign:"center"}} title="Fielding points" className="mob-hide">Field</Th>
-            <Th col="mom" style={{textAlign:"center"}} title="Player of Match awards" className="mob-hide">POM</Th>
+            <Th col="batting" style={{textAlign:"center"}} title="Batting points" className="mob-hide">Bat Pts</Th>
+            <Th col="bowling" style={{textAlign:"center"}} title="Bowling points" className="mob-hide">Bowl Pts</Th>
+            <Th col="fielding" style={{textAlign:"center"}} title="Fielding points" className="mob-hide">Field Pts</Th>
+            <Th col="mom" style={{textAlign:"center"}} title="Player of Match points" className="mob-hide">POM Pts</Th>
             <Th col="total" style={{textAlign:"center"}} title="Total points" className="points-cell">Total</Th>
           </tr></thead>
           <tbody>
@@ -2613,10 +2638,11 @@ function RankingsView({ rankings, division, onDrilldown }) {
   );
 }
 
-function ResultsView({ results, onDrilldown }) {
+function ResultsView({ results, division, onDrilldown }) {
   const [sortCol, setSortCol] = useState('date');
   const [sortDir, setSortDir] = useState('desc');
-  const [filter, setFilter] = useState('');
+  const [teamFilter, setTeamFilter] = useState('');
+  const [divFilter, setDivFilter] = useState(() => (division && division !== 'combined') ? division : '');
 
   const matches = results?.matches || [];
   if (!matches.length) return (
@@ -2627,8 +2653,6 @@ function ResultsView({ results, onDrilldown }) {
   function toggleSort(col) { sortCol === col ? setSortDir(d => d==='asc'?'desc':'asc') : (setSortCol(col), setSortDir('asc')); }
   const teamOptions = [...new Set(matches.flatMap(m => [m.team1,m.team2]).filter(Boolean))].sort();
   const divOptions  = [...new Set(matches.map(m => m.division).filter(Boolean))].sort();
-  const [teamFilter, setTeamFilter] = [filter, setFilter];
-  const [divFilter, setDivFilter] = useState('');
   const filtered = matches.filter(m =>
     (!teamFilter || m.team1===teamFilter || m.team2===teamFilter) &&
     (!divFilter  || m.division===divFilter)
@@ -3736,7 +3760,7 @@ function SYCLDashboard({ onFeedback }) {
           <div className="content-wrap">
             {/* Division bar */}
             <div className="division-bar">
-              {["batting","bowling","rankings"].includes(activeTab) && (
+              {activeTab !== 'standings' && (
                 <button className={`div-btn ${selectedDivision==="combined"?"active":""}`}
                   onClick={()=>setSelectedDivision("combined")}>
                   All
@@ -3744,10 +3768,7 @@ function SYCLDashboard({ onFeedback }) {
               )}
               {sortedDivs.map(d => (
                 <button key={d} className={`div-btn ${selectedDivision===d?"active":""}`}
-                  onClick={()=>{
-                    setSelectedDivision(d);
-                    if(!["standings","batting","bowling","rankings"].includes(activeTab)) setActiveTab("schedule");
-                  }}>
+                  onClick={()=>setSelectedDivision(d)}>
                   {d}
                 </button>
               ))}
@@ -3756,7 +3777,7 @@ function SYCLDashboard({ onFeedback }) {
             <>
               {selectedDivision && activeTab==="schedule"  && <ScheduleView  matches={data.matches} division={selectedDivision} onDrilldown={handleDrilldown}/>}
               {selectedDivision && activeTab==="standings" && <StandingsView matches={data.matches} division={selectedDivision} standings={data.standings} results={data.results} onDrilldown={handleDrilldown}/>}
-              {activeTab==="results"  && <ResultsView  results={data.results} onDrilldown={handleDrilldown}/>}
+              {activeTab==="results"  && <ResultsView  results={data.results} division={selectedDivision} onDrilldown={handleDrilldown}/>}
               {activeTab==="batting"  && <BattingView  batting={data.batting}  division={selectedDivision} onDrilldown={handleDrilldown}/>}
               {activeTab==="bowling"  && <BowlingView  bowling={data.bowling}  division={selectedDivision} onDrilldown={handleDrilldown}/>}
               {activeTab==="rankings" && <RankingsView rankings={data.rankings} division={selectedDivision} onDrilldown={handleDrilldown}/>}
