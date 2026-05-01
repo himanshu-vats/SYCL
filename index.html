@@ -1638,6 +1638,43 @@ const STYLES = `
   /* ── Landing hero stats ── */
   .landing-hero-stats { display:flex; gap:var(--space-6); padding:var(--space-4) var(--space-6); background:var(--bg-100); border-bottom:1px solid var(--border); flex-wrap:wrap; }
   .landing-hero-stat { display:flex; flex-direction:column; }
+
+  /* ── Season Overview home page ── */
+  .overview-page { padding:16px; max-width:900px; margin:0 auto; }
+  .ov-section { background:var(--bg-100); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:14px; }
+  .ov-progress-header { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:10px; }
+  .ov-progress-label { font-size:14px; font-weight:700; color:var(--text-primary); }
+  .ov-progress-pct { font-size:13px; color:var(--text-muted); }
+  .ov-progress-bar { height:10px; background:var(--bg-200); border-radius:5px; overflow:hidden; }
+  .ov-progress-fill { height:100%; background:var(--accent); border-radius:5px; transition:width .4s ease; }
+  .ov-updated { font-size:11px; color:var(--text-muted); margin-top:6px; }
+  .ov-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media(max-width:600px) { .ov-grid { grid-template-columns:1fr; } }
+  .ov-col { display:flex; flex-direction:column; gap:14px; }
+  .ov-section-title { font-size:13px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:10px; }
+  .ov-match-row { display:grid; grid-template-columns:auto 1fr; gap:4px 10px; padding:8px 0; border-bottom:1px solid var(--border); }
+  .ov-match-row:last-child { border-bottom:none; }
+  .ov-match-date { font-size:11px; color:var(--text-muted); grid-column:1; align-self:start; white-space:nowrap; padding-top:2px; }
+  .ov-match-div { font-size:10px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:.4px; grid-column:2; }
+  .ov-match-teams { font-size:13px; font-weight:500; color:var(--text-primary); grid-column:2; }
+  .ov-vs { color:var(--text-muted); font-size:11px; }
+  .ov-more-btn { display:block; width:100%; margin-top:10px; padding:8px; background:none; border:1px solid var(--border); border-radius:6px; color:var(--accent); font-size:12px; font-weight:600; cursor:pointer; text-align:center; transition:background .15s; }
+  .ov-more-btn:hover { background:var(--bg-200); }
+  .ov-result-row { display:grid; grid-template-columns:auto 1fr auto; gap:4px 10px; padding:8px 0; border-bottom:1px solid var(--border); align-items:start; }
+  .ov-result-row:last-child { border-bottom:none; }
+  .ov-result-div { font-size:10px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:.4px; grid-column:1; white-space:nowrap; padding-top:2px; }
+  .ov-result-detail { font-size:12px; color:var(--text-primary); grid-column:2; min-width:0; }
+  .ov-result-winner { color:var(--text-muted); font-size:11px; display:block; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ov-result-date { font-size:11px; color:var(--text-muted); grid-column:3; white-space:nowrap; align-self:center; }
+  .ov-star-row { display:grid; grid-template-columns:36px 1fr auto; gap:0 10px; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); cursor:pointer; transition:background .15s; border-radius:6px; margin:0 -6px; padding-left:6px; padding-right:6px; }
+  .ov-star-row:last-child { border-bottom:none; }
+  .ov-star-row:hover { background:var(--bg-200); }
+  .ov-star-emoji { font-size:22px; text-align:center; }
+  .ov-star-label { font-size:10px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.4px; }
+  .ov-star-name { font-size:14px; font-weight:700; color:var(--accent); }
+  .ov-star-team { font-size:11px; color:var(--text-muted); }
+  .ov-star-stat { font-size:20px; font-weight:800; color:var(--text-primary); text-align:right; }
+  .ov-star-unit { font-size:11px; font-weight:400; color:var(--text-muted); }
 `;
 
 
@@ -3630,11 +3667,130 @@ function PlayerProfilePage({ name, batting, bowling, rankings, playerInnings, on
   );
 }
 
+/* ─── Season Overview (home tab) ─── */
+function SeasonOverview({ data, lastRefresh, onDrilldown, onTabClick, onDivision }) {
+  const { matches = [], results, batting, bowling, rankings } = data;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const parseD = s => { if (!s) return null; const d = new Date(s); return isNaN(d) ? null : d; };
+
+  const allResults = results?.matches || [];
+  const completed  = allResults.length;
+  const total      = matches.length;
+  const pct        = total > 0 ? Math.round(completed / total * 100) : 0;
+
+  // Upcoming: next 5 matches across all divisions
+  const upcoming = [...matches]
+    .filter(m => { const d = parseD(m.date); return d && d >= today; })
+    .sort((a,b) => parseD(a.date) - parseD(b.date))
+    .slice(0, 5);
+
+  // Recent results: last 5
+  const recentResults = [...allResults]
+    .sort((a,b) => parseD(b.date) - parseD(a.date))
+    .slice(0, 5);
+
+  // Season stars: top batter, top bowler, top ranked (across all divs)
+  const allBatters = batting ? Object.entries(batting)
+    .filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+    .flatMap(([,rows]) => Array.isArray(rows) ? rows : []) : [];
+  const allBowlers = bowling ? Object.entries(bowling)
+    .filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+    .flatMap(([,rows]) => Array.isArray(rows) ? rows : []) : [];
+  const allRanked  = rankings ? Object.entries(rankings)
+    .filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+    .flatMap(([,rows]) => Array.isArray(rows) ? rows : []) : [];
+
+  const topBatter  = allBatters.sort((a,b) => (parseInt(b.runs)||0) - (parseInt(a.runs)||0))[0];
+  const topBowler  = allBowlers.sort((a,b) => (parseInt(b.wickets)||0) - (parseInt(a.wickets)||0))[0];
+  const topRanked  = allRanked.sort((a,b)  => (parseInt(b.total)||0) - (parseInt(a.total)||0))[0];
+
+  const fmtDate = d => { if (!d) return ''; const dt = parseD(d); if (!dt) return d; return dt.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'}); };
+
+  return (
+    <div className="overview-page">
+      {/* Season progress */}
+      <div className="ov-section">
+        <div className="ov-progress-header">
+          <span className="ov-progress-label">Season Progress</span>
+          <span className="ov-progress-pct">{completed} of {total} matches played</span>
+        </div>
+        <div className="ov-progress-bar">
+          <div className="ov-progress-fill" style={{width: `${pct}%`}} />
+        </div>
+        {lastRefresh && <div className="ov-updated">Last updated {new Date(lastRefresh).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>}
+      </div>
+
+      <div className="ov-grid">
+        {/* Left col: Upcoming + Recent */}
+        <div className="ov-col">
+          {upcoming.length > 0 && (
+            <div className="ov-section">
+              <div className="ov-section-title">Upcoming Matches</div>
+              {upcoming.map((m, i) => (
+                <div key={i} className="ov-match-row">
+                  <div className="ov-match-date">{fmtDate(m.date)}</div>
+                  <div className="ov-match-div">{m.division}</div>
+                  <div className="ov-match-teams">
+                    <span className="clickable" onClick={() => onDrilldown({type:'team',name:m.team1})}>{m.team1}</span>
+                    <span className="ov-vs">vs</span>
+                    <span className="clickable" onClick={() => onDrilldown({type:'team',name:m.team2})}>{m.team2}</span>
+                  </div>
+                </div>
+              ))}
+              <button className="ov-more-btn" onClick={() => { onDivision('combined'); onTabClick('schedule'); }}>View full schedule →</button>
+            </div>
+          )}
+
+          {recentResults.length > 0 && (
+            <div className="ov-section">
+              <div className="ov-section-title">Recent Results</div>
+              {recentResults.map((m, i) => (
+                <div key={i} className="ov-result-row">
+                  <div className="ov-result-div">{m.division}</div>
+                  <div className="ov-result-detail">
+                    <span>{m.team1} vs {m.team2}</span>
+                    {m.result && <span className="ov-result-winner">· {m.result}</span>}
+                  </div>
+                  <div className="ov-result-date">{fmtDate(m.date)}</div>
+                </div>
+              ))}
+              <button className="ov-more-btn" onClick={() => { onDivision('combined'); onTabClick('results'); }}>View all results →</button>
+            </div>
+          )}
+        </div>
+
+        {/* Right col: Season Stars */}
+        <div className="ov-col">
+          <div className="ov-section">
+            <div className="ov-section-title">Season Stars</div>
+            {[
+              { emoji:'🏏', label:'Top Scorer',     player: topBatter?.player, team: topBatter?.team,  stat: topBatter?.runs,    unit:'runs' },
+              { emoji:'🎯', label:'Top Wicket-Taker', player: topBowler?.player, team: topBowler?.team, stat: topBowler?.wickets, unit:'wkts' },
+              { emoji:'⭐', label:'Points Leader',  player: topRanked?.player, team: topRanked?.team,  stat: topRanked?.total,   unit:'pts' },
+            ].filter(s => s.player).map(s => (
+              <div key={s.label} className="ov-star-row" onClick={() => onDrilldown({type:'player', name:s.player})}>
+                <div className="ov-star-emoji">{s.emoji}</div>
+                <div className="ov-star-info">
+                  <div className="ov-star-label">{s.label}</div>
+                  <div className="ov-star-name">{s.player}</div>
+                  <div className="ov-star-team">{s.team}</div>
+                </div>
+                <div className="ov-star-stat">{s.stat}<span className="ov-star-unit"> {s.unit}</span></div>
+              </div>
+            ))}
+            <button className="ov-more-btn" onClick={() => { onDivision('combined'); onTabClick('batting'); }}>View full stats →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main dashboard ─── */
 function SYCLDashboard({ onFeedback }) {
   const [data, setData] = useState(null);
   const [selectedDivision, setSelectedDivision] = useState(null);
-  const [activeTab, setActiveTab] = useState("schedule");
+  const [activeTab, setActiveTab] = useState("overview");
   const [theme, setTheme] = useState(() => {
     try { return localStorage.getItem('sycl_theme') || 'light'; } catch { return 'light'; }
   });
@@ -3678,7 +3834,7 @@ function SYCLDashboard({ onFeedback }) {
           const divisions = [...new Set(d.matches.map(m => m.division))];
           setData(prev => {
             const next = { matches: d.matches, divisions, standings: d.standings || {}, batting: d.batting || null, bowling: d.bowling || null, rankings: d.rankings || null, results: d.results || null, playerInnings: Array.isArray(d.playerInnings) ? d.playerInnings : [], leagueName: d.leagueName, season: d.season };
-            if (!prev) setSelectedDivision(divisions[0]);
+            if (!prev) setSelectedDivision('combined'); // overview is default, needs combined
             return next;
           });
           setLastRefresh(d.updatedAt);
@@ -3707,9 +3863,10 @@ function SYCLDashboard({ onFeedback }) {
 
   const handleTabClick = useCallback((tab) => {
     setActiveTab(tab);
-    if (selectedDivision === 'combined' && !['batting','bowling','rankings'].includes(tab)) {
+    if (selectedDivision === 'combined' && !['overview','batting','bowling','rankings'].includes(tab)) {
       setSelectedDivision(sortedDivs[0] || null);
     }
+    if (tab === 'overview') setSelectedDivision('combined');
   }, [selectedDivision, sortedDivs]);
 
   if (!slug) return (
@@ -3775,6 +3932,7 @@ function SYCLDashboard({ onFeedback }) {
             </div>
 
             <>
+              {activeTab==="overview" && <SeasonOverview data={data} lastRefresh={lastRefresh} onDrilldown={handleDrilldown} onTabClick={handleTabClick} onDivision={setSelectedDivision} />}
               {selectedDivision && activeTab==="schedule"  && <ScheduleView  matches={data.matches} division={selectedDivision} onDrilldown={handleDrilldown}/>}
               {selectedDivision && activeTab==="standings" && <StandingsView matches={data.matches} division={selectedDivision} standings={data.standings} results={data.results} onDrilldown={handleDrilldown}/>}
               {activeTab==="results"  && <ResultsView  results={data.results} division={selectedDivision} onDrilldown={handleDrilldown}/>}
@@ -3792,9 +3950,12 @@ function SYCLDashboard({ onFeedback }) {
 
 /* ─── NavBar ─── */
 function NavBar({ slug, leagueName, season, activeTab, onTabClick, playerName, onClosePlayer, loading, onRefresh, theme, onThemeToggle, onFeedback }) {
-  const TABS = [["schedule","Schedule"],["standings","Standings"],["results","Results"],["batting","Batting"],["bowling","Bowling"],["rankings","Rankings"]];
+  const TABS = [["overview","⌂ Home"],["schedule","Schedule"],["standings","Standings"],["results","Results"],["batting","Batting"],["bowling","Bowling"],["rankings","Rankings"]];
   const goHome = () => { window.location.href = '/'; };
-  const goLeague = () => { if (playerName && onClosePlayer) onClosePlayer(); };
+  const goLeague = () => {
+    if (playerName && onClosePlayer) onClosePlayer();
+    if (onTabClick) onTabClick('overview');
+  };
   return (
     <div className="nav-bar">
       <div className="nav-row-1">
@@ -3805,7 +3966,7 @@ function NavBar({ slug, leagueName, season, activeTab, onTabClick, playerName, o
         {slug && leagueName && (
           <>
             <span className="nav-sep">›</span>
-            <div className={`nav-league${playerName ? ' nav-league-link' : ''}`} onClick={goLeague} title={playerName ? 'Back to dashboard' : undefined}>
+            <div className="nav-league nav-league-link" onClick={goLeague} title="Season home">
               {leagueName}{season ? ` · ${season}` : ''}
             </div>
           </>
