@@ -1105,7 +1105,11 @@ const STYLES = `
   .panel-close:hover { background: var(--border); }
   .stat-tile { background: var(--bg-200); border-radius: 10px; padding: 12px 8px; text-align: center; }
   .stat-tile-val { font-size: 20px; font-weight: 900; font-family: 'JetBrains Mono', monospace; color: var(--text-primary); line-height: 1; }
-  .stat-tile-lbl { font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 5px; }
+  /* Tile labels now use full words ("Strike Rate", "Boundary %") instead of
+     abbreviations, so removed uppercase + letter-spacing to keep them readable
+     and bumped to 11px. Labels can be 2 words but should still fit on one line
+     in the 95-115px tile. */
+  .stat-tile-lbl { font-size: 11px; font-weight: 600; color: var(--text-muted); margin-top: 5px; line-height: 1.2; }
   .result-row { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
   .result-row:last-child { border-bottom: none; }
   .fixture-row { display: flex; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border); }
@@ -1118,11 +1122,24 @@ const STYLES = `
     min-height: 100vh;
     background: var(--bg-page);
     padding-bottom: var(--space-12);
-    /* Constrain to a comfortable reading width on desktop — without this
-       cap, charts and 1fr stat tiles stretched to full viewport width
-       (1500px+) and looked unusable. */
-    max-width: 1100px;
+    /* Comfortable reading-column width on desktop. Sections (form curve,
+       benchmark bars, vs-opponents, stat tiles, headline pills) further
+       cap themselves so content doesn't sprawl edge-to-edge. */
+    max-width: 880px;
     margin: 0 auto;
+  }
+  /* Inner content blocks — keep dense reading widths so bars and rows
+     don't stretch into long, hard-to-scan lines on desktop. */
+  .player-page .headline-pills { max-width: 480px; }
+  .player-page .highlight-grid { max-width: 720px; }
+  .player-page .benchmark-block { max-width: 540px; }
+  .player-page .opp-block { max-width: 540px; }
+  .stat-tile-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(95px, 115px));
+    gap: 8px;
+    margin-top: 16px;
+    max-width: 720px;
   }
   .player-page-back { display:flex; align-items:center; gap:8px; padding:14px 16px; background:var(--bg-200); border-bottom:1px solid var(--border); font-size:14px; font-weight:600; color:var(--accent); cursor:pointer; }
   .player-hero { padding:20px 16px 16px; }
@@ -2778,57 +2795,121 @@ function FormCurve({ innings, statKey = 'runs', label = '', lookback = 10 }) {
   if (!innings || innings.length < 2) return null;
   const recent = innings.slice(-lookback);
   const values = recent.map(i => parseFloat(i[statKey]) || 0);
-  const max = Math.max(...values, 1);
-  const min = Math.min(...values);
+  const dataMax = Math.max(...values, 1);
+  const dataMin = Math.min(...values);
+  // Pad y-range so the line never sits flush against top/bottom and labels have headroom
+  const yPadFactor = 0.15;
+  const range = Math.max(1, dataMax - dataMin);
+  const yMax = dataMax + range * yPadFactor;
+  const yMin = Math.max(0, dataMin - range * yPadFactor);
   const avg = values.reduce((s, v) => s + v, 0) / values.length;
   const latest = values[values.length - 1];
 
-  const W = 320, H = 84, P = 14;
-  const innerW = W - 2 * P;
-  const innerH = H - 2 * P;
-  const xFor = (i) => P + (recent.length === 1 ? innerW / 2 : (i * innerW / (recent.length - 1)));
-  const yFor = (v) => H - P - ((v - min) / Math.max(1, max - min)) * innerH;
+  // Larger viewBox + preserveAspectRatio="xMidYMid meet" so text labels don't
+  // stretch when the SVG fills its container width.
+  const W = 480, H = 200;
+  const padTop = 28, padRight = 32, padBottom = 30, padLeft = 36;
+  const innerW = W - padLeft - padRight;
+  const innerH = H - padTop - padBottom;
+  const xFor = (i) => padLeft + (recent.length === 1 ? innerW / 2 : (i * innerW / (recent.length - 1)));
+  const yFor = (v) => padTop + innerH - ((v - yMin) / Math.max(1, yMax - yMin)) * innerH;
   const points = values.map((v, i) => ({ x: xFor(i), y: yFor(v), v, inn: recent[i] }));
   const polyline = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
 
-  // Area-under-line for visual weight
+  // Area under the line — visual weight
   const areaPath =
-    `M ${points[0].x},${H - P} ` +
+    `M ${points[0].x},${padTop + innerH} ` +
     points.map(p => `L ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ') +
-    ` L ${points[points.length - 1].x},${H - P} Z`;
+    ` L ${points[points.length - 1].x},${padTop + innerH} Z`;
 
   const avgY = yFor(avg);
-  const last = points[points.length - 1];
   const trendUp = values.length >= 3 && values[values.length - 1] > values[values.length - 3];
+
+  // Format short date (e.g. "Apr 26") for x-axis labels — falls back to innings number
+  const dateLabel = (inn, idx) => {
+    const d = inn._date instanceof Date ? inn._date : null;
+    if (d && !isNaN(d.getTime())) return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return `#${idx + 1}`;
+  };
+
+  // Decide which x-axis labels to show: first, last, and middle one (avoid crowding)
+  const xLabelIdxSet = new Set();
+  xLabelIdxSet.add(0);
+  xLabelIdxSet.add(recent.length - 1);
+  if (recent.length >= 5) xLabelIdxSet.add(Math.floor(recent.length / 2));
+
+  // Format a value compactly (drop ".0" for integers)
+  const fmtVal = (v) => Number.isInteger(v) ? String(v) : v.toFixed(1);
 
   return (
     <div className="form-curve">
       <div className="form-curve-header">
         <span className="form-curve-title">Form — last {recent.length} innings</span>
-        <span className="form-curve-meta">avg {avg.toFixed(1)} {label}</span>
+        <span className="form-curve-meta">avg {fmtVal(avg)} {label}</span>
       </div>
-      <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="form-curve-svg">
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" className="form-curve-svg">
         <defs>
           <linearGradient id={`fc-grad-${statKey}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.25" />
+            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.22" />
             <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
           </linearGradient>
         </defs>
-        <path d={areaPath} fill={`url(#fc-grad-${statKey})`} />
-        <line x1={P} y1={avgY} x2={W - P} y2={avgY}
+
+        {/* Y-axis: max and min reference labels on the left */}
+        <text x={padLeft - 6} y={padTop + 4} textAnchor="end"
+              fontSize="11" fill="var(--text-muted)" fontFamily="Inter, sans-serif">
+          {fmtVal(dataMax)}
+        </text>
+        <text x={padLeft - 6} y={padTop + innerH} textAnchor="end"
+              fontSize="11" fill="var(--text-muted)" fontFamily="Inter, sans-serif">
+          {fmtVal(dataMin)}
+        </text>
+
+        {/* Average reference line + label */}
+        <line x1={padLeft} y1={avgY} x2={W - padRight} y2={avgY}
               stroke="var(--text-muted)" strokeWidth="1" strokeDasharray="3 3" opacity="0.5" />
+        <text x={W - padRight + 4} y={avgY + 4} textAnchor="start"
+              fontSize="10" fill="var(--text-muted)" fontFamily="Inter, sans-serif">
+          avg
+        </text>
+
+        {/* Area + line */}
+        <path d={areaPath} fill={`url(#fc-grad-${statKey})`} />
         <polyline fill="none" stroke="var(--accent)" strokeWidth="2.5"
                   strokeLinecap="round" strokeLinejoin="round" points={polyline} />
-        {points.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y}
-                  r={i === points.length - 1 ? 4.5 : 2.5}
-                  fill={i === points.length - 1 ? 'var(--accent)' : 'var(--bg-100)'}
-                  stroke="var(--accent)" strokeWidth={i === points.length - 1 ? 0 : 1.5} />
-        ))}
+
+        {/* Data points + per-point value labels */}
+        {points.map((p, i) => {
+          const isLast = i === points.length - 1;
+          // Avoid clipping value labels at the very top of the chart
+          const labelY = p.y < padTop + 14 ? p.y + 16 : p.y - 8;
+          return (
+            <g key={i}>
+              <circle cx={p.x} cy={p.y}
+                      r={isLast ? 4.5 : 3}
+                      fill={isLast ? 'var(--accent)' : 'var(--bg-100)'}
+                      stroke="var(--accent)" strokeWidth={isLast ? 0 : 1.6} />
+              <text x={p.x} y={labelY} textAnchor="middle"
+                    fontSize="10" fontWeight={isLast ? '700' : '500'}
+                    fill={isLast ? 'var(--accent)' : 'var(--text-secondary)'}
+                    fontFamily="Inter, sans-serif">
+                {fmtVal(p.v)}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* X-axis date labels — first, middle, last */}
+        {points.map((p, i) => xLabelIdxSet.has(i) ? (
+          <text key={`x-${i}`} x={p.x} y={H - 8} textAnchor="middle"
+                fontSize="10" fill="var(--text-muted)" fontFamily="Inter, sans-serif">
+            {dateLabel(p.inn, i)}
+          </text>
+        ) : null)}
       </svg>
       <div className="form-curve-footer">
-        <span>Latest: <strong>{latest}</strong> {trendUp ? '📈' : ''}</span>
-        <span>Best: <strong>{max}</strong></span>
+        <span>Latest: <strong>{fmtVal(latest)}</strong> {trendUp ? '📈' : ''}</span>
+        <span>Best: <strong>{fmtVal(dataMax)}</strong></span>
       </div>
     </div>
   );
@@ -2912,9 +2993,9 @@ function PlayerProfilePage({ name, batting, bowling, rankings, playerInnings, on
           <div className="headline-pill-val">{bowl?.wickets || 0}</div>
           <div className="headline-pill-lbl">Wickets</div>
         </div>
-        <div className="headline-pill">
+        <div className="headline-pill" title="Number of matches where this player was awarded Player of the Match">
           <div className="headline-pill-val">{rankTotals.mom || 0}</div>
-          <div className="headline-pill-lbl">MoM</div>
+          <div className="headline-pill-lbl">Player of Match</div>
         </div>
       </div>
 
@@ -3014,8 +3095,20 @@ function PlayerProfilePage({ name, batting, bowling, rankings, playerInnings, on
             <div className="milestone-bar-fill" style={{width: `${Math.min(100, (bat.runs / (bat.runs < 50 ? 50 : bat.runs < 100 ? 100 : bat.runs < 200 ? 200 : 300)) * 100)}%`}}></div>
           </div>
         </div>}
-        <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(68px,1fr))', gap: 8, marginTop: 16}}>
-          {[['Runs', bat.runs], ['Avg', bat.avg], ['SR', bat.sr], ['4s', bat.fours], ['6s', bat.sixes], ['Boundary%', bat.boundaryPct]].map(([l,v]) => <div key={l} className="stat-tile"><div className="stat-tile-val">{v??'—'}</div><div className="stat-tile-lbl">{l}</div></div>)}
+        <div className="stat-tile-grid">
+          {[
+            ['Runs', bat.runs, 'Total runs scored this season'],
+            ['Average', bat.avg, 'Runs per dismissal (excluding not-outs)'],
+            ['Strike Rate', bat.sr, 'Runs scored per 100 balls faced'],
+            ['Fours', bat.fours, 'Boundary 4s hit'],
+            ['Sixes', bat.sixes, 'Boundary 6s hit'],
+            ['Boundary %', bat.boundaryPct, 'Percent of runs from 4s and 6s']
+          ].map(([l,v,desc]) => (
+            <div key={l} className="stat-tile" title={desc}>
+              <div className="stat-tile-val">{v??'—'}</div>
+              <div className="stat-tile-lbl">{l}</div>
+            </div>
+          ))}
         </div>
         {/* ── Form Curve: last N innings sparkline (Phase 3B Track 2) ── */}
         {battingHistory.length >= 2 && (
@@ -3084,8 +3177,20 @@ function PlayerProfilePage({ name, batting, bowling, rankings, playerInnings, on
             <div className="milestone-bar-fill" style={{width: `${Math.min(100, (bowl.wickets / (bowl.wickets < 5 ? 5 : bowl.wickets < 10 ? 10 : 20)) * 100)}%`}}></div>
           </div>
         </div>}
-        <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(68px,1fr))', gap: 8, marginTop: 16}}>
-          {[['Wkts', bowl.wickets], ['Econ', bowl.econ], ['Avg', bowl.avg], ['Maidens', bowl.maidens], ['Dots%', bowl.dotPct], ['Extras/6', bowl.extrasPer6]].map(([l,v]) => <div key={l} className="stat-tile"><div className="stat-tile-val">{v??'—'}</div><div className="stat-tile-lbl">{l}</div></div>)}
+        <div className="stat-tile-grid">
+          {[
+            ['Wickets', bowl.wickets, 'Total wickets taken'],
+            ['Economy', bowl.econ, 'Runs conceded per over'],
+            ['Average', bowl.avg, 'Runs conceded per wicket'],
+            ['Maidens', bowl.maidens, 'Overs where no runs were conceded'],
+            ['Dots %', bowl.dotPct, 'Percent of balls that were dot balls'],
+            ['Extras / Over', bowl.extrasPer6, 'Wides + no-balls per over']
+          ].map(([l,v,desc]) => (
+            <div key={l} className="stat-tile" title={desc}>
+              <div className="stat-tile-val">{v??'—'}</div>
+              <div className="stat-tile-lbl">{l}</div>
+            </div>
+          ))}
         </div>
         {/* ── Form Curve: last N spells sparkline (Phase 3B Track 2) ── */}
         {bowlingHistory.length >= 2 && (
