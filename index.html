@@ -1609,7 +1609,9 @@ const STYLES = `
   @media(max-width:480px) { .player-search { width:120px; } }
 
   /* ── Table discovery hint ── */
-  .table-hint { font-size:12px; color:var(--accent); margin-bottom:8px; font-style:italic; }
+  .table-hint { display:none; }
+  .insight-callout { display:flex; align-items:center; gap:8px; background:color-mix(in srgb, var(--accent) 8%, transparent); border-left:3px solid var(--accent); border-radius:0 8px 8px 0; padding:10px 14px; margin-bottom:14px; font-size:13px; color:var(--text-primary); }
+  .insight-callout-icon { font-size:16px; flex-shrink:0; }
 
   .nav-bar { position:sticky; top:0; z-index:100; }
   .nav-row-1 { display:flex; align-items:center; gap:10px; padding:0 16px; height:50px; background:var(--header-bg); }
@@ -1675,6 +1677,43 @@ const STYLES = `
   .ov-star-team { font-size:11px; color:var(--text-muted); }
   .ov-star-stat { font-size:20px; font-weight:800; color:var(--text-primary); text-align:right; }
   .ov-star-unit { font-size:11px; font-weight:400; color:var(--text-muted); }
+
+  /* ── Team Profile Page ── */
+  .team-profile-page { min-height:100vh; background:var(--bg-200); }
+  .tp-header { background:var(--header-bg); padding:20px 24px 16px; }
+  .tp-back { background:rgba(255,255,255,0.15); border:none; color:var(--header-text); padding:6px 12px; border-radius:6px; cursor:pointer; font-size:13px; margin-bottom:12px; display:inline-block; }
+  .tp-back:hover { background:rgba(255,255,255,0.25); }
+  .tp-name { font-size:26px; font-weight:800; color:var(--header-text); line-height:1.1; }
+  .tp-divs { font-size:13px; color:var(--header-sub); margin-top:4px; }
+  .tp-form { display:flex; align-items:center; gap:10px; margin-top:10px; }
+  .tp-stats-bar { display:flex; background:var(--bg-100); border-bottom:1px solid var(--border); }
+  .tp-stat { flex:1; padding:14px 8px; text-align:center; border-right:1px solid var(--border); }
+  .tp-stat:last-child { border-right:none; }
+  .tp-stat-val { font-size:22px; font-weight:800; font-family:'JetBrains Mono',monospace; color:var(--text-primary); }
+  .tp-stat-lbl { font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; margin-top:2px; }
+  .tp-body { padding:16px; max-width:1000px; margin:0 auto; }
+  .tp-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+  @media(max-width:640px) { .tp-grid { grid-template-columns:1fr; } }
+  .tp-section { background:var(--bg-100); border:1px solid var(--border); border-radius:10px; padding:16px; }
+  .tp-section-title { font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:10px; }
+  .tp-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .tp-table th { text-align:right; color:var(--text-muted); font-size:10px; font-weight:600; padding:4px 6px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  .tp-table th:first-child { text-align:left; }
+  .tp-table td { padding:7px 6px; border-bottom:1px solid var(--border); text-align:right; color:var(--text-secondary); white-space:nowrap; }
+  .tp-table td:first-child { text-align:left; color:var(--accent); font-weight:600; cursor:pointer; white-space:normal; }
+  .tp-table tr:last-child td { border-bottom:none; }
+  .tp-result-row { display:flex; gap:10px; align-items:flex-start; padding:8px 0; border-bottom:1px solid var(--border); }
+  .tp-result-row:last-child { border-bottom:none; }
+  .tp-result-detail { flex:1; font-size:13px; min-width:0; }
+  .tp-result-score { font-size:11px; color:var(--text-muted); font-family:'JetBrains Mono',monospace; margin-top:2px; }
+  .tp-result-meta { font-size:10px; color:var(--text-muted); margin-top:2px; }
+  .tp-fixture-row { display:flex; gap:12px; align-items:center; padding:8px 0; border-bottom:1px solid var(--border); }
+  .tp-fixture-row:last-child { border-bottom:none; }
+  .tp-fixture-date { text-align:center; min-width:32px; flex-shrink:0; }
+  .tp-fixture-date > div:first-child { font-size:18px; font-weight:800; line-height:1; color:var(--text-primary); }
+  .tp-fixture-date > div:last-child { font-size:9px; font-weight:700; color:var(--text-muted); text-transform:uppercase; }
+  .tp-fixture-detail { flex:1; font-size:13px; min-width:0; }
+  .tp-fixture-meta { font-size:11px; color:var(--text-muted); margin-top:2px; }
 `;
 
 
@@ -2242,6 +2281,7 @@ function ScheduleView({ matches, division, onDrilldown }) {
         </select>
         {teamFilter && <button className="small-btn" onClick={()=>setTeamFilter("")}>✕</button>}
       </div>
+      <div className="insight-callout"><span className="insight-callout-icon">💡</span><span>Click any <strong>player name</strong> to see full stats, milestones &amp; insights · Click any <strong>team name</strong> to see team profile</span></div>
       <div className="scroll-x">
         <table>
           <thead><tr>
@@ -2440,6 +2480,7 @@ function BattingView({ batting, division, onDrilldown }) {
   const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
   return (
     <div>
+      <div className="insight-callout"><span className="insight-callout-icon">💡</span><span>Click any <strong>player name</strong> to see full stats, milestones &amp; insights · Click any <strong>team name</strong> to see team profile</span></div>
       <div className="section-label">Batting Leaders</div>
       <LeaderSection rows={raw} statKey="runs" label="Most Runs" onDrilldown={onDrilldown}/>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
@@ -2447,7 +2488,6 @@ function BattingView({ batting, division, onDrilldown }) {
         <LeaderSection rows={raw} statKey="sixes" label="Most 6s" onDrilldown={onDrilldown}/>
       </div>
       <div className="section-label">All Batters</div>
-      <div className="table-hint">Click a player name to see their full profile and insights</div>
       {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
       <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
         <select className="team-select" value={teamFilter} onChange={e=>{setTeamFilter(e.target.value);setPlayerSearch('');}}>
@@ -2528,6 +2568,7 @@ function BowlingView({ bowling, division, onDrilldown }) {
   const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
   return (
     <div>
+      <div className="insight-callout"><span className="insight-callout-icon">💡</span><span>Click any <strong>player name</strong> to see full stats, milestones &amp; insights · Click any <strong>team name</strong> to see team profile</span></div>
       <div className="section-label">Bowling Leaders</div>
       <LeaderSection rows={raw} statKey="wickets" label="Most Wickets" onDrilldown={onDrilldown}/>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
@@ -2535,7 +2576,6 @@ function BowlingView({ bowling, division, onDrilldown }) {
         <LeaderSection rows={raw} statKey="fiveW" label="5-Wicket Hauls" onDrilldown={onDrilldown}/>
       </div>
       <div className="section-label">All Bowlers</div>
-      <div className="table-hint">Click a player name to see their full profile and insights</div>
       {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
       <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
         <select className="team-select" value={teamFilter} onChange={e=>{setTeamFilter(e.target.value);setPlayerSearch('');}}>
@@ -2629,8 +2669,8 @@ function RankingsView({ rankings, division, onDrilldown }) {
           ))}
         </div>
       )}
+      <div className="insight-callout"><span className="insight-callout-icon">💡</span><span>Click any <strong>player name</strong> to see full stats, milestones &amp; insights · Click any <strong>team name</strong> to see team profile</span></div>
       <div className="section-label">Full Rankings</div>
-      <div className="table-hint">Click a player name to see their full stats, milestones, and insights</div>
       {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
       <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
         <select className="team-select" value={teamFilter} onChange={e=>{setTeamFilter(e.target.value);setPlayerSearch('');}}>
@@ -2713,6 +2753,7 @@ function ResultsView({ results, division, onDrilldown }) {
         {(teamFilter||divFilter) && <button className="small-btn" onClick={()=>{setTeamFilter('');setDivFilter('');}}>✕</button>}
         <span style={{fontSize:11,color:"var(--text-muted)",marginLeft:"auto"}}>{rows.length} result{rows.length!==1?'s':''}</span>
       </div>
+      <div className="insight-callout"><span className="insight-callout-icon">💡</span><span>Click any <strong>player name</strong> to see full stats, milestones &amp; insights · Click any <strong>team name</strong> to see team profile</span></div>
       <div className="scroll-x">
         <table>
           <thead><tr>
@@ -3667,6 +3708,179 @@ function PlayerProfilePage({ name, batting, bowling, rankings, playerInnings, on
   );
 }
 
+/* ─── Team Profile Page ─── */
+function TeamProfilePage({ name, data, onClose, onDrilldown }) {
+  const { matches = [], results, batting, bowling } = data;
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  const teamMatches = matches.filter(m => m.team1 === name || m.team2 === name);
+  const divs = [...new Set(teamMatches.map(m => m.division))].filter(Boolean);
+
+  const allResults = (results?.matches || []).filter(m => m.team1 === name || m.team2 === name);
+  const recentResults = [...allResults].sort((a, b) => {
+    const da = parseDate(a.date), db = parseDate(b.date);
+    return da && db ? db - da : 0;
+  });
+
+  const upcoming = [...teamMatches]
+    .filter(m => { const d = parseDate(m.date); return d && d >= today; })
+    .sort((a, b) => { const da = parseDate(a.date), db = parseDate(b.date); return da && db ? da - db : 0; });
+
+  const form = computeFormGuide(results, name, 15);
+  const streak = computeStreak(form);
+  const wins   = form.filter(f => f === 'W').length;
+  const losses = form.filter(f => f === 'L').length;
+  const abds   = form.filter(f => f === 'A').length;
+  const played = wins + losses + abds;
+  const winPct = played > 0 ? Math.round(wins / played * 100) : 0;
+
+  const teamBatRows = batting
+    ? Object.entries(batting).filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+        .flatMap(([, rows]) => Array.isArray(rows) ? rows.filter(r => r.team === name) : [])
+    : [];
+  const topBatters = aggregateBatting(teamBatRows).sort((a, b) => (Number(b.runs) || 0) - (Number(a.runs) || 0));
+
+  const teamBowlRows = bowling
+    ? Object.entries(bowling).filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+        .flatMap(([, rows]) => Array.isArray(rows) ? rows.filter(r => r.team === name) : [])
+    : [];
+  const topBowlers = aggregateBowling(teamBowlRows).sort((a, b) => (Number(b.wickets) || 0) - (Number(a.wickets) || 0));
+
+  const fmtDate = d => {
+    if (!d) return '';
+    const dt = parseDate(d);
+    return dt ? dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : d;
+  };
+
+  return (
+    <div className="team-profile-page">
+      <div className="tp-header">
+        <button className="tp-back" onClick={onClose}>← Back</button>
+        <div className="tp-name">{name}</div>
+        {divs.length > 0 && <div className="tp-divs">{divs.join(' · ')}</div>}
+        {form.length > 0 && (
+          <div className="tp-form">
+            <div className="form-guide">
+              {form.map((c, i) => <span key={i} className={`fd fd-${c}`}>{c}</span>)}
+            </div>
+            {streak && <span className={`streak-badge streak-${streak.code}`}>{streak.code}{streak.count}</span>}
+          </div>
+        )}
+      </div>
+
+      <div className="tp-stats-bar">
+        <div className="tp-stat"><div className="tp-stat-val">{played}</div><div className="tp-stat-lbl">Played</div></div>
+        <div className="tp-stat"><div className="tp-stat-val" style={{color:'#17bf63'}}>{wins}</div><div className="tp-stat-lbl">Won</div></div>
+        <div className="tp-stat"><div className="tp-stat-val" style={{color:'#e0245e'}}>{losses}</div><div className="tp-stat-lbl">Lost</div></div>
+        {abds > 0 && <div className="tp-stat"><div className="tp-stat-val" style={{color:'#f0a500'}}>{abds}</div><div className="tp-stat-lbl">Abd</div></div>}
+        <div className="tp-stat"><div className="tp-stat-val">{winPct}%</div><div className="tp-stat-lbl">Win %</div></div>
+      </div>
+
+      <div className="tp-body">
+        <div className="tp-grid">
+          {topBatters.length > 0 && (
+            <div className="tp-section">
+              <div className="tp-section-title">Batters</div>
+              <table className="tp-table">
+                <thead>
+                  <tr><th>Player</th><th>Mat</th><th>Runs</th><th>HS</th><th>Avg</th><th>SR</th><th>6s</th></tr>
+                </thead>
+                <tbody>
+                  {topBatters.map((r, i) => (
+                    <tr key={i}>
+                      <td className="clickable" onClick={() => onDrilldown({type:'player',name:r.player})}>{r.player}</td>
+                      <td>{r.matches}</td>
+                      <td style={{fontWeight:700}}>{r.runs}</td>
+                      <td>{r.hs}</td>
+                      <td>{r.avg}</td>
+                      <td>{r.sr}</td>
+                      <td>{r.sixes}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {topBowlers.length > 0 && (
+            <div className="tp-section">
+              <div className="tp-section-title">Bowlers</div>
+              <table className="tp-table">
+                <thead>
+                  <tr><th>Player</th><th>Mat</th><th>Wkts</th><th>Econ</th><th>Avg</th><th>Best</th></tr>
+                </thead>
+                <tbody>
+                  {topBowlers.map((r, i) => (
+                    <tr key={i}>
+                      <td className="clickable" onClick={() => onDrilldown({type:'player',name:r.player})}>{r.player}</td>
+                      <td>{r.matches}</td>
+                      <td style={{fontWeight:700}}>{r.wickets}</td>
+                      <td>{r.econ}</td>
+                      <td>{r.avg}</td>
+                      <td>{r.best}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div className="tp-grid">
+          {recentResults.length > 0 && (
+            <div className="tp-section">
+              <div className="tp-section-title">Recent Results</div>
+              {recentResults.slice(0, 8).map((m, i) => {
+                const myScore  = m.team1 === name ? m.team1Score : m.team2Score;
+                const oppScore = m.team1 === name ? m.team2Score : m.team1Score;
+                const opp = m.team1 === name ? m.team2 : m.team1;
+                const r = (m.result || '').toLowerCase();
+                const code = r.includes('abandon') || r.includes('no result') ? 'A'
+                  : myScore?.won === true ? 'W'
+                  : myScore?.won === false ? 'L' : 'NR';
+                const myStr  = myScore  ? `${myScore.runs ?? '?'}/${myScore.wickets ?? '?'} (${myScore.overs ?? '?'})` : '';
+                const oppStr = oppScore ? `${oppScore.runs ?? '?'}/${oppScore.wickets ?? '?'} (${oppScore.overs ?? '?'})` : '';
+                return (
+                  <div key={i} className="tp-result-row">
+                    <span className={`fd fd-${code}`}>{code}</span>
+                    <div className="tp-result-detail">
+                      <div>vs <span className="clickable" onClick={() => onDrilldown({type:'team',name:opp})}>{opp}</span></div>
+                      {myStr && <div className="tp-result-score">{myStr}{oppStr ? ` vs ${oppStr}` : ''}</div>}
+                      <div className="tp-result-meta">{fmtDate(m.date)} · {m.division}{m.result ? ` · ${m.result}` : ''}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {upcoming.length > 0 && (
+            <div className="tp-section">
+              <div className="tp-section-title">Upcoming Fixtures</div>
+              {upcoming.slice(0, 6).map((m, i) => {
+                const opp = m.team1 === name ? m.team2 : m.team1;
+                const d = parseDate(m.date);
+                return (
+                  <div key={i} className="tp-fixture-row">
+                    <div className="tp-fixture-date">
+                      <div>{d ? d.getDate() : '?'}</div>
+                      <div>{d ? d.toLocaleDateString('en-US', {month:'short'}) : ''}</div>
+                    </div>
+                    <div className="tp-fixture-detail">
+                      <div>vs <span className="clickable" onClick={() => onDrilldown({type:'team',name:opp})}>{opp}</span></div>
+                      <div className="tp-fixture-meta">{m.division} · {m.time || 'TBD'}{m.ground ? ` · ${m.ground}` : ''}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Season Overview (home tab) ─── */
 function SeasonOverview({ data, lastRefresh, onDrilldown, onTabClick, onDivision }) {
   const { matches = [], results, batting, bowling, rankings } = data;
@@ -3804,10 +4018,20 @@ function SYCLDashboard({ onFeedback }) {
     } catch {}
     return null;
   });
+  const [teamPage, setTeamPage] = useState(() => {
+    try {
+      const h = window.location.hash;
+      if (h.startsWith('#team=')) return decodeURIComponent(h.slice(6));
+    } catch {}
+    return null;
+  });
   const handleDrilldown = useCallback((d) => {
     if (d.type === 'player') {
       setPlayerPage(d.name);
       try { window.location.hash = 'player=' + encodeURIComponent(d.name); } catch {}
+    } else if (d.type === 'team') {
+      setTeamPage(d.name);
+      try { window.location.hash = 'team=' + encodeURIComponent(d.name); } catch {}
     } else {
       setDrilldown(d);
     }
@@ -3815,6 +4039,10 @@ function SYCLDashboard({ onFeedback }) {
   const closeDrilldown = useCallback(() => setDrilldown(null), []);
   const closePlayerPage = useCallback(() => {
     setPlayerPage(null);
+    try { window.location.hash = ''; history.replaceState(null, '', window.location.pathname + window.location.search); } catch {}
+  }, []);
+  const closeTeamPage = useCallback(() => {
+    setTeamPage(null);
     try { window.location.hash = ''; history.replaceState(null, '', window.location.pathname + window.location.search); } catch {}
   }, []);
 
@@ -3904,6 +4132,21 @@ function SYCLDashboard({ onFeedback }) {
               onClose={closePlayerPage} onTeamDrilldown={handleDrilldown} />
     </>
   );
+  if (teamPage) return (
+    <>
+      <style>{STYLES}</style>
+      <NavBar slug={slug} leagueName={data?.leagueName} season={data?.season}
+              activeTab={activeTab} onTabClick={handleTabClick}
+              teamName={teamPage} onCloseTeam={closeTeamPage}
+              loading={loading} onRefresh={() => loadData(true, slug)}
+              theme={theme} onThemeToggle={() => setTheme(t => t==='light'?'dark':'light')}
+              onFeedback={onFeedback} />
+      {data
+        ? <TeamProfilePage name={teamPage} data={data} onClose={closeTeamPage} onDrilldown={handleDrilldown} />
+        : <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:320}}><div style={{fontSize:13,color:'var(--text-muted)'}}>Loading…</div></div>
+      }
+    </>
+  );
 
   return (
     <>
@@ -3965,7 +4208,7 @@ function SYCLDashboard({ onFeedback }) {
 }
 
 /* ─── NavBar ─── */
-function NavBar({ slug, leagueName, season, activeTab, onTabClick, playerName, onClosePlayer, loading, onRefresh, theme, onThemeToggle, onFeedback }) {
+function NavBar({ slug, leagueName, season, activeTab, onTabClick, playerName, onClosePlayer, teamName, onCloseTeam, loading, onRefresh, theme, onThemeToggle, onFeedback }) {
   const TABS = [["overview","⌂ Home"],["schedule","Schedule"],["standings","Standings"],["results","Results"],["batting","Batting"],["bowling","Bowling"],["rankings","Rankings"]];
   const goHome = () => { window.location.href = '/'; };
   const goLeague = () => {
@@ -4009,6 +4252,12 @@ function NavBar({ slug, leagueName, season, activeTab, onTabClick, playerName, o
         <div className="nav-player-crumb">
           <button className="nav-back-btn" onClick={onClosePlayer}>←</button>
           <span className="nav-player-name">{playerName}</span>
+        </div>
+      )}
+      {teamName && !playerName && (
+        <div className="nav-player-crumb">
+          <button className="nav-back-btn" onClick={onCloseTeam}>←</button>
+          <span className="nav-player-name">🏏 {teamName}</span>
         </div>
       )}
     </div>
