@@ -3848,7 +3848,19 @@ function SYCLDashboard({ onFeedback }) {
   const slug = useMemo(() => getLeagueSlug(), []);
 
   useEffect(() => {
-    if (!slug) return; // No league selected, show landing page
+    if (!slug) {
+      // No slug in URL — redirect to the most recently updated league
+      fetch('/api/leagues')
+        .then(r => r.json())
+        .then(leagues => {
+          const entries = Object.entries(leagues || {});
+          if (!entries.length) return;
+          entries.sort((a, b) => new Date(b[1].updatedAt || 0) - new Date(a[1].updatedAt || 0));
+          window.location.href = '/' + entries[0][0];
+        })
+        .catch(() => {});
+      return;
+    }
     loadData(false, slug);
   }, [slug, loadData]);
 
@@ -3873,7 +3885,9 @@ function SYCLDashboard({ onFeedback }) {
     <>
       <style>{STYLES}</style>
       <NavBar slug={null} onFeedback={onFeedback} />
-      <LandingPage />
+      <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:320}}>
+        <div style={{fontSize:13,color:'var(--text-muted)'}}>Loading…</div>
+      </div>
     </>
   );
   if (playerPage) return (
@@ -3915,21 +3929,23 @@ function SYCLDashboard({ onFeedback }) {
           </div>
         ) : (
           <div className="content-wrap">
-            {/* Division bar */}
-            <div className="division-bar">
-              {activeTab !== 'standings' && (
-                <button className={`div-btn ${selectedDivision==="combined"?"active":""}`}
-                  onClick={()=>setSelectedDivision("combined")}>
-                  All
-                </button>
-              )}
-              {sortedDivs.map(d => (
-                <button key={d} className={`div-btn ${selectedDivision===d?"active":""}`}
-                  onClick={()=>setSelectedDivision(d)}>
-                  {d}
-                </button>
-              ))}
-            </div>
+            {/* Division bar — hidden on overview (all-division view) */}
+            {activeTab !== 'overview' && (
+              <div className="division-bar">
+                {activeTab !== 'standings' && (
+                  <button className={`div-btn ${selectedDivision==="combined"?"active":""}`}
+                    onClick={()=>setSelectedDivision("combined")}>
+                    All
+                  </button>
+                )}
+                {sortedDivs.map(d => (
+                  <button key={d} className={`div-btn ${selectedDivision===d?"active":""}`}
+                    onClick={()=>setSelectedDivision(d)}>
+                    {d}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <>
               {activeTab==="overview" && <SeasonOverview data={data} lastRefresh={lastRefresh} onDrilldown={handleDrilldown} onTabClick={handleTabClick} onDivision={setSelectedDivision} />}
