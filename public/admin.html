@@ -1,0 +1,2497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SYCL Admin</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔧</text></svg>">
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-page:   #f2f2f2;
+      --bg-100:    #ffffff;
+      --bg-200:    #f7f7f7;
+      --bg-300:    #eeeeee;
+      --z-100: #f0f0f0; --z-200: #e0e0e0; --z-300: #c8c8c8;
+      --z-500: #767676; --z-700: #444444; --z-900: #222222; --z-1000: #14171a;
+      --a-300: rgba(0,0,0,0.05); --a-400: rgba(0,0,0,0.08); --a-500: rgba(0,0,0,0.13);
+      --border: #e5e5e5;
+      --text-primary: #14171a; --text-secondary: #536471; --text-muted: #8b98a5;
+      --accent:      #6001D2;
+      --accent-dark: #4a009f;
+      --accent-light: rgba(96,1,210,0.07);
+      --sidebar-bg:  #1a0533;
+      --sidebar-text: rgba(255,255,255,0.75);
+      --sidebar-text-active: #ffffff;
+      --sidebar-hover: rgba(255,255,255,0.08);
+      --sidebar-active: rgba(255,255,255,0.12);
+      --sidebar-section: rgba(255,255,255,0.35);
+      --sidebar-border: rgba(255,255,255,0.10);
+      --clr-ok: #17bf63; --clr-ok-bg: #e6f7ee;
+      --clr-bad: #e0245e; --clr-bad-bg: #fce8ef;
+      --clr-warn: #d97706; --clr-warn-bg: #fef3c7;
+      --sidebar-w: 226px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body { font-family: 'Inter', -apple-system, sans-serif; background: var(--sidebar-bg); color: var(--text-primary); font-size: 13px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+
+    /* ── Shell ── */
+    #loginScreen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; background: var(--sidebar-bg); }
+    #adminShell   { display: none; height: 100vh; overflow: hidden; }
+
+    /* ── Login card ── */
+    .login-card {
+      background: var(--bg-100); border: 1px solid var(--border);
+      border-radius: 14px; padding: 36px; width: 100%; max-width: 380px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.30);
+    }
+    .login-logo { font-size: 30px; margin-bottom: 18px; }
+    .login-title { font-size: 18px; font-weight: 800; margin-bottom: 4px; letter-spacing: -0.4px; }
+    .login-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 26px; }
+    .login-input {
+      width: 100%; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: 8px;
+      font-size: 13px; font-family: 'JetBrains Mono', monospace; background: var(--bg-200);
+      color: var(--text-primary); outline: none; margin-bottom: 12px;
+    }
+    .login-input:focus { border-color: var(--accent); }
+    .btn-primary {
+      width: 100%; padding: 10px; background: var(--accent); color: #ffffff;
+      border: none; border-radius: 8px; font-size: 13px; font-weight: 700;
+      cursor: pointer; font-family: 'Inter', sans-serif; transition: background 0.15s;
+    }
+    .btn-primary:hover { background: var(--accent-dark); }
+
+    /* ── Sidebar (Yahoo Sports dark purple) ── */
+    .sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0; width: var(--sidebar-w);
+      background: var(--sidebar-bg);
+      display: flex; flex-direction: column; z-index: 10;
+    }
+    .sidebar-top {
+      padding: 0 18px; height: 56px;
+      display: flex; align-items: center; gap: 10px;
+      border-bottom: 1px solid var(--sidebar-border);
+    }
+    .sidebar-logo { font-size: 20px; }
+    .sidebar-title { font-size: 15px; font-weight: 800; letter-spacing: -0.3px; color: #ffffff; }
+    .sidebar-nav { flex: 1; padding: 10px 8px; overflow-y: auto; }
+    .nav-section {
+      font-size: 10px; font-weight: 700; color: var(--sidebar-section);
+      text-transform: uppercase; letter-spacing: 0.6px; padding: 10px 10px 5px;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 9px; width: 100%;
+      padding: 8px 10px; border-radius: 7px; border: none; background: none;
+      color: var(--sidebar-text); font-size: 13px; font-weight: 500;
+      cursor: pointer; text-align: left; font-family: 'Inter', sans-serif;
+      text-decoration: none; transition: all 0.12s;
+    }
+    .nav-item:hover { background: var(--sidebar-hover); color: var(--sidebar-text-active); }
+    .nav-item.active { background: var(--sidebar-active); color: var(--sidebar-text-active); font-weight: 700; }
+    .nav-item .nav-icon { font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
+    .sidebar-footer {
+      padding: 10px 8px; border-top: 1px solid var(--sidebar-border);
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .sidebar-footer .nav-item { color: var(--sidebar-text); }
+    .sidebar-footer .nav-item:hover { color: var(--sidebar-text-active); }
+
+    /* ── Main content ── */
+    .main-content {
+      margin-left: var(--sidebar-w); height: 100vh; overflow-y: auto;
+      display: flex; flex-direction: column; background: var(--bg-page);
+    }
+    .main-header {
+      height: 52px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 28px;
+      background: var(--bg-100); position: sticky; top: 0; z-index: 5;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .main-header-title { font-size: 14px; font-weight: 700; letter-spacing: -0.2px; }
+    .main-header-sub { font-size: 12px; color: var(--text-muted); margin-left: 10px; }
+
+    /* ── Sections ── */
+    .section { display: none; padding: 28px; }
+    .section.active { display: block; }
+    .section-title { font-size: 16px; font-weight: 800; letter-spacing: -0.3px; margin-bottom: 4px; }
+    .section-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--bg-100); border: 1.5px solid var(--border);
+      border-radius: 10px; margin-bottom: 16px; overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .card-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+    .card-icon { font-size: 15px; }
+    .card-title { font-size: 13px; font-weight: 700; }
+    .card-body { padding: 18px; }
+    .card-footer { padding: 12px 18px; border-top: 1px solid var(--border); background: var(--bg-200); display: flex; gap: 8px; align-items: center; }
+
+    /* ── Status stats ── */
+    .stats-row { display: flex; gap: 0; }
+    .stat-cell { flex: 1; padding: 16px 20px; border-right: 1px solid var(--border); }
+    .stat-cell:last-child { border-right: none; }
+    .stat-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; margin-bottom: 4px; }
+    .stat-value { font-size: 22px; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: var(--accent); }
+    .stat-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── Steps list ── */
+    .steps { list-style: none; counter-reset: step; display: flex; flex-direction: column; gap: 10px; }
+    .steps li {
+      counter-increment: step; display: flex; gap: 12px; align-items: flex-start;
+      font-size: 13px; color: var(--text-secondary);
+    }
+    .steps li::before {
+      content: counter(step); min-width: 22px; height: 22px;
+      background: var(--accent-light); border: 1.5px solid rgba(96,1,210,0.20);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 800; color: var(--accent); flex-shrink: 0; margin-top: 1px;
+    }
+
+    /* ── Bookmarklet ── */
+    .bookmarklet-wrap { margin-top: 16px; padding: 14px; background: var(--bg-200); border-radius: 8px; border: 1px solid var(--border); }
+    .bookmarklet-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-radius: 7px; border: 2px dashed rgba(96,1,210,0.30);
+      background: var(--bg-100); color: var(--accent);
+      font-size: 13px; font-weight: 700; cursor: grab; text-decoration: none; user-select: none;
+      transition: border-color 0.15s;
+    }
+    .bookmarklet-link:hover { border-color: var(--accent); background: var(--accent-light); }
+    .bookmarklet-link:active { cursor: grabbing; }
+    .bookmarklet-hint { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+
+    /* ── Upload zone ── */
+    .upload-zone {
+      display: block; border: 2px dashed var(--z-300); border-radius: 10px;
+      padding: 32px; text-align: center; cursor: pointer; transition: border-color 0.15s;
+    }
+    .upload-zone:hover { border-color: var(--accent); }
+    .upload-zone input { display: none; }
+    .upload-zone-icon { font-size: 24px; margin-bottom: 8px; }
+    .upload-zone-label { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+    .upload-zone-sub { font-size: 12px; color: var(--text-muted); }
+
+    /* ── Warning banner ── */
+    .warn-banner {
+      display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px;
+      background: var(--clr-warn-bg); border: 1px solid #fde68a; border-radius: 8px;
+      font-size: 12px; color: #92400e; line-height: 1.5; margin-bottom: 16px;
+    }
+    .warn-banner-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 0 14px; height: 32px; border-radius: 7px; border: none;
+      background: var(--accent); color: #ffffff; font-size: 12px; font-weight: 700;
+      cursor: pointer; font-family: 'Inter', sans-serif; white-space: nowrap;
+      transition: background 0.12s; gap: 5px;
+    }
+    .btn:hover { background: var(--accent-dark); }
+    .btn-ghost {
+      background: var(--bg-100); color: var(--text-secondary);
+      border: 1.5px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
+    .btn-ghost.active { background: var(--accent); color: #ffffff; border-color: var(--accent); }
+
+    /* ── Msg ── */
+    .msg { padding: 9px 12px; border-radius: 7px; font-size: 12px; font-weight: 600; margin-top: 10px; }
+    .msg.ok   { background: var(--clr-ok-bg);   color: var(--clr-ok); }
+    .msg.err  { background: var(--clr-bad-bg);  color: var(--clr-bad); }
+    .msg.info { background: var(--bg-300);       color: var(--text-secondary); }
+    .msg:empty { display: none; }
+
+    /* ── Editor table ── */
+    .editor-toolbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th {
+      text-align: left; padding: 8px 10px; color: var(--text-muted); font-weight: 700;
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+      border-bottom: 2px solid var(--border); white-space: nowrap;
+      background: var(--bg-200); cursor: default;
+    }
+    th[title] { text-decoration: underline dotted; text-underline-offset: 2px; }
+    td { padding: 3px 6px; border-bottom: 1px solid var(--a-300); vertical-align: middle; }
+    tbody tr:nth-child(even) td { background: rgba(0,0,0,0.02); }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: var(--accent-light) !important; }
+
+    .edit-input {
+      border: 1px solid transparent; background: transparent;
+      padding: 4px 6px; font-size: 12px; font-family: 'Inter', sans-serif;
+      color: var(--text-primary); border-radius: 5px; width: 100%;
+    }
+    .edit-input:focus { outline: none; border-color: var(--accent); background: var(--bg-100); }
+    tr:hover .edit-input { border-color: var(--border); background: var(--bg-100); }
+    .new-row td { background: #e6f7ee !important; }
+    .changed-row td { background: #fff8e6 !important; }
+    .changed-cell { position: relative; }
+    .changed-cell::after { content: ''; position: absolute; top: 4px; right: 4px; width: 5px; height: 5px; border-radius: 50%; background: var(--clr-warn); }
+    .del-btn {
+      color: var(--text-muted); background: none; border: none; cursor: pointer;
+      padding: 2px 6px; font-size: 16px; line-height: 1;
+    }
+    .del-btn:hover { color: var(--clr-bad); }
+    .scroll-x { overflow-x: auto; }
+
+    /* ── Divider ── */
+    .sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; flex-shrink: 0; }
+
+    /* Link style */
+    a.link { color: var(--sidebar-text); font-size: 13px; }
+    a.link:hover { color: var(--sidebar-text-active); }
+
+    /* ── Issue cards ── */
+    .issue-card { border: 1.5px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-bottom: 6px; background: var(--bg-100); border-left: 3px solid var(--border); }
+    .issue-card.error { border-left-color: var(--clr-bad); }
+    .issue-card.warn  { border-left-color: var(--clr-warn); }
+    .issue-card.info  { border-left-color: var(--accent); }
+    .issue-header { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+    .issue-sev { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 1px 6px; border-radius: 5px; font-family: 'JetBrains Mono', monospace; }
+    .issue-sev.error { background: var(--clr-bad-bg); color: var(--clr-bad); }
+    .issue-sev.warn  { background: var(--clr-warn-bg); color: var(--clr-warn); }
+    .issue-sev.info  { background: var(--accent-light); color: var(--accent); }
+    .issue-div-badge { font-size: 10px; font-weight: 700; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; padding: 1px 6px; background: var(--z-100); border-radius: 5px; }
+    .issue-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+    .issue-detail { font-size: 12px; color: var(--text-secondary); margin-top: 2px; line-height: 1.5; }
+
+    /* ── Analytics inner tabs ── */
+    .analytics-tabs { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 24px; gap: 0; overflow-x: auto; scrollbar-width: none; }
+    .analytics-tabs::-webkit-scrollbar { display: none; }
+    .atab-btn {
+      padding: 0 20px; height: 42px; border: none; background: none;
+      color: var(--text-muted); font-size: 13px; font-weight: 600;
+      border-bottom: 3px solid transparent; margin-bottom: -2px;
+      cursor: pointer; font-family: 'Inter', sans-serif; white-space: nowrap;
+      transition: all 0.12s; display: flex; align-items: center; gap: 7px;
+    }
+    .atab-btn:hover { color: var(--accent); }
+    .atab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .atab-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+      font-size: 10px; font-weight: 800; font-family: 'JetBrains Mono', monospace;
+    }
+    .atab-content { display: none; }
+    .atab-content.active { display: block; }
+
+    /* ── Issue card enhancements ── */
+    .issue-card { border: 1.5px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-bottom: 6px; background: var(--bg-100); border-left: 3px solid var(--border); display: flex; align-items: flex-start; gap: 10px; }
+    .issue-card.error { border-left-color: var(--clr-bad); }
+    .issue-card.warn  { border-left-color: var(--clr-warn); }
+    .issue-card.info  { border-left-color: var(--accent); }
+    .issue-card.acknowledged { opacity: 0.5; }
+    .issue-card-body { flex: 1; min-width: 0; }
+    .issue-card-actions { flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
+
+    /* ── Editor sort/filter ── */
+    .th-inner { display: flex; align-items: center; gap: 3px; }
+    .th-sort { background: none; border: none; cursor: pointer; padding: 0 1px; color: var(--text-muted); font-size: 10px; line-height: 1; font-family: 'JetBrains Mono', monospace; }
+    .th-sort:hover { color: var(--accent); }
+    .th-filt { background: none; border: none; cursor: pointer; padding: 0 2px; font-size: 9px; color: var(--text-muted); line-height: 1; opacity: 0.5; }
+    .th-filt:hover, .th-filt.on { opacity: 1; color: var(--accent); }
+    .filter-popup { display: none; position: fixed; z-index: 3000; background: var(--bg-100); border: 1.5px solid var(--border); border-radius: 10px; padding: 12px; min-width: 180px; max-height: 280px; box-shadow: 0 6px 24px rgba(0,0,0,0.12); overflow-y: auto; }
+    .fp-row { display: flex; align-items: center; gap: 7px; padding: 3px 0; font-size: 12px; }
+    .fp-row label { cursor: pointer; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Division tabs for editor ── */
+    #editorDivTabs { display: flex; border-bottom: 2px solid var(--border); margin: 0 18px; gap: 0; overflow-x: auto; scrollbar-width: none; }
+    #editorDivTabs::-webkit-scrollbar { display: none; }
+    .dtab-btn { padding: 0 14px; height: 38px; border: none; background: none;
+      color: var(--text-muted); font-size: 12px; font-weight: 600;
+      border-bottom: 3px solid transparent; margin-bottom: -2px;
+      cursor: pointer; font-family: 'Inter', sans-serif; white-space: nowrap;
+      transition: all 0.12s; display: inline-flex; align-items: center; gap: 5px; }
+    .dtab-btn:hover { color: var(--accent); }
+    .dtab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .dtab-badge { display: inline-flex; align-items: center; justify-content: center;
+      min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px;
+      font-size: 9px; font-weight: 800; }
+
+    /* ── Mobile sidebar ── */
+    .hamburger { display: none; background: none; border: none; cursor: pointer;
+      padding: 6px 8px; font-size: 22px; line-height: 1; color: var(--text-primary);
+      align-items: center; border-radius: 7px; }
+    .hamburger:hover { background: var(--bg-200); }
+    .mob-topbar { display: none; height: 50px; border-bottom: 1px solid var(--border);
+      align-items: center; padding: 0 10px; background: var(--bg-100);
+      position: sticky; top: 0; z-index: 6; gap: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+    .sidebar-backdrop { display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45); z-index: 15; }
+
+    @media (max-width: 768px) {
+      :root { --sidebar-w: 0px; }
+      .sidebar { transform: translateX(-100%); transition: transform 0.25s cubic-bezier(.4,0,.2,1); z-index: 20; width: 240px; }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-backdrop.open { display: block; }
+      .main-content { margin-left: 0 !important; }
+      .mob-topbar { display: flex; }
+      .hamburger { display: inline-flex; }
+      .section { padding: 12px; }
+      .section-title { font-size: 14px; }
+      .section-desc { font-size: 12px; margin-bottom: 14px; }
+      .stats-row { flex-wrap: wrap; }
+      .stat-cell { flex: 1 1 120px; }
+      .card-header { flex-wrap: wrap; row-gap: 6px; padding: 10px 12px; }
+      .card-body { padding: 12px; }
+      .card-footer { flex-wrap: wrap; gap: 6px; padding: 10px 12px; }
+      #editorDivTabs { margin: 0 12px; }
+      .edit-input { font-size: 16px !important; }
+      th { padding: 6px 6px; font-size: 9px; }
+      td { padding: 2px 4px; }
+      .btn { touch-action: manipulation; }
+      .login-card { padding: 24px; border-radius: 10px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Login screen ── -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">🏏</div>
+    <div class="login-title">SYCL Admin</div>
+    <div class="login-sub">Seattle Youth Cricket League · Schedule Management</div>
+    <input class="login-input" id="pwdInput" type="password" placeholder="Admin password"
+      onkeydown="if(event.key==='Enter')login()">
+    <button class="btn-primary" onclick="login()">Sign in</button>
+    <div id="loginMsg" class="msg" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<!-- ── Admin shell (shown after login) ── -->
+<div id="adminShell">
+
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-top">
+      <span class="sidebar-logo">🏏</span>
+      <span class="sidebar-title">SYCL Admin</span>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">Overview</div>
+      <button class="nav-item active" onclick="showSection('overview',this)">
+        <span class="nav-icon">◎</span> Dashboard
+      </button>
+
+      <div class="nav-section" style="margin-top:8px">Schedule Data</div>
+      <button class="nav-item" onclick="showSection('sync',this)">
+        <span class="nav-icon">↓</span> Sync from CricClubs
+      </button>
+      <button class="nav-item" onclick="showSection('sync-all',this)">
+        <span class="nav-icon">◈</span> Sync All Data
+      </button>
+      <button class="nav-item" onclick="showSection('upload',this)">
+        <span class="nav-icon">↑</span> Upload Excel
+      </button>
+
+      <div class="nav-section" style="margin-top:8px">Manage</div>
+      <button class="nav-item" onclick="showSection('editor',this)">
+        <span class="nav-icon">✎</span> Edit Fixtures
+      </button>
+      <button class="nav-item" onclick="showSection('propagate',this)" id="propagateNavBtn">
+        <span class="nav-icon">→</span> Propagate to CricClubs
+        <span id="propagateNavBadge" style="display:none;margin-left:auto;background:var(--clr-warn-bg);color:var(--clr-warn);font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px"></span>
+      </button>
+
+      <div class="nav-section" style="margin-top:8px">Analytics</div>
+      <button class="nav-item" onclick="showSection('analytics',this)" id="analyticsNavBtn">
+        <span class="nav-icon">📊</span> Analytics
+        <span id="issuesNavBadge" style="display:none;margin-left:auto;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px"></span>
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="/" class="nav-item link">
+        <span class="nav-icon">←</span> View Dashboard
+      </a>
+      <button class="nav-item" onclick="logout()" style="color:var(--clr-bad)">
+        <span class="nav-icon">⊗</span> Sign out
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main area -->
+  <div class="main-content">
+
+    <!-- Mobile top bar (hidden on desktop) -->
+    <div class="mob-topbar">
+      <button class="hamburger" onclick="openSidebar()" title="Menu">☰</button>
+      <span style="font-size:14px;font-weight:700;letter-spacing:-0.2px">SYCL Admin</span>
+    </div>
+
+    <!-- Overview section -->
+    <div id="section-overview" class="section active">
+      <div class="section-title">Dashboard</div>
+      <div class="section-desc">Current schedule status and quick actions.</div>
+
+      <!-- Status stats -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <span class="card-icon">📊</span>
+          <span class="card-title">Schedule status</span>
+          <button class="btn btn-ghost" style="margin-left:auto;height:26px;font-size:11px" onclick="loadStatus()">Refresh</button>
+        </div>
+        <div class="stats-row" id="statusRow">
+          <div class="stat-cell">
+            <div class="stat-label">Status</div>
+            <div class="stat-value" style="font-size:14px;color:var(--text-muted)">Loading…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick actions -->
+      <div class="card">
+        <div class="card-header"><span class="card-icon">⚡</span><span class="card-title">Quick actions</span></div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+            <div>
+              <div style="font-weight:600;font-size:13px">Sync from CricClubs</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Pull latest schedule using the bookmarklet</div>
+            </div>
+            <button class="btn" onclick="showSection('sync',document.querySelector('[onclick*=sync]'))">Go →</button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+            <div>
+              <div style="font-weight:600;font-size:13px">Edit upcoming fixtures</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Change dates, times, venues, umpires</div>
+            </div>
+            <button class="btn" onclick="showSection('editor',document.querySelector('[onclick*=editor]'))">Go →</button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0">
+            <div>
+              <div style="font-weight:600;font-size:13px">Export for CricClubs upload</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Download formatted Excel to bulk-upload</div>
+            </div>
+            <button class="btn btn-ghost" onclick="exportFixtures()">⬇ Export</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sync section -->
+    <div id="section-sync" class="section">
+      <div class="section-title">Sync from CricClubs</div>
+      <div class="section-desc">Use the bookmarklet to pull the full schedule directly from CricClubs — no download needed.</div>
+
+      <div class="warn-banner">
+        <span class="warn-banner-icon">⚠</span>
+        <span><b>Heads up:</b> Syncing replaces <em>all</em> schedule data, including any edits you've made in the fixture editor. Save an export first if you have unsaved edits.</span>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-icon">🔖</span><span class="card-title">Bookmarklet setup</span></div>
+        <div class="card-body">
+          <ol class="steps">
+            <li>Drag the button below into your browser's bookmarks bar <em>(do this once)</em></li>
+            <li>Open the <a href="https://cricclubs.com/SYCLYouth/fixtures.do?clubId=10669" target="_blank" style="color:var(--text-primary);font-weight:500">CricClubs fixtures page ↗</a></li>
+            <li>Click the bookmarklet — it reads the schedule table and pushes it to the dashboard</li>
+          </ol>
+          <div class="bookmarklet-wrap">
+            <a id="bookmarkletLink" class="bookmarklet-link" href="#">🏏 Sync to SYCL</a>
+            <div class="bookmarklet-hint">Drag to bookmarks bar · Click when on the CricClubs fixtures page</div>
+          </div>
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+            <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">Fixture ID debug tool</div>
+            <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">If IDs aren't being captured, run this on the CricClubs fixtures page to see what the bookmarklet can find.</p>
+            <a id="debugBookmarkletLink" class="bookmarklet-link" href="#" style="background:var(--bg-200);border-style:solid;font-size:12px">🔍 Debug fixture IDs</a>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span style="font-size:12px;color:var(--text-muted)">Bookmarklet is tied to this domain and your session password. Re-drag after signing out/in.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sync All section -->
+    <div id="section-sync-all" class="section">
+      <div class="section-title">Sync All Data from CricClubs</div>
+      <div class="section-desc">One bookmarklet, one click — pulls the full schedule, match results, standings, batting, bowling, and rankings for every division at once.</div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-icon">◈</span><span class="card-title">Bookmarklet setup</span></div>
+        <div class="card-body">
+          <ol class="steps">
+            <li>Drag the button below into your browser's bookmarks bar <em>(do this once)</em></li>
+            <li>Open the <a href="https://cricclubs.com/SYCLYouth/listMatches.do?clubId=10669" target="_blank" style="color:var(--text-primary);font-weight:500">CricClubs Match Results page ↗</a></li>
+            <li>Click the bookmarklet — it reads results from the current page, then fetches the schedule <em>(fixtures.do)</em> and standings, batting, bowling, rankings for all divisions in parallel</li>
+          </ol>
+          <div class="bookmarklet-wrap">
+            <a id="syncAllBookmarkletLink" class="bookmarklet-link" href="#">◈ Sync All to SYCL</a>
+            <div class="bookmarklet-hint">Drag to bookmarks bar · Click from the CricClubs Match Results page (listMatches.do)</div>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span style="font-size:12px;color:var(--text-muted)">Syncs results, standings, batting, bowling, and rankings in a single write — no 409 conflicts.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload section -->
+    <div id="section-upload" class="section">
+      <div class="section-title">Upload Excel</div>
+      <div class="section-desc">Fallback option — export the schedule from CricClubs and upload the file here.</div>
+
+      <div class="warn-banner">
+        <span class="warn-banner-icon">⚠</span>
+        <span><b>Heads up:</b> Uploading replaces <em>all</em> schedule data, including any edits you've made in the fixture editor.</span>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-icon">📁</span><span class="card-title">Upload .xlsx file</span></div>
+        <div class="card-body">
+          <label class="upload-zone">
+            <input type="file" id="xlsxInput" accept=".xlsx,.xls,.csv" onchange="handleUpload(event)">
+            <div class="upload-zone-icon">📊</div>
+            <div class="upload-zone-label">Click to choose file</div>
+            <div class="upload-zone-sub">From CricClubs → Schedule → Export</div>
+          </label>
+          <div id="uploadMsg" class="msg"></div>
+        </div>
+        <div class="card-footer">
+          <span style="font-size:12px;color:var(--text-muted)">Accepted: .xlsx · .xls · .csv exported from CricClubs</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Editor section -->
+    <div id="section-editor" class="section">
+      <div class="section-title">Edit Fixtures</div>
+      <div class="section-desc">Edit upcoming matches directly. Changes save to the dashboard. Export generates a CricClubs-ready Excel for bulk upload.</div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">✎</span>
+          <span class="card-title">Upcoming fixtures</span>
+          <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+            <span id="changedBadge" style="font-size:11px;font-weight:600;color:var(--clr-warn);padding:2px 8px;background:var(--clr-warn-bg);border-radius:999px"></span>
+            <button id="showChangedBtn" class="btn btn-ghost" style="display:none;font-size:11px;color:var(--clr-warn)"
+              onclick="this.classList.toggle('active');renderEditorTable()">Show changed only</button>
+            <button id="clearFiltersBtn" class="btn btn-ghost" style="display:none;font-size:11px;color:var(--clr-warn)" onclick="clearAllFilters()">✕ Filters</button>
+            <button class="btn btn-ghost" onclick="addFixtureRow()">+ Add row</button>
+          </div>
+        </div>
+        <div id="editorMsg" class="msg" style="margin:0 18px 0"></div>
+        <div id="editorDivTabs"></div>
+        <div class="scroll-x">
+          <table id="editorTable">
+            <thead id="editorHead"></thead>
+            <tbody id="editorBody">
+              <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text-muted)">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card-footer">
+          <button class="btn btn-ghost" onclick="exportFixtures(false)">⬇ Export all</button>
+          <button class="btn btn-ghost" id="exportChangedBtn" onclick="exportFixtures(true)" style="color:var(--clr-warn)">⬇ Export changed only</button>
+          <div class="sep"></div>
+          <button class="btn" onclick="saveFixtures()">Save to dashboard</button>
+          <span style="font-size:11px;color:var(--text-muted);margin-left:auto">
+            Save → live dashboard · Export changed → CricClubs bulk-upload
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Propagate section -->
+    <div id="section-propagate" class="section">
+      <div class="section-title">Propagate to CricClubs</div>
+      <div class="section-desc">Push your fixture edits back to CricClubs. Step 1: drag the Auto-fill bookmarklet to your bookmarks bar once. Step 2: use the list below to open each changed fixture in CricClubs, then click the bookmarklet to auto-fill the form.</div>
+
+      <!-- Step 1: Auto-fill bookmarklet -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <span class="card-icon">🔖</span>
+          <span class="card-title">Step 1 — Install Auto-fill bookmarklet (once)</span>
+        </div>
+        <div class="card-body">
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Drag this to your browser's bookmarks bar. Then on any CricClubs "Update Fixture" page, click it to auto-fill your changes.</p>
+          <div class="bookmarklet-wrap">
+            <a id="autofillBookmarkletLink" href="#" class="bookmarklet-link" onclick="return false;">
+              <span>🏏</span> SYCL Auto-fill
+            </a>
+            <div class="bookmarklet-hint">Drag to bookmarks bar · Works on any CricClubs Update Fixture page</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Changed fixtures list -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">📋</span>
+          <span class="card-title">Step 2 — Changed fixtures</span>
+          <span id="propagateChangedCount" style="margin-left:8px;font-size:12px;color:var(--text-muted)"></span>
+          <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+            <button class="btn" id="openAllBtn" style="display:none;font-size:11px" onclick="openAllInCricClubs()">Open All in CricClubs ↗</button>
+            <button class="btn btn-ghost" style="font-size:11px" onclick="renderPropagateSection()">Refresh</button>
+          </div>
+        </div>
+        <div id="propagateBody">
+          <div style="text-align:center;padding:28px;color:var(--text-muted);font-size:13px">Save changes in the fixture editor first, then come back here.</div>
+        </div>
+        <div class="card-footer" style="font-size:12px;color:var(--text-muted)">
+          ⚠ If a fixture shows "No CricClubs ID" — re-sync from CricClubs first so we capture the fixture IDs.
+        </div>
+      </div>
+    </div>
+
+    <!-- Analytics section (combined: H/A Balance, Pairings, Issues) -->
+    <div id="section-analytics" class="section">
+      <div class="section-title">Analytics</div>
+      <div class="section-desc">Schedule health, balance analysis, matchup coverage, and automated issue detection.</div>
+
+      <div class="analytics-tabs">
+        <button class="atab-btn active" id="atab-issues" onclick="switchAnalyticsTab('issues')">
+          ⚠ Issues
+          <span id="issuesSummaryRow" class="atab-badge" style="background:var(--clr-bad-bg);color:var(--clr-bad)"></span>
+        </button>
+        <button class="atab-btn" id="atab-balance" onclick="switchAnalyticsTab('balance')">
+          ⚖ H/A Balance
+        </button>
+        <button class="atab-btn" id="atab-pairings" onclick="switchAnalyticsTab('pairings')">
+          ⊞ Pairings Matrix
+        </button>
+      </div>
+
+      <!-- Issues tab -->
+      <div id="atab-content-issues" class="atab-content active">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">⚠</span>
+            <span class="card-title">Issue Scanner</span>
+            <div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <button class="btn btn-ghost active" id="issLevelAll" onclick="setIssueFilter('all')" style="font-size:11px;height:28px">All</button>
+              <button class="btn btn-ghost" id="issLevelError" onclick="setIssueFilter('error')" style="font-size:11px;height:28px">Errors</button>
+              <button class="btn btn-ghost" id="issLevelWarn" onclick="setIssueFilter('warn')" style="font-size:11px;height:28px">Warnings</button>
+              <button class="btn btn-ghost" id="issLevelInfo" onclick="setIssueFilter('info')" style="font-size:11px;height:28px">Info</button>
+              <div class="sep"></div>
+              <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:var(--text-muted)">
+                <input type="checkbox" id="showPastIssues" onchange="renderIssues()" style="cursor:pointer">
+                Show past fixture issues
+              </label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:var(--text-muted)">
+                <input type="checkbox" id="showAcknowledged" onchange="renderIssues()" style="cursor:pointer">
+                Show acknowledged
+              </label>
+              <div class="sep"></div>
+              <select id="issuesDivFilter" onchange="renderIssues()"
+                style="height:28px;padding:0 8px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg-100);font-size:12px;font-family:'Inter',sans-serif;color:var(--text-primary);cursor:pointer">
+                <option value="">All divisions</option>
+              </select>
+            </div>
+          </div>
+          <div id="issuesBody" class="card-body" style="padding:12px 18px">
+            <div style="text-align:center;padding:28px;color:var(--text-muted);font-size:13px">Load schedule data to scan for issues.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- H/A Balance tab -->
+      <div id="atab-content-balance" class="atab-content">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">⚖</span>
+            <span class="card-title">Balance by division</span>
+            <select id="balanceDivFilter" onchange="renderBalance()"
+              style="margin-left:auto;height:28px;padding:0 8px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg-100);font-size:12px;font-family:'Inter',sans-serif;color:var(--text-primary);cursor:pointer">
+            </select>
+          </div>
+          <div id="balanceSummary" class="stats-row" style="border-bottom:1px solid var(--border);padding:12px 18px;gap:0"></div>
+          <div class="scroll-x">
+            <table id="balanceTable">
+              <thead><tr>
+                <th>Team</th>
+                <th style="text-align:center" title="Games Played">GP</th>
+                <th style="text-align:center" title="Home matches">Home</th>
+                <th style="text-align:center" title="Away matches">Away</th>
+                <th style="text-align:center" title="Morning matches (AM)">AM</th>
+                <th style="text-align:center" title="Afternoon matches (PM)">PM</th>
+                <th style="text-align:center" title="Matches umpired">Ump</th>
+                <th style="text-align:center" title="Home/Away balance">H/A</th>
+                <th style="text-align:center" title="AM/PM slot balance">Slot</th>
+              </tr></thead>
+              <tbody id="balanceBody">
+                <tr><td colspan="9" style="text-align:center;padding:28px;color:var(--text-muted)">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pairings tab -->
+      <div id="atab-content-pairings" class="atab-content">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">⊞</span>
+            <span class="card-title">Matchup coverage</span>
+            <select id="pairingsDivFilter" onchange="renderPairings()"
+              style="margin-left:auto;height:28px;padding:0 8px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg-100);font-size:12px;font-family:'Inter',sans-serif;color:var(--text-primary);cursor:pointer">
+            </select>
+          </div>
+          <div id="pairingsSummary" class="stats-row" style="border-bottom:1px solid var(--border);padding:12px 18px;gap:0"></div>
+          <div class="scroll-x">
+            <div id="pairingsTableWrap"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div><!-- /main-content -->
+</div><!-- /adminShell -->
+
+<!-- Hidden datalist container -->
+<div id="datalistContainer" style="display:none"></div>
+
+<script>
+function getLeagueSlug() {
+  const parts = window.location.pathname.split('/').filter(p => p && p !== 'admin');
+  return parts[0] || null;
+}
+
+const slug = getLeagueSlug();
+if (slug) document.title = `Admin — ${slug}`;
+
+// ── Known columns ──────────────────────────────────────────────
+const KNOWN_COLS = {
+  id:['#','no','number'], division:['division'], matchType:['match type','matchtype','type'],
+  date:['date'], time:['time'], team1:['team one','team 1','team1','teamone'],
+  team2:['team two','team 2','team2','teamtwo'], ground:['ground','venue'],
+  umpire1:['umpire one','umpire 1','umpire1'], umpire2:['umpire two','umpire 2','umpire2'],
+  result:['result','match result'], winner:['winner'], status:['status'],
+};
+
+function mapHeaders(headers) {
+  const h = headers.map(s => String(s||'').toLowerCase().replace(/[*()\/\\0-9.]/g,'').trim());
+  const col = {};
+  h.forEach((hdr, i) => {
+    for (const [key, aliases] of Object.entries(KNOWN_COLS)) {
+      if (!col[key] && aliases.some(a => hdr === a || hdr.includes(a))) col[key] = i;
+    }
+  });
+  return col;
+}
+
+function parseScheduleFromRaw(raw) {
+  let headerIdx = -1;
+  for (let i = 0; i < Math.min(raw.length, 10); i++) {
+    const row = raw[i].map(c => String(c||'').toLowerCase());
+    if (row.some(c => c.includes('division')) && row.some(c => c.includes('team'))) { headerIdx = i; break; }
+  }
+  if (headerIdx === -1) return null;
+  const col = mapHeaders(raw[headerIdx]);
+  const matches = [];
+  for (let i = headerIdx + 1; i < raw.length; i++) {
+    const row = raw[i];
+    if (!row || !row[col.division] || !row[col.team1] || !row[col.team2]) continue;
+    const div = String(row[col.division]).trim(), t1 = String(row[col.team1]).trim(), t2 = String(row[col.team2]).trim();
+    if (!div || !t1 || !t2) continue;
+    let dateStr = '';
+    const rd = row[col.date];
+    if (rd instanceof Date) { dateStr = `${String(rd.getMonth()+1).padStart(2,'0')}/${String(rd.getDate()).padStart(2,'0')}/${rd.getFullYear()}`; }
+    else if (typeof rd === 'number') { const d = new Date((rd-25569)*86400000); dateStr = `${String(d.getUTCMonth()+1).padStart(2,'0')}/${String(d.getUTCDate()).padStart(2,'0')}/${d.getUTCFullYear()}`; }
+    else { dateStr = String(rd||'').trim(); }
+    matches.push({
+      id: col.id !== undefined ? String(row[col.id]||'').trim() : String(i),
+      division: div, matchType: col.matchType !== undefined ? String(row[col.matchType]||'').trim() : '',
+      date: dateStr, time: col.time !== undefined ? String(row[col.time]||'').trim() : '',
+      team1: t1, team2: t2,
+      ground:   col.ground   !== undefined ? String(row[col.ground]  ||'').trim() : '',
+      umpire1:  col.umpire1  !== undefined ? String(row[col.umpire1] ||'').trim() : '',
+      umpire2:  col.umpire2  !== undefined ? String(row[col.umpire2] ||'').trim() : '',
+      result:   col.result   !== undefined ? String(row[col.result]  ||'').trim() : '',
+      winner:   col.winner   !== undefined ? String(row[col.winner]  ||'').trim() : '',
+      status:   col.status   !== undefined ? String(row[col.status]  ||'').trim() : '',
+    });
+  }
+  return matches.length ? matches : null;
+}
+
+// ── Auth ──────────────────────────────────────────────────────
+function getPassword() { return sessionStorage.getItem('sycl_admin_pwd') || ''; }
+
+function login() {
+  const pwd = document.getElementById('pwdInput').value.trim();
+  if (!pwd) { showMsg('loginMsg', 'Enter a password.', 'err'); return; }
+  sessionStorage.setItem('sycl_admin_pwd', pwd);
+  showAdminShell();
+}
+
+function logout() {
+  sessionStorage.removeItem('sycl_admin_pwd');
+  document.getElementById('adminShell').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('pwdInput').value = '';
+}
+
+function showAdminShell() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('adminShell').style.display = 'flex';
+  buildBookmarklet();
+  buildAutoFillBookmarklet();
+  buildSyncAllBookmarklet();
+  loadStatus();
+  loadFixtures();
+}
+
+// ── Navigation ────────────────────────────────────────────────
+let _activeAnalyticsTab = 'issues';
+
+function switchAnalyticsTab(tab) {
+  _activeAnalyticsTab = tab;
+  document.querySelectorAll('.atab-btn').forEach(b => b.classList.toggle('active', b.id === 'atab-' + tab));
+  document.querySelectorAll('.atab-content').forEach(c => c.classList.toggle('active', c.id === 'atab-content-' + tab));
+  if (tab === 'issues')   renderIssues();
+  if (tab === 'balance')  renderBalance();
+  if (tab === 'pairings') renderPairings();
+}
+
+function showSection(id, btn) {
+  closeSidebar();
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  // Map old section ids to analytics tab
+  const analyticsIds = { balance: 'balance', pairings: 'pairings', issues: 'issues' };
+  if (analyticsIds[id]) {
+    document.getElementById('section-analytics').classList.add('active');
+    const navBtn = document.getElementById('analyticsNavBtn');
+    if (navBtn) navBtn.classList.add('active');
+    switchAnalyticsTab(analyticsIds[id]);
+    return;
+  }
+  document.getElementById('section-' + id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'propagate') renderPropagateSection();
+  if (id === 'analytics') switchAnalyticsTab(_activeAnalyticsTab);
+}
+
+// ── Bookmarklet ───────────────────────────────────────────────
+function buildBookmarklet() {
+  const origin = window.location.origin;
+  const password = getPassword();
+  const confirmMsg = 'This will replace ALL schedule data, including any edits you made in the fixture editor.\\n\\nContinue?';
+
+  const clubId = '10669';
+  const leaguePath = 'SYCLYouth';
+
+  const code = `(function(){
+if(!confirm('${confirmMsg}'))return;
+var t=document.getElementById('attTable');
+if(!t){alert('Table not found. Are you on the CricClubs fixtures page?');return;}
+
+var ov=document.createElement('div');
+ov.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;font-family:sans-serif';
+ov.innerHTML='<div style="background:#fff;border-radius:12px;padding:28px 32px;min-width:320px;text-align:center"><div style="font-size:15px;font-weight:700;margin-bottom:8px">🏏 Syncing SYCL…</div><div id="syclSyncMsg" style="font-size:13px;color:#71717a">Reading fixture IDs…</div></div>';
+document.body.appendChild(ov);
+function setMsg(m){var el=document.getElementById('syclSyncMsg');if(el)el.textContent=m;}
+
+// div[id^="deleteRow"] covers all 122 fixtures (upcoming + past) — already in DOM on page load
+var pageFixtureIds=[];
+var seen={};
+Array.from(document.querySelectorAll('div[id^="deleteRow"]')).forEach(function(el){
+  var m=el.id.match(/deleteRow(\\d+)/);
+  if(m&&!seen[m[1]]){seen[m[1]]=true;pageFixtureIds.push(m[1]);}
+});
+// Fallback: upcoming_selected inputs (upcoming only)
+if(!pageFixtureIds.length){
+  Array.from(document.querySelectorAll('input[name="upcoming_selected"]')).forEach(function(inp){
+    var v=inp.value;
+    if(v&&!seen[v]){seen[v]=true;pageFixtureIds.push(v);}
+  });
+}
+// Last resort: links with fixtureId=
+if(!pageFixtureIds.length){
+  Array.from(document.querySelectorAll('a[href*="fixtureId="]')).forEach(function(a){
+    var m=(a.href||'').match(/fixtureId=(\\d+)/i);
+    if(m&&!seen[m[1]]){seen[m[1]]=true;pageFixtureIds.push(m[1]);}
+  });
+}
+
+setMsg('Parsing schedule table…');
+var ths=t.querySelectorAll('thead th');
+if(!ths.length)ths=t.querySelectorAll('tr:first-child td,tr:first-child th');
+var h=Array.from(ths).map(function(c){return c.textContent.trim().toLowerCase().replace(/[*()\\/\\\\0-9.]/g,'').trim();});
+function fc(al){for(var i=0;i<h.length;i++)for(var j=0;j<al.length;j++)if(h[i]===al[j]||h[i].indexOf(al[j])>-1)return i;return -1;}
+var c={id:fc(['#','no','number']),dv:fc(['division']),mt:fc(['match type','matchtype','type']),dt:fc(['date']),tm:fc(['time']),t1:fc(['team one','team 1','team1','teamone']),t2:fc(['team two','team 2','team2','teamtwo']),gr:fc(['ground','venue']),u1:fc(['umpire one','umpire 1','umpire1']),u2:fc(['umpire two','umpire 2','umpire2']),rs:fc(['result','match result']),wn:fc(['winner']),st:fc(['status'])};
+if(c.dv<0||c.t1<0||c.t2<0){ov.remove();alert('Cannot map columns. Found: '+h.join(', '));return;}
+
+var ms=[];
+Array.from(t.querySelectorAll('tbody tr')).forEach(function(r){
+  var cs=Array.from(r.querySelectorAll('td')).map(function(x){return x.textContent.trim();});
+  if(!cs.length)return;
+  var dv=c.dv>=0?cs[c.dv]||'':'',a=c.t1>=0?cs[c.t1]||'':'',b=c.t2>=0?cs[c.t2]||'':'';
+  if(!dv||!a||!b)return;
+  var fid=pageFixtureIds[ms.length]||'';
+  var fixtureUpdateUrl=fid?'https://cricclubs.com/${leaguePath}/updateFixture.do?fixtureId='+fid+'&clubId=${clubId}':'';
+  ms.push({id:c.id>=0?cs[c.id]||'':'',division:dv,matchType:c.mt>=0?cs[c.mt]||'':'',date:c.dt>=0?cs[c.dt]||'':'',time:c.tm>=0?cs[c.tm]||'':'',team1:a,team2:b,ground:c.gr>=0?cs[c.gr]||'':'',umpire1:c.u1>=0?cs[c.u1]||'':'',umpire2:c.u2>=0?cs[c.u2]||'':'',result:c.rs>=0?cs[c.rs]||'':'',winner:c.wn>=0?cs[c.wn]||'':'',status:c.st>=0?cs[c.st]||'':'',fixtureId:fid,fixtureUpdateUrl:fixtureUpdateUrl});
+});
+
+if(!ms.length){ov.remove();alert('No match rows found.');return;}
+var captured=ms.filter(function(m){return m.fixtureId;}).length;
+setMsg('Uploading '+ms.length+' matches…');
+fetch('${origin}/api/refresh',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Password':'${password}'},body:JSON.stringify({matches:ms,source:'cricclubs'})})
+.then(function(r){return r.json();})
+.then(function(d){
+  ov.remove();
+  if(d.error)alert('Error: '+d.error);
+  else alert('Done! '+d.message+'\\n\\nFixture IDs captured: '+captured+'/'+ms.length+(captured===0?'\\n\\n⚠ Zero IDs found — try the debug tool on the fixtures page.':captured<ms.length?'\\n⚠ Partial capture ('+captured+'/'+ms.length+') — run debug tool to investigate':'\\n✓ All fixture IDs captured'));
+})
+.catch(function(e){ov.remove();alert('Failed: '+e.message);});
+})();`;
+
+  document.getElementById('bookmarkletLink').href = 'javascript:' + encodeURIComponent(code);
+
+  // Debug bookmarklet — shows what fixture IDs the page exposes, without syncing
+  const debugCode = `(function(){
+var lines=[];
+
+// Method 1: hidden inputs named upcoming_selected (most reliable)
+var upInputs=Array.from(document.querySelectorAll('input[name="upcoming_selected"]'));
+lines.push('=== input[name=upcoming_selected]: '+upInputs.length+' found ===');
+upInputs.slice(0,5).forEach(function(el){lines.push('  value='+el.value);});
+
+// Method 2: div IDs like deleteRow1963
+var delDivs=Array.from(document.querySelectorAll('[id^="deleteRow"]'));
+lines.push('\\n=== div[id^=deleteRow]: '+delDivs.length+' found ===');
+delDivs.slice(0,5).forEach(function(el){lines.push('  id='+el.id);});
+
+// Method 3: links with fixtureId in href
+var fidLinks=Array.from(document.querySelectorAll('a[href*="fixtureId="]'));
+lines.push('\\n=== a[href*=fixtureId]: '+fidLinks.length+' found ===');
+fidLinks.slice(0,5).forEach(function(a){var m=(a.href||'').match(/fixtureId=(\\d+)/);lines.push('  fixtureId='+( m?m[1]:'?')+' text="'+a.textContent.trim().substring(0,25)+'"');});
+
+// Table check
+var t=document.getElementById('attTable');
+lines.push('\\n=== #attTable rows: '+(t?t.querySelectorAll('tbody tr').length+' data rows':'NOT FOUND')+' ===');
+
+// Summary
+var best=upInputs.length||delDivs.length||fidLinks.length;
+lines.push('\\n=== RESULT ===');
+lines.push(best?'✓ Found '+best+' fixture IDs — re-drag and re-run the Sync bookmarklet':'✗ No fixture IDs found on this page');
+
+alert(lines.join('\\n'));
+})();`;
+  document.getElementById('debugBookmarkletLink').href = 'javascript:' + encodeURIComponent(debugCode);
+}
+
+// ── Auto-fill bookmarklet builder ─────────────────────────────
+function buildAutoFillBookmarklet() {
+  const origin = window.location.origin;
+
+  // This bookmarklet runs ON the CricClubs update fixture page.
+  // It fetches our schedule, finds the match by fixtureId, and fills the form.
+  const code = `(function(){
+var fid=(window.location.href.match(/[?&]fixtureId=(\\d+)/)||[])[1];
+if(!fid){alert('Run this on a CricClubs Update Fixture page.\\nURL must contain: updateFixture.do?fixtureId=...');return;}
+var overlay=document.createElement('div');
+overlay.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;font-family:sans-serif';
+overlay.innerHTML='<div style="background:#fff;border-radius:10px;padding:24px;min-width:300px;text-align:center;font-size:14px;color:#333">SYCL Auto-fill<br><span style="font-size:12px;color:#666">Loading match data…</span></div>';
+document.body.appendChild(overlay);
+fetch('${origin}/api/schedule?_t='+Date.now())
+.then(function(r){return r.json();})
+.then(function(data){
+  overlay.remove();
+  console.log('[SYCL] API updatedAt:',data.updatedAt,'| total matches:',(data.matches&&data.matches.length));
+  // Coerce both to string — fixtureId in JSON might be stored as number
+  var match=data.matches&&data.matches.find(function(m){return String(m.fixtureId)===String(fid);});
+  if(!match){
+    var sample=(data.matches||[]).filter(function(m){return m.fixtureId;}).slice(0,5).map(function(m){return m.fixtureId;});
+    alert('Match fixtureId='+fid+' not found in SYCL data.\\nSample IDs in data: '+sample.join(', ')+'\\n\\nTip: Re-sync from CricClubs so fixture IDs are captured, then make your edits.');
+    return;
+  }
+  console.log('[SYCL] Match found:',JSON.stringify({id:match.id,fixtureId:match.fixtureId,date:match.date,time:match.time,ground:match.ground,umpire1:match.umpire1,umpire2:match.umpire2}));
+
+  // Find input/select by label text in the same table row
+  function findByLabel(texts){
+    var all=Array.from(document.querySelectorAll('td,label,th'));
+    for(var i=0;i<all.length;i++){
+      var t=all[i].textContent.trim().toLowerCase();
+      for(var j=0;j<texts.length;j++){
+        if(t===texts[j]||t.startsWith(texts[j])){
+          var row=all[i].closest('tr');
+          if(row){
+            var tds=row.querySelectorAll('td');
+            for(var k=0;k<tds.length;k++){
+              if(tds[k].contains(all[i])||tds[k]===all[i]){
+                for(var l=k+1;l<tds.length;l++){
+                  var inp=tds[l].querySelector('input:not([type=hidden]):not([type=radio]):not([type=checkbox]):not([type=submit]),select');
+                  if(inp)return inp;
+                }
+              }
+            }
+          }
+          // Also try next sibling element
+          var sib=all[i].nextElementSibling;
+          while(sib){
+            var inp2=sib.tagName==='INPUT'||sib.tagName==='SELECT'?sib:sib.querySelector('input:not([type=hidden]),select');
+            if(inp2)return inp2;
+            sib=sib.nextElementSibling;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  // Fallback: find by common field name attributes
+  function findByName(names){
+    for(var i=0;i<names.length;i++){
+      var el=document.querySelector('input[name="'+names[i]+'"],select[name="'+names[i]+'"]');
+      if(el&&el.type!=='hidden')return el;
+    }
+    return null;
+  }
+
+  // React/framework-compatible fill; returns true only if DOM value matches after set
+  function fill(el,val){
+    if(!el||val==null||val==='')return false;
+    var before=el.value;
+    if(el.tagName==='SELECT'){
+      var v=val.toLowerCase().trim();
+      var opt=Array.from(el.options).find(function(o){return o.text.toLowerCase().trim()===v;})
+             ||Array.from(el.options).find(function(o){return o.text.toLowerCase().indexOf(v)>-1;})
+             ||Array.from(el.options).find(function(o){return o.value.toLowerCase()===v;});
+      if(!opt){console.warn('[SYCL] No SELECT option matching "'+val+'" in',el.name||el.id,'options:',[...el.options].map(function(o){return o.text;}).join('|'));return false;}
+      el.value=opt.value;
+      el.dispatchEvent(new Event('change',{bubbles:true}));
+      // Return early for SELECTs — el.value holds the numeric ID, not the text we passed in
+      console.log('[SYCL] fill SELECT '+(el.name||el.id)+'['+el.type+']: "'+before+'" -> matched "'+val+'" -> opt.value:'+opt.value+' -> DOM now "'+el.value+'"');
+      return el.value===opt.value;
+    } else {
+      try{var ns=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');if(ns)ns.set.call(el,val);}catch(e){el.value=val;}
+      el.dispatchEvent(new Event('input',{bubbles:true}));
+      el.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+    console.log('[SYCL] fill '+(el.name||el.id||el.tagName)+'['+el.type+']: "'+before+'" -> set "'+val+'" -> DOM now "'+el.value+'"');
+    return el.value===val||el.value!==before;
+  }
+
+  var results=[];
+  var fields=[
+    {label:['match date'],names:['matchDate','fixture_date','match_date','fixtureDate'],val:match.date,name:'Date'},
+    {label:['time:','time'],names:['matchTime','fixture_time','match_time','startTime','fixtureTime'],val:match.time,name:'Time'},
+    {label:['ground:','ground','venue'],names:['ground','venue','matchVenue','fixture_ground'],val:match.ground,name:'Ground'},
+  ];
+  fields.forEach(function(f){
+    var el=findByLabel(f.label)||findByName(f.names);
+    if(!el) console.warn('[SYCL]',f.name,'field not found by label',f.label,'or name',f.names);
+    var ok=fill(el,f.val);
+    var domVal=el?el.value:'';
+    // For text inputs: verify DOM matches; for SELECTs: trust fill() return (el.value is numeric ID not text)
+    var isSelect=el&&el.tagName==='SELECT';
+    var verified=ok&&(isSelect||domVal===f.val);
+    results.push({name:f.name,val:f.val||'—',domVal:domVal,ok:ok,verified:verified,elDesc:el?(el.tagName+'['+(el.name||el.id||'?')+']'):'(not found)'});
+  });
+
+  var panel=document.createElement('div');
+  panel.style.cssText='position:fixed;top:16px;right:16px;z-index:2147483647;background:#fff;border:2px solid #16a34a;border-radius:10px;padding:18px;min-width:320px;font-family:sans-serif;font-size:13px;box-shadow:0 8px 32px rgba(0,0,0,0.18)';
+  var rows=results.map(function(r){
+    var color=r.verified?'#16a34a':r.ok?'#d97706':'#dc2626';
+    var icon=r.verified?'✓':r.ok?'~':'⚠';
+    // If ok but not verified, show what DOM actually has
+    var extra=r.verified?'':r.ok?' <span style="font-size:10px;color:#d97706">(DOM: '+r.domVal+')</span>':' <span style="font-size:10px;color:#dc2626">'+r.elDesc+'</span>';
+    return '<div style="display:flex;gap:8px;align-items:center;padding:3px 0">'
+      +'<span style="color:'+color+'">'+icon+'</span>'
+      +'<span style="color:#52525b;min-width:52px">'+r.name+':</span>'
+      +'<span style="color:#09090b;font-weight:500">'+r.val+'</span>'
+      +extra
+      +'</div>';
+  }).join('');
+  panel.innerHTML='<div style="font-weight:700;font-size:14px;margin-bottom:2px;color:#09090b">SYCL Auto-fill - Match #'+match.id+'</div>'
+    +'<div style="font-size:11px;color:#71717a;margin-bottom:2px">'+match.team1+' v '+match.team2+'</div>'
+    +'<div style="font-size:10px;color:#a1a1aa;margin-bottom:10px">Data saved: '+data.updatedAt+'</div>'
+    +rows
+    +'<div style="margin-top:12px;padding-top:10px;border-top:1px solid #e4e4e7">'
+    +'<div style="font-size:11px;font-weight:600;color:#52525b;margin-bottom:4px">SET MANUALLY:</div>'
+    +'<div style="font-size:12px;color:#09090b">Umpire 1: <b>'+(match.umpire1||'—')+'</b></div>'
+    +'<div style="font-size:12px;color:#09090b">Umpire 2: <b>'+(match.umpire2||'—')+'</b></div>'
+    +'</div>'
+    +'<div style="margin-top:8px;font-size:10px;color:#a1a1aa">Open browser console (F12) for detailed debug info</div>'
+    +'<button onclick="this.parentNode.remove()" style="margin-top:8px;width:100%;padding:7px;background:#09090b;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600">Close</button>';
+  document.body.appendChild(panel);
+})
+.catch(function(e){overlay.remove();alert('Failed to load SYCL data: '+e.message);});
+})();`;
+
+  document.getElementById('autofillBookmarkletLink').href = 'javascript:' + encodeURIComponent(code);
+}
+
+// ── Sync All bookmarklet ──────────────────────────────────────
+function buildSyncAllBookmarklet() {
+  const origin = window.location.origin;
+  const password = getPassword();
+
+  const code = `(function(){
+if(!window.location.href.includes('listMatches.do')){
+  alert('Run this from the CricClubs Match Results page\\n(Results → Match Results)');return;
+}
+
+// ── Parse schedule from fixtures page document ───────────────
+function parseScheduleFromDoc(doc){
+  var t=doc.getElementById('attTable');if(!t)return null;
+  var fixtureIds=[];var seen={};
+  Array.from(doc.querySelectorAll('div[id^="deleteRow"]')).forEach(function(el){
+    var m=el.id.match(/deleteRow(\\d+)/);if(m&&!seen[m[1]]){seen[m[1]]=true;fixtureIds.push(m[1]);}
+  });
+  var ths=t.querySelectorAll('thead th');
+  if(!ths.length)ths=t.querySelectorAll('tr:first-child td,tr:first-child th');
+  var h=Array.from(ths).map(function(c){return c.textContent.trim().toLowerCase().replace(/[*()\\/\\\\0-9.]/g,'').trim();});
+  function fc(al){for(var i=0;i<h.length;i++)for(var j=0;j<al.length;j++)if(h[i]===al[j]||h[i].indexOf(al[j])>-1)return i;return -1;}
+  var c={id:fc(['#','no','number']),dv:fc(['division']),mt:fc(['match type','matchtype','type']),dt:fc(['date']),tm:fc(['time']),t1:fc(['team one','team 1','team1','teamone']),t2:fc(['team two','team 2','team2','teamtwo']),gr:fc(['ground','venue']),u1:fc(['umpire one','umpire 1','umpire1']),u2:fc(['umpire two','umpire 2','umpire2']),rs:fc(['result','match result']),wn:fc(['winner']),st:fc(['status'])};
+  if(c.dv<0||c.t1<0||c.t2<0)return null;
+  var ms=[];
+  Array.from(t.querySelectorAll('tbody tr')).forEach(function(r){
+    var cs=Array.from(r.querySelectorAll('td')).map(function(x){return x.textContent.trim();});
+    if(!cs.length)return;
+    var dv=c.dv>=0?cs[c.dv]||'':'',a=c.t1>=0?cs[c.t1]||'':'',b=c.t2>=0?cs[c.t2]||'':'';
+    if(!dv||!a||!b)return;
+    var fid=fixtureIds[ms.length]||'';
+    ms.push({id:c.id>=0?cs[c.id]||'':'',division:dv,matchType:c.mt>=0?cs[c.mt]||'':'',date:c.dt>=0?cs[c.dt]||'':'',time:c.tm>=0?cs[c.tm]||'':'',team1:a,team2:b,ground:c.gr>=0?cs[c.gr]||'':'',umpire1:c.u1>=0?cs[c.u1]||'':'',umpire2:c.u2>=0?cs[c.u2]||'':'',result:c.rs>=0?cs[c.rs]||'':'',winner:c.wn>=0?cs[c.wn]||'':'',status:c.st>=0?cs[c.st]||'':'',fixtureId:fid,fixtureUpdateUrl:fid?'https://cricclubs.com/SYCLYouth/updateFixture.do?fixtureId='+fid+'&clubId=10669':''});
+  });
+  return ms.length?ms:null;
+}
+
+// ── Parse match results from current page ────────────────────
+function parseResults(){
+  var out=[];
+  document.querySelectorAll('.row.team-data[id^="deleteRow"]').forEach(function(row){
+    var matchId=row.id.replace('deleteRow','');
+    var timeEl=row.querySelector('.sch-time');
+    var day=timeEl?timeEl.querySelector('h2'):null;
+    var h5s=timeEl?timeEl.querySelectorAll('h5'):[];
+    var monthYear=h5s.length?h5s[h5s.length-1]:null;
+    var dateStr=[(day?day.textContent.trim():''),(monthYear?monthYear.textContent.trim():'')].filter(Boolean).join(' ');
+    var textEl=row.querySelector('.schedule-text');
+    var h4s=textEl?textEl.querySelectorAll('h4'):[];
+    var h3=textEl?textEl.querySelector('h3'):null;
+    var divisionFull=h4s[0]?h4s[0].textContent.trim():'';
+    var divParts=divisionFull.split(' - ');
+    var division=divParts.length>1?divParts[divParts.length-1].trim():divisionFull;
+    var teamsText=h3?h3.textContent.trim():'';
+    var teamParts=teamsText.split(/\\s+v\\s+/);
+    var team1=teamParts[0]?teamParts[0].trim():'';
+    var team2=teamParts[1]?teamParts[1].trim():'';
+    var result=h4s[1]?h4s[1].textContent.trim():'';
+    var logoEl=row.querySelector('.schedule-logo');
+    var scoreLis=logoEl?logoEl.querySelectorAll('.list-inline li'):[];
+    var scores=[];
+    scoreLis.forEach(function(li){
+      var sp=li.querySelector('span');var p=li.querySelector('p');
+      if(sp)scores.push({score:sp.textContent.trim(),overs:p?p.textContent.trim():'',won:li.classList.contains('win')});
+    });
+    var scA=row.querySelector('a[href*="viewScorecard"]');
+    if(team1&&team2&&result){
+      out.push({matchId:matchId,date:dateStr,division:division,team1:team1,team2:team2,result:result,team1Score:scores[0]||null,team2Score:scores[1]||null,scorecard:scA?scA.href:''});
+    }
+  });
+  return out;
+}
+
+// ── Find per-division league IDs from the Divisions dropdown ─
+// Targets only the dropdown that contains "All Divisions" to avoid
+// picking up season/league selectors which have many historical entries.
+function getDivisionOptions(){
+  var options=[];var seen={};
+  var divMenu=null;
+  Array.from(document.querySelectorAll('.dropdown-menu')).forEach(function(menu){
+    if(divMenu)return;
+    Array.from(menu.querySelectorAll('a')).forEach(function(a){
+      if(/^all divisions$/i.test(a.textContent.trim()))divMenu=menu;
+    });
+  });
+  var links=divMenu
+    ?Array.from(divMenu.querySelectorAll('a[href*="league="]'))
+    :Array.from(document.querySelectorAll('.dropdown-menu a[href*="league="]'));
+  links.forEach(function(a){
+    var m=a.href.match(/league=(\\d+)/);if(!m)return;
+    var lid=m[1];
+    var name=a.textContent.trim();
+    if(!name||/^all\\s/i.test(name)||name.toLowerCase()==='all divisions')return;
+    if(!a.href.includes('SYCLYouth'))return;
+    if(seen[lid])return;seen[lid]=true;
+    options.push({name:name,leagueId:lid});
+  });
+  return options;
+}
+
+// ── Table parsers ─────────────────────────────────────────────
+function parseStandings(doc){
+  var tbl=doc.getElementById('point-table');
+  if(!tbl){Array.from(doc.querySelectorAll('table')).some(function(t){var h=(t.querySelector('thead tr')||{}).textContent||'';if(h.toLowerCase().includes('mat')&&h.toLowerCase().includes('pts')){tbl=t;return true;}});}
+  if(!tbl)return null;
+  var hRow=tbl.querySelector('thead tr');if(!hRow)return null;
+  var colIdx={};var colMap={rank:'#',team:'team',played:'mat',won:'won',lost:'lost',nr:'n/r',tie:'tie',pts:'pts',winPct:'win',nrr:'net rr',runsFor:'for',runsAgainst:'against'};
+  Array.from(hRow.querySelectorAll('th,td')).forEach(function(th,i){var t=th.textContent.trim().toLowerCase();Object.keys(colMap).forEach(function(k){if(t===colMap[k]||t.startsWith(colMap[k]))colIdx[k]=i;});});
+  var rows=[];
+  Array.from(tbl.querySelectorAll('tbody tr')).forEach(function(tr){
+    if(tr.style.display==='none'||/^matchesBySeries/.test(tr.id))return;
+    var cells=Array.from(tr.querySelectorAll('th,td'));if(cells.length<4)return;
+    function get(k){var i=colIdx[k];return(i!=null&&i<cells.length)?cells[i].textContent.replace(/\\s+/g,' ').trim():'';}
+    var team=get('team');if(!team||team==='-'||get('played')==='-')return;
+    rows.push({rank:parseInt(get('rank'))||0,team:team,played:parseInt(get('played'))||0,won:parseInt(get('won'))||0,lost:parseInt(get('lost'))||0,nr:parseInt(get('nr'))||0,tie:parseInt(get('tie'))||0,pts:parseInt(get('pts'))||0,winPct:get('winPct'),nrr:get('nrr'),runsFor:get('runsFor'),runsAgainst:get('runsAgainst')});
+  });
+  return rows.length?rows:null;
+}
+
+function parseBatting(doc){
+  var tbl=doc.getElementById('webrecordtable');if(!tbl)return null;
+  var rows=[];
+  Array.from(tbl.querySelectorAll('tbody tr')).forEach(function(tr){
+    var cells=Array.from(tr.querySelectorAll('td'));if(cells.length<8)return;
+    function g(i){return cells[i]?cells[i].textContent.replace(/\\s+/g,' ').trim():'';}
+    var player=g(1);if(!player)return;
+    rows.push({rank:parseInt(g(0))||0,player:player,team:g(2),mat:parseInt(g(3))||0,inns:parseInt(g(4))||0,no:parseInt(g(5))||0,runs:parseInt(g(6))||0,fours:parseInt(g(7))||0,sixes:parseInt(g(8))||0,fifties:parseInt(g(9))||0,hundreds:parseInt(g(10))||0,hs:g(11),sr:g(12),avg:g(13)});
+  });
+  return rows.length?rows:null;
+}
+
+function parseBowling(doc){
+  var tbl=doc.getElementById('webrecordtable');if(!tbl)return null;
+  var rows=[];
+  Array.from(tbl.querySelectorAll('tbody tr')).forEach(function(tr){
+    var cells=Array.from(tr.querySelectorAll('td'));if(cells.length<8)return;
+    function g(i){return cells[i]?cells[i].textContent.replace(/\\s+/g,' ').trim():'';}
+    var player=g(1);if(!player)return;
+    rows.push({rank:parseInt(g(0))||0,player:player,team:g(2),mat:parseInt(g(3))||0,inns:parseInt(g(4))||0,overs:g(5),runs:parseInt(g(6))||0,wickets:parseInt(g(7))||0,bbf:g(8),maidens:parseInt(g(9))||0,dots:parseInt(g(10))||0,econ:g(11),avg:g(12),sr:g(13),hatTrick:parseInt(g(14))||0,fourW:parseInt(g(15))||0,fiveW:parseInt(g(16))||0,wides:parseInt(g(17))||0,noballs:parseInt(g(18))||0});
+  });
+  return rows.length?rows:null;
+}
+
+function parseRankings(doc){
+  var tbl=doc.getElementById('tablePlayerRankings');if(!tbl)return null;
+  var rows=[];
+  Array.from(tbl.querySelectorAll('tbody tr')).forEach(function(tr){
+    var cells=Array.from(tr.querySelectorAll('th,td'));if(cells.length<8)return;
+    function g(i){return cells[i]?cells[i].textContent.replace(/\\s+/g,' ').trim():'';}
+    var player=g(1);if(!player)return;
+    var teamTds=cells[2]?cells[2].querySelectorAll('td'):[];
+    var team=teamTds.length>1?teamTds[teamTds.length-1].textContent.replace(/\\s+/g,' ').trim():g(2);
+    rows.push({rank:parseInt(g(0))||0,player:player,team:team,matches:parseInt(g(3))||0,batting:parseInt(g(4))||0,bowling:parseInt(g(5))||0,fielding:parseInt(g(6))||0,other:parseInt(g(7))||0,mom:parseInt(g(8))||0,total:parseInt(g(9))||0});
+  });
+  return rows.length?rows:null;
+}
+
+// ── Parse player innings from a CricClubs scorecard page ─────
+// CricClubs structure (verified from real page source):
+//   - Innings tabs (#ballByBallTeam1, #ballByBallTeam2) each contain:
+//     1. Batting table: thead row with [Player+OutMethod combined], R, B, 4s, 6s, SR
+//        Body rows use <th> (not <td>!) with 7 cells:
+//          [Player(img+a+name), OutMethod, R, B, 4s, 6s, SR]
+//     2. "Did not bat" sub-table (separate, ignored)
+//     3. Bowling table: thead row with [Bowling], O, M, Dot, R, W, Econ, ""
+//        Body rows use <th> with 9 cells:
+//          [Image, Player, O, M, Dot, R, W, Econ, ExtrasSummary]
+//
+// Team name comes from the BATTING table's own header text, e.g.
+//   "MLCA Tornadoes innings (30 overs maximum)" -> "MLCA Tornadoes"
+// Bowling team = opponent of the most recently seen batting team.
+function parseScorecard(doc, matchMeta){
+  var innings=[];
+  var tables=Array.from(doc.querySelectorAll('table'));
+  var lastBattingTeam=''; // opposing team's bowlers come right after each innings' batting table
+
+  tables.forEach(function(tbl){
+    var hdrCells=Array.from(tbl.querySelectorAll('thead th, thead td'));
+    if(!hdrCells.length) hdrCells=Array.from(tbl.querySelectorAll('tr:first-child > th, tr:first-child > td'));
+    if(hdrCells.length<4) return;
+
+    var hdrTexts=hdrCells.map(function(c){return (c.textContent||'').trim().toLowerCase();});
+
+    // Detect table type by exact header tokens (CricClubs is consistent here).
+    var hasR=hdrTexts.some(function(t){return t==='r';});
+    var hasB=hdrTexts.some(function(t){return t==='b';});
+    var has4s=hdrTexts.some(function(t){return t==='4s';});
+    var hasO=hdrTexts.some(function(t){return t==='o';});
+    var hasW=hdrTexts.some(function(t){return t==='w';});
+    var hasDot=hdrTexts.some(function(t){return t==='dot';});
+    var hasEcon=hdrTexts.some(function(t){return t==='econ';});
+
+    var isBat=hasR && hasB && has4s;
+    var isBowl=hasO && hasW && (hasDot||hasEcon);
+    if(!isBat && !isBowl) return;
+
+    // For batting: extract team name from the first header cell that mentions "innings".
+    // For bowling: team is the OPPOSITE of the most recent batting team in iteration.
+    var team='';
+    if(isBat){
+      for(var i=0;i<hdrCells.length;i++){
+        var t=(hdrCells[i].textContent||'').trim();
+        if(/innings/i.test(t) && t.length<300){
+          team=t.replace(/innings[\\s\\S]*$/i,'').trim();
+          break;
+        }
+      }
+      if(!team){
+        // Fallback: alternate batting teams across the doc
+        team=lastBattingTeam && lastBattingTeam.toLowerCase()===matchMeta.team1.toLowerCase()
+          ? matchMeta.team2 : matchMeta.team1;
+      }
+      lastBattingTeam=team;
+    } else {
+      team=lastBattingTeam && lastBattingTeam.toLowerCase()===matchMeta.team1.toLowerCase()
+        ? matchMeta.team2 : (lastBattingTeam ? matchMeta.team1 : matchMeta.team2);
+    }
+    var opponent=team.toLowerCase()===(matchMeta.team1||'').toLowerCase()?matchMeta.team2:matchMeta.team1;
+
+    var rows=Array.from(tbl.querySelectorAll('tbody tr'));
+    if(!rows.length) rows=Array.from(tbl.querySelectorAll('tr')).slice(1);
+
+    rows.forEach(function(row){
+      // CRITICAL: CricClubs uses <th> for body cells, not <td>. Match both.
+      var cells=Array.from(row.querySelectorAll('th, td'));
+      if(cells.length<4) return;
+
+      // Skip rows whose first cell spans multiple cols (Did-not-bat / Extras / Total summary rows).
+      var firstColSpan=parseInt(cells[0].getAttribute('colspan')||'1',10);
+      if(firstColSpan>1) return;
+
+      // Player cell: col 0 for batting, col 1 for bowling (col 0 is the avatar image).
+      var playerCell=isBat?cells[0]:cells[1];
+      if(!playerCell) return;
+
+      // Extract just the player name from <a><b>Name</b></a>; fall back to first text node line.
+      var nameEl=playerCell.querySelector('a b');
+      var player=nameEl ? (nameEl.textContent||'').trim()
+        : (playerCell.textContent||'').trim().split(/[\\n\\r]/)[0].trim();
+      player=player
+        .replace(/\\s*\\(c\\)/gi,'')
+        .replace(/\\s*\\(wk\\)/gi,'')
+        .replace(/\\u2020/g,'')
+        .replace(/\\*+\\s*$/,'')
+        .replace(/\\s+/g,' ')
+        .trim();
+      if(!player) return;
+      if(/^extras\\b|^total\\b|^did not bat|^fall of|^bowling|^batting/i.test(player)) return;
+
+      var cellText=function(idx){return cells[idx]?(cells[idx].textContent||'').trim():'';};
+
+      if(isBat){
+        var runs=parseInt(cellText(2))||0;
+        var balls=parseInt(cellText(3))||0;
+        var fours=parseInt(cellText(4))||0;
+        var sixes=parseInt(cellText(5))||0;
+        var sr=parseFloat(cellText(6))||0;
+        // OutMethod cell (col 1) — strip whitespace runs from the embedded links.
+        var outText=(cells[1]?(cells[1].textContent||''):'').replace(/\\s+/g,' ').trim();
+        var notOut=/not out|retired/i.test(outText);
+        // Be liberal: count as "did bat" if any score, ball faced, or recognizable dismissal.
+        var didBat=balls>0||runs>0||/not out|^c\\b|\\bb\\b|\\bst\\b|run out|lbw|c&b/i.test(outText);
+        if(!didBat) return;
+
+        innings.push({
+          matchId:matchMeta.matchId, date:matchMeta.date, division:matchMeta.division,
+          team:team, opponent:opponent, player:player, role:'bat',
+          runs:runs, balls:balls, fours:fours, sixes:sixes, sr:sr,
+          notOut:notOut, dismissal:outText, result:matchMeta.result
+        });
+      } else if(isBowl){
+        var overs=cellText(2);
+        var maidens=parseInt(cellText(3))||0;
+        // cells[4] is "Dot" balls — capture but not critical
+        var dots=parseInt(cellText(4))||0;
+        var bRuns=parseInt(cellText(5))||0;
+        var wkts=parseInt(cellText(6))||0;
+        var econ=parseFloat(cellText(7))||0;
+        if(!overs||overs==='0'||overs==='0.0') return;
+
+        innings.push({
+          matchId:matchMeta.matchId, date:matchMeta.date, division:matchMeta.division,
+          team:team, opponent:opponent, player:player, role:'bowl',
+          overs:overs, maidens:maidens, dots:dots, runs:bRuns, wickets:wkts, econ:econ,
+          result:matchMeta.result
+        });
+      }
+    });
+  });
+  return innings;
+}
+
+// Fetch scorecards with capped concurrency (browser limits ~6 per origin)
+function fetchScorecardsThrottled(matches, concurrency, onProgress){
+  return new Promise(function(resolve){
+    if(!matches.length){resolve([]);return;}
+    var all=[], i=0, inFlight=0, done=0, total=matches.length;
+    function next(){
+      while(inFlight<concurrency && i<total){
+        var m=matches[i++]; inFlight++;
+        fetch(m.scorecard,{credentials:'include'})
+          .then(function(r){return r.text();})
+          .then(function(h){return parseScorecard(new DOMParser().parseFromString(h,'text/html'),m);})
+          .catch(function(){return [];})
+          .then(function(inn){
+            all=all.concat(inn);
+            inFlight--; done++;
+            if(onProgress) onProgress(done,total);
+            if(done===total) resolve(all);
+            else next();
+          });
+      }
+    }
+    next();
+  });
+}
+
+// ── Main ──────────────────────────────────────────────────────
+var results=parseResults();
+var divOptions=getDivisionOptions();
+
+if(!results.length&&!divOptions.length){
+  alert('No match results or division links found.\\nMake sure you are on the CricClubs Match Results page (listMatches.do).');return;
+}
+
+var ov=document.createElement('div');
+ov.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;font-family:sans-serif';
+ov.innerHTML='<div style="background:#fff;border-radius:10px;padding:24px 32px;min-width:320px;text-align:center;font-size:14px;color:#09090b">SYCL Sync All<br><span id="_syclMsg" style="font-size:12px;color:#71717a">Fetching schedule + '+divOptions.length+' divisions × 4 data types…</span></div>';
+document.body.appendChild(ov);
+function setMsg(m){var el=document.getElementById('_syclMsg');if(el)el.textContent=m;}
+
+var base='https://cricclubs.com/SYCLYouth/';
+// Fetch fixtures page for schedule (in parallel with everything else)
+var scheduleFetch=fetch(base+'fixtures.do?clubId=10669',{credentials:'include'}).then(function(r){return r.text();}).then(function(h){return parseScheduleFromDoc(new DOMParser().parseFromString(h,'text/html'));}).catch(function(){return null;});
+
+var fetchAll=[scheduleFetch];
+divOptions.forEach(function(opt){
+  fetchAll.push(
+    fetch(base+'viewPointsTable.do?league='+opt.leagueId+'&clubId=10669',{credentials:'include'}).then(function(r){return r.text();}).then(function(h){return{type:'standings',name:opt.name,rows:parseStandings(new DOMParser().parseFromString(h,'text/html'))};}).catch(function(){return null;}),
+    fetch(base+'battingRecords.do?league='+opt.leagueId+'&clubId=10669',{credentials:'include'}).then(function(r){return r.text();}).then(function(h){return{type:'batting',name:opt.name,rows:parseBatting(new DOMParser().parseFromString(h,'text/html'))};}).catch(function(){return null;}),
+    fetch(base+'bowlingRecords.do?league='+opt.leagueId+'&clubId=10669',{credentials:'include'}).then(function(r){return r.text();}).then(function(h){return{type:'bowling',name:opt.name,rows:parseBowling(new DOMParser().parseFromString(h,'text/html'))};}).catch(function(){return null;}),
+    fetch(base+'playerRankings.do?league='+opt.leagueId+'&year=null&tagId=null&clubId=10669',{credentials:'include'}).then(function(r){return r.text();}).then(function(h){return{type:'rankings',name:opt.name,rows:parseRankings(new DOMParser().parseFromString(h,'text/html'))};}).catch(function(){return null;})
+  );
+});
+
+Promise.all(fetchAll).then(function(fetched){
+  ov.remove();
+  var scheduleMatches=fetched[0]; // from fixtures.do
+  var statResults=fetched.slice(1);
+  var standings={},batting={},bowling={},rankings={};
+  statResults.filter(Boolean).forEach(function(r){
+    if(!r.rows)return;
+    if(r.type==='standings')standings[r.name]=r.rows;
+    else if(r.type==='batting')batting[r.name]=r.rows;
+    else if(r.type==='bowling')bowling[r.name]=r.rows;
+    else if(r.type==='rankings')rankings[r.name]=r.rows;
+  });
+  var sd=Object.keys(standings).length,bd=Object.keys(batting).length,bw=Object.keys(bowling).length,rk=Object.keys(rankings).length;
+  var summary=(scheduleMatches?'Schedule: '+scheduleMatches.length+' fixtures\\n':'Schedule: not found\\n')+'Results: '+results.length+' match results\\nStandings: '+sd+' divisions\\nBatting: '+bd+' divisions\\nBowling: '+bw+' divisions\\nRankings: '+rk+' divisions';
+  if(!confirm('Sync all data to SYCL dashboard?\\n\\n'+summary)){return;}
+  document.body.appendChild(ov);setMsg('Saving to dashboard…');
+  var payload={};
+  if(scheduleMatches&&scheduleMatches.length)payload.matches=scheduleMatches;
+  if(results.length)payload.results=results;
+  if(sd)payload.standings=standings;
+  if(bd)payload.batting=batting;
+  if(bw)payload.bowling=bowling;
+  if(rk)payload.rankings=rankings;
+
+  // Auto-generate slug from CricClubs path + match dates
+  var cricclubsPath=window.location.pathname.split('/').filter(Boolean)[0]||'SYCL';
+  var stopWords=/Youth|Cricket|League|Club|Official|Association|Community|Junior/gi;
+  var leagueId=cricclubsPath.replace(stopWords,'').trim().toUpperCase()||cricclubsPath.toUpperCase();
+  var allDates=(results.length?results:[]).map(function(r){return new Date(r.date);}).filter(function(d){return!isNaN(d);});
+  var year=allDates.length?Math.max.apply(null,allDates.map(function(d){return d.getFullYear();})):new Date().getFullYear();
+  var avgMonth=allDates.length?allDates.reduce(function(a,b){return a+b.getMonth();},0)/allDates.length:6;
+  var season=avgMonth<6?'Spring':'Fall';
+  payload.league=leagueId+'-'+season+'-'+year;
+  payload.leagueName=leagueId;
+  payload.season=season+' '+year;
+
+  // ── DELTA SYNC: fetch only scorecards we don't have yet ──
+  // 1) Ask backend which matchIds we already have innings for.
+  // 2) Find matches with a scorecard URL that aren't synced yet.
+  // 3) Fetch and parse only those (typically 0-10 per sync after first).
+  setMsg('Checking for new scorecards…');
+  return fetch('${origin}/api/synced-matches?league='+encodeURIComponent(payload.league),{credentials:'omit'})
+    .then(function(r){return r.ok?r.json():{matchIds:[]};})
+    .catch(function(){return {matchIds:[]};})
+    .then(function(syncedData){
+      var syncedSet={};
+      (syncedData.matchIds||[]).forEach(function(id){syncedSet[String(id)]=true;});
+      var newMatches=results.filter(function(m){
+        return m.scorecard && m.matchId && !syncedSet[String(m.matchId)];
+      });
+      var alreadyHave=results.length-newMatches.length;
+      setMsg('Found '+newMatches.length+' new match'+(newMatches.length===1?'':'es')+' to scrape (already have '+alreadyHave+')');
+      if(newMatches.length===0) return [];
+      return fetchScorecardsThrottled(newMatches,6,function(done,total){
+        setMsg('Scraping scorecards… '+done+'/'+total);
+      });
+    })
+    .then(function(playerInnings){
+      if(playerInnings && playerInnings.length) payload.playerInnings=playerInnings;
+      setMsg('Saving '+(playerInnings?playerInnings.length:0)+' new innings to dashboard…');
+      return fetch('${origin}/api/sync-all',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Password':'${password}'},body:JSON.stringify(payload)}).then(function(r){return r.json();});
+    });
+}).then(function(resp){
+  ov.remove();
+  if(!resp)return;
+  alert(resp.error?('Error: '+resp.error):resp.message);
+}).catch(function(e){ov.remove();alert('Error: '+e.message);});
+})();`;
+
+  document.getElementById('syncAllBookmarkletLink').href = 'javascript:' + encodeURIComponent(code);
+}
+
+// ── Propagate section ─────────────────────────────────────────
+function renderPropagateSection() {
+  const container = document.getElementById('propagateBody');
+  const countEl = document.getElementById('propagateChangedCount');
+  const badge = document.getElementById('propagateNavBadge');
+
+  // Use saved snapshot (post-save) if available and no new unsaved changes
+  const useSaved = _savedForPropagation.length > 0 && _changedIds.size === 0;
+  const changed = useSaved
+    ? _savedForPropagation
+    : _editorRows.filter(m => String(m.id).startsWith('new_') || _changedIds.has(m.id));
+  const n = changed.length;
+
+  if (badge) { badge.textContent = n; badge.style.display = n > 0 ? '' : 'none'; }
+  if (countEl) countEl.textContent = n > 0 ? `${n} fixture${n>1?'s':''} to update` : 'No changes pending';
+  const openAllBtn = document.getElementById('openAllBtn');
+  if (openAllBtn) { const hasIds = changed.some(m => !String(m.id).startsWith('new_') && m.fixtureId); openAllBtn.style.display = hasIds && n > 1 ? '' : 'none'; }
+
+  if (!n) {
+    container.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text-muted);font-size:13px">No changes pending. Make edits in the fixture editor, save them, then return here.</div>';
+    return;
+  }
+
+  const CRICCLUBS_LEAGUE = 'SYCLYouth';
+  const CRICCLUBS_CLUB = '10669';
+  const TRACKED = ['date','time','ground','umpire1','umpire2','division','team1','team2'];
+  const LABELS = {date:'Date',time:'Time',ground:'Ground',umpire1:'Umpire 1',umpire2:'Umpire 2',division:'Division',team1:'Team 1',team2:'Team 2'};
+
+  container.innerHTML = changed.map(m => {
+    const isNew = String(m.id).startsWith('new_');
+    const orig = useSaved ? (m._orig || {}) : (_originalRows[m.id] || {});
+    const diffs = isNew ? [] : TRACKED.filter(f => (m[f]||'') !== (orig[f]||''));
+    const hasId = !isNew && m.fixtureId;
+    const updateUrl = hasId
+      ? (m.fixtureUpdateUrl || `https://cricclubs.com/${CRICCLUBS_LEAGUE}/updateFixture.do?fixtureId=${m.fixtureId}&clubId=${CRICCLUBS_CLUB}`)
+      : null;
+
+    const diffRows = diffs.map(f =>
+      `<div style="display:flex;gap:8px;font-size:12px;padding:2px 0;align-items:baseline">
+        <span style="color:var(--text-muted);min-width:64px">${LABELS[f]}</span>
+        <span style="color:var(--clr-bad);text-decoration:line-through">${esc(orig[f]||'—')}</span>
+        <span style="color:var(--text-muted)">→</span>
+        <span style="color:var(--clr-ok);font-weight:500">${esc(m[f]||'—')}</span>
+      </div>`
+    ).join('');
+
+    const statusBadge = isNew
+      ? `<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--clr-ok-bg);color:var(--clr-ok)">NEW</span>`
+      : `<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--clr-warn-bg);color:var(--clr-warn)">${diffs.length} field${diffs.length>1?'s':''} changed</span>`;
+
+    const actionBtn = isNew
+      ? `<span style="font-size:12px;color:var(--text-muted)">New fixture — add manually in CricClubs or via bulk upload</span>`
+      : hasId
+        ? `<a href="${updateUrl}" target="_blank" class="btn" style="font-size:12px;text-decoration:none;white-space:nowrap">Open in CricClubs →</a>`
+        : `<span style="font-size:12px;color:var(--clr-bad)">⚠ No CricClubs ID — re-sync first</span>`;
+
+    const matchKey = isNew ? ('new_' + m.team1 + m.team2) : m.id;
+    return `<div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;gap:16px;align-items:flex-start">
+      <div style="min-width:36px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);padding-top:2px">#${isNew?'new':m.id}</div>
+      <div style="flex:1">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+          ${statusBadge}
+          <span style="font-size:13px;font-weight:600">${esc(m.team1)} v ${esc(m.team2)}</span>
+          <span style="font-size:12px;color:var(--text-muted)">${esc(m.division)} · ${esc(m.date)||'TBD'}</span>
+        </div>
+        ${isNew ? '<div style="font-size:12px;color:var(--text-muted)">All fields new</div>' : diffRows}
+      </div>
+      <div style="flex-shrink:0;display:flex;align-items:center;gap:8px">
+        ${actionBtn}
+        <button class="btn btn-ghost" style="font-size:11px;color:var(--text-muted)" title="Remove from this list" onclick="dismissPropagateItem('${matchKey}')">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function dismissPropagateItem(key) {
+  _savedForPropagation = _savedForPropagation.filter(m => {
+    const isNew = String(m.id).startsWith('new_');
+    const mk = isNew ? ('new_' + m.team1 + m.team2) : m.id;
+    return mk !== key;
+  });
+  if (!key.startsWith('new_')) _changedIds.delete(key);
+  updateChangedBadge();
+  renderPropagateSection();
+}
+
+function openAllInCricClubs() {
+  const CRICCLUBS_LEAGUE = 'SYCLYouth';
+  const CRICCLUBS_CLUB = '10669';
+  const useSaved = _savedForPropagation.length > 0 && _changedIds.size === 0;
+  const changed = useSaved
+    ? _savedForPropagation
+    : _editorRows.filter(m => String(m.id).startsWith('new_') || _changedIds.has(m.id));
+  const urls = changed
+    .filter(m => !String(m.id).startsWith('new_') && m.fixtureId)
+    .map(m => m.fixtureUpdateUrl || `https://cricclubs.com/${CRICCLUBS_LEAGUE}/updateFixture.do?fixtureId=${m.fixtureId}&clubId=${CRICCLUBS_CLUB}`);
+  if (!urls.length) { alert('No fixtures with CricClubs IDs to open. Re-sync from CricClubs first.'); return; }
+  urls.forEach(url => window.open(url, '_blank'));
+}
+
+// ── Status ────────────────────────────────────────────────────
+async function loadStatus() {
+  const row = document.getElementById('statusRow');
+  try {
+    const r = await fetch('/api/schedule');
+    if (!r.ok) throw new Error(r.status === 503 ? 'Not configured' : 'No data yet');
+    const data = await r.json();
+    const when = new Date(data.updatedAt);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const upcomingCount = data.matches.filter(m => { const d = parseEditorDate(m.date); return !d || d >= today; }).length;
+    const divs = [...new Set(data.matches.map(m => m.division))];
+    row.innerHTML = `
+      <div class="stat-cell">
+        <div class="stat-label">Last updated</div>
+        <div class="stat-value" style="font-size:14px">${when.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>
+        <div class="stat-sub">${when.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label">Total matches</div>
+        <div class="stat-value">${data.matchCount}</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label">Upcoming</div>
+        <div class="stat-value">${upcomingCount}</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label">Divisions</div>
+        <div class="stat-value">${divs.length}</div>
+        <div class="stat-sub">${divs.join(' · ')}</div>
+      </div>
+    `;
+  } catch (e) {
+    row.innerHTML = `<div class="stat-cell"><div class="stat-label">Status</div><div class="stat-value" style="font-size:13px;color:var(--text-muted)">${e.message}</div><div class="stat-sub">Use Sync or Upload to load data</div></div>`;
+  }
+}
+
+// ── Excel upload ──────────────────────────────────────────────
+async function handleUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!confirm('Uploading will replace ALL current schedule data, including any edits made in the fixture editor.\n\nContinue?')) {
+    e.target.value = ''; return;
+  }
+  showMsg('uploadMsg', 'Parsing…', 'info');
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    const matches = parseScheduleFromRaw(raw);
+    if (!matches) { showMsg('uploadMsg', 'Could not find schedule columns. Make sure this is a CricClubs export.', 'err'); return; }
+    showMsg('uploadMsg', `Found ${matches.length} matches. Uploading…`, 'info');
+    const r = await fetch('/api/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': getPassword() },
+      body: JSON.stringify({ matches, source: 'xlsx' })
+    });
+    const d = await r.json();
+    if (d.error) { showMsg('uploadMsg', 'Error: ' + d.error, 'err'); return; }
+    showMsg('uploadMsg', d.message + ' Dashboard will update within 60 seconds.', 'ok');
+    loadStatus(); loadFixtures();
+  } catch (err) {
+    showMsg('uploadMsg', 'Failed: ' + err.message, 'err');
+  }
+  e.target.value = '';
+}
+
+// ── Fixture Editor ────────────────────────────────────────────
+let _allMatches = [];
+let _editorRows = [];
+let _originalRows = {};  // keyed by match id, stores original field values
+let _changedIds = new Set();
+let _savedForPropagation = []; // snapshot of changed matches captured at save time
+let _editorSort = { col: null, dir: 'asc' };
+let _editorFilters = {}; // field -> Set of selected values (empty = all)
+let _filterField = null;
+let _filterPending = new Set();
+let _activeDivisions = new Set(); // empty = All mode
+
+function parseEditorDate(s) {
+  if (!s) return null;
+  const p = s.split('/');
+  if (p.length === 3) return new Date(parseInt(p[2]), parseInt(p[0])-1, parseInt(p[1]));
+  return new Date(s);
+}
+
+function buildDataLists() {
+  const divTeams = {};
+  const grounds = new Set();
+  _allMatches.forEach(m => {
+    if (!divTeams[m.division]) divTeams[m.division] = new Set();
+    divTeams[m.division].add(m.team1);
+    divTeams[m.division].add(m.team2);
+    if (m.ground) grounds.add(m.ground);
+  });
+
+  const container = document.getElementById('datalistContainer');
+  container.querySelectorAll('datalist').forEach(el => el.remove());
+
+  // All divisions
+  const dlDiv = document.createElement('datalist');
+  dlDiv.id = 'dl-divisions';
+  Object.keys(divTeams).sort().forEach(d => { const o = document.createElement('option'); o.value = d; dlDiv.appendChild(o); });
+  container.appendChild(dlDiv);
+
+  // Teams per division
+  Object.entries(divTeams).forEach(([div, teams]) => {
+    const dl = document.createElement('datalist');
+    dl.id = 'dl-teams-' + div.replace(/\W+/g,'_');
+    [...teams].sort().forEach(t => { const o = document.createElement('option'); o.value = t; dl.appendChild(o); });
+    container.appendChild(dl);
+  });
+
+  // Grounds
+  const dlGr = document.createElement('datalist');
+  dlGr.id = 'dl-grounds';
+  [...grounds].sort().forEach(g => { const o = document.createElement('option'); o.value = g; dlGr.appendChild(o); });
+  container.appendChild(dlGr);
+
+  // Common times
+  const dlTime = document.createElement('datalist');
+  dlTime.id = 'dl-times';
+  ['9:00 AM','10:00 AM','10:30 AM','12:00 PM','12:30 PM','1:00 PM','2:00 PM','3:00 PM','3:30 PM'].forEach(t => {
+    const o = document.createElement('option'); o.value = t; dlTime.appendChild(o);
+  });
+  container.appendChild(dlTime);
+}
+
+async function loadFixtures(fromSave = false) {
+  if (!fromSave) { _savedForPropagation = []; _editorFilters = {}; _activeDivisions = new Set(); }
+  try {
+    const r = await fetch('/api/schedule?_t=' + Date.now());
+    if (!r.ok) { renderEditorEmpty('No schedule data yet. Sync from CricClubs or upload an Excel file first.'); return; }
+    const data = await r.json();
+    _allMatches = data.matches || [];
+    _changedIds = new Set();
+
+    const today = new Date(); today.setHours(0,0,0,0);
+    _editorRows = _allMatches
+      .filter(m => { const d = parseEditorDate(m.date); return !d || d >= today; })
+      .map(m => ({...m}));
+
+    // Snapshot originals for change detection
+    _originalRows = {};
+    _editorRows.forEach(m => { _originalRows[m.id] = {...m}; });
+
+    buildDataLists();
+    populateAnalyticsSelectors();
+    renderIssues();
+    renderDivTabs();
+    renderEditorTable();
+  } catch(e) {
+    renderEditorEmpty('Failed to load: ' + e.message);
+  }
+}
+
+function renderEditorEmpty(msg) {
+  document.getElementById('editorBody').innerHTML =
+    `<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--text-muted)">${msg}</td></tr>`;
+}
+
+function esc(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function divListId(div) { return 'dl-teams-' + (div||'').replace(/\W+/g,'_'); }
+
+function markChanged(idx) {
+  const m = _editorRows[idx];
+  const isNew = String(m.id).startsWith('new_');
+  if (isNew) return;
+  const orig = _originalRows[m.id];
+  if (!orig) return;
+  const FIELDS = ['division','date','time','team1','team2','ground','umpire1','umpire2'];
+  const changed = FIELDS.some(f => (m[f]||'') !== (orig[f]||''));
+  if (changed) _changedIds.add(m.id); else _changedIds.delete(m.id);
+  updateChangedBadge();
+  // Highlight the row
+  const tr = document.querySelector(`tr[data-idx="${idx}"]`);
+  if (tr) tr.classList.toggle('changed-row', changed);
+  // Highlight specific cells
+  FIELDS.forEach((f, fi) => {
+    const td = tr?.querySelectorAll('td')[fi + 1];
+    if (td) td.classList.toggle('changed-cell', orig && (m[f]||'') !== (orig[f]||''));
+  });
+}
+
+function updateChangedBadge() {
+  const badge = document.getElementById('changedBadge');
+  const filterBtn = document.getElementById('showChangedBtn');
+  const navBadge = document.getElementById('propagateNavBadge');
+  const n = _changedIds.size;
+  const np = n === 0 ? _savedForPropagation.length : 0;
+  if (badge) badge.textContent = n > 0 ? `${n} changed` : '';
+  if (filterBtn) filterBtn.style.display = n > 0 ? '' : 'none';
+  if (navBadge) { const total = n || np; navBadge.textContent = total; navBadge.style.display = total > 0 ? '' : 'none'; }
+  renderDivTabs();
+}
+
+function renderEditorHead() {
+  const thead = document.getElementById('editorHead');
+  if (!thead) return;
+  const mkTh = (field, label, width) => {
+    const s = _editorSort.col === field;
+    const sortIcon = s ? (_editorSort.dir === 'asc' ? '↑' : '↓') : '↕';
+    const hasFilter = (_editorFilters[field]?.size || 0) > 0;
+    const w = width ? ` style="width:${width}"` : '';
+    return `<th${w}><div class="th-inner">
+      <span style="cursor:pointer;flex:1" onclick="toggleEditorSort('${field}')">${label}</span>
+      <button class="th-sort" onclick="toggleEditorSort('${field}')" title="Sort">${sortIcon}</button>
+      <button class="th-filt ${hasFilter?'on':''}" onclick="event.stopPropagation();openColFilter('${field}',this)" title="Filter">▼</button>
+    </div></th>`;
+  };
+  thead.innerHTML = `<tr>
+    <th style="width:44px">#</th>
+    ${mkTh('division','Division')}
+    ${mkTh('date','Date')}
+    ${mkTh('time','Time')}
+    ${mkTh('team1','Home Team')}
+    ${mkTh('team2','Away Team')}
+    ${mkTh('ground','Ground')}
+    ${mkTh('umpire1','Umpire 1')}
+    ${mkTh('umpire2','Umpire 2')}
+    <th style="width:32px"></th>
+  </tr>`;
+}
+
+function renderEditorTable() {
+  renderEditorHead();
+  const tbody = document.getElementById('editorBody');
+  const changedOnly = document.getElementById('showChangedBtn')?.classList.contains('active');
+  let rows = [..._editorRows];
+
+  // Apply column filters
+  Object.entries(_editorFilters).forEach(([field, vals]) => {
+    if (vals?.size > 0) rows = rows.filter(m => vals.has(m[field] || ''));
+  });
+
+  // Apply changed-only filter
+  if (changedOnly) rows = rows.filter(m => String(m.id).startsWith('new_') || _changedIds.has(m.id));
+
+  // Apply sort
+  if (_editorSort.col) {
+    const {col, dir} = _editorSort;
+    rows.sort((a, b) => {
+      const va = a[col] || '', vb = b[col] || '';
+      if (col === 'date') {
+        const da = parseEditorDate(va), db = parseEditorDate(vb);
+        if (da && db) return dir === 'asc' ? da - db : db - da;
+      }
+      return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+  }
+
+  // Update "clear filters" button visibility
+  const activeFilters = Object.values(_editorFilters).filter(s => s?.size > 0).length;
+  const clearBtn = document.getElementById('clearFiltersBtn');
+  if (clearBtn) clearBtn.style.display = activeFilters > 0 ? '' : 'none';
+
+  if (!rows.length) {
+    renderEditorEmpty(changedOnly ? 'No changes yet in this view.' : activeFilters > 0 ? 'No rows match the active filters.' : 'No upcoming fixtures.');
+    return;
+  }
+
+  tbody.innerHTML = '';
+  rows.forEach(m => {
+    const idx = _editorRows.indexOf(m);
+    const isNew = String(m.id).startsWith('new_');
+    const isChanged = !isNew && _changedIds.has(m.id);
+    const dlId = divListId(m.division);
+    const orig = _originalRows[m.id] || {};
+    const FIELDS = ['division','date','time','team1','team2','ground','umpire1','umpire2'];
+    const cellChanged = f => !isNew && orig && (m[f]||'') !== (orig[f]||'');
+
+    const tr = document.createElement('tr');
+    tr.setAttribute('data-idx', idx);
+    if (isNew) tr.className = 'new-row';
+    else if (isChanged) tr.className = 'changed-row';
+
+    const inputCell = (field, id, listId, placeholder, extraStyle) => {
+      const changed = cellChanged(field);
+      return `<td${changed?' class="changed-cell"':''}><input class="edit-input" ${id?`id="${id}"`:''}
+        value="${esc(m[field])}" list="${listId||''}"
+        oninput="_editorRows[${idx}].${field}=this.value;markChanged(${idx})"
+        placeholder="${placeholder||''}" style="${extraStyle||''}min-width:${
+          field==='division'?80:field==='date'?96:field==='time'?80:
+          field==='team1'||field==='team2'?140:field==='ground'?100:120}px"></td>`;
+    };
+
+    tr.innerHTML = `
+      <td style="color:var(--text-muted);font-size:10px;font-family:'JetBrains Mono',monospace;text-align:center;white-space:nowrap">
+        ${isNew ? '<span style="color:var(--clr-ok);font-size:13px">✦</span>' : isChanged ? '<span style="color:var(--clr-warn);font-size:11px">●</span>' : (m.id||'')}
+      </td>
+      ${inputCell('division','div-'+idx,'dl-divisions','')}
+      ${inputCell('date','','','MM/DD/YYYY','font-family:\'JetBrains Mono\',monospace;font-size:11px;')}
+      ${inputCell('time','','dl-times','9:00 AM','')}
+      ${inputCell('team1','t1-'+idx,dlId,'')}
+      ${inputCell('team2','t2-'+idx,dlId,'')}
+      ${inputCell('ground','','dl-grounds','')}
+      ${inputCell('umpire1','u1-'+idx,dlId,'')}
+      ${inputCell('umpire2','u2-'+idx,dlId,'')}
+      <td><button class="del-btn" onclick="deleteFixtureRow(${idx})" title="Remove this row">×</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// ── Division tabs ─────────────────────────────────────────────
+function renderDivTabs() {
+  const tabs = document.getElementById('editorDivTabs');
+  if (!tabs) return;
+  const divs = [...new Set(_editorRows.map(m => m.division).filter(Boolean))].sort();
+  if (!divs.length) { tabs.innerHTML = ''; return; }
+
+  if (_activeDivisions.size === 0 && divs.length > 0) {
+    _activeDivisions.add(divs[0]);
+    syncDivisionFilter();
+  }
+
+  const changedByDiv = {};
+  divs.forEach(d => { changedByDiv[d] = 0; });
+  _editorRows.forEach(m => {
+    if ((String(m.id).startsWith('new_') || _changedIds.has(m.id)) && m.division)
+      changedByDiv[m.division] = (changedByDiv[m.division] || 0) + 1;
+  });
+
+  const allMode = _activeDivisions.size === 0 || _activeDivisions.size === divs.length;
+  const totalChanged = Object.values(changedByDiv).reduce((a, b) => a + b, 0);
+  const badge = n => n > 0 ? `<span class="dtab-badge" style="background:var(--clr-warn-bg);color:var(--clr-warn)">${n}</span>` : '';
+
+  tabs.innerHTML = `<button class="dtab-btn ${allMode ? 'active' : ''}" onclick="setAllDivTabs()">All${badge(totalChanged)}</button>`
+    + divs.map(d => {
+      const isActive = _activeDivisions.has(d);
+      return `<button class="dtab-btn ${isActive ? 'active' : ''}" onclick="toggleDivTab(${JSON.stringify(d)})">${esc(d)}${badge(changedByDiv[d])}</button>`;
+    }).join('');
+}
+
+function syncDivisionFilter() {
+  const divs = [...new Set(_editorRows.map(m => m.division).filter(Boolean))];
+  if (_activeDivisions.size === 0 || _activeDivisions.size === divs.length)
+    delete _editorFilters.division;
+  else
+    _editorFilters.division = new Set(_activeDivisions);
+}
+
+function toggleDivTab(div) {
+  if (_activeDivisions.size === 0) {
+    _activeDivisions = new Set(_editorRows.map(m => m.division).filter(Boolean));
+    _activeDivisions.delete(div);
+  } else if (_activeDivisions.has(div)) {
+    _activeDivisions.delete(div);
+    if (_activeDivisions.size === 0) { syncDivisionFilter(); renderDivTabs(); renderEditorTable(); return; }
+  } else {
+    _activeDivisions.add(div);
+  }
+  syncDivisionFilter();
+  renderDivTabs();
+  renderEditorTable();
+}
+
+function setAllDivTabs() {
+  _activeDivisions = new Set();
+  delete _editorFilters.division;
+  renderDivTabs();
+  renderEditorTable();
+}
+
+// ── Mobile sidebar ────────────────────────────────────────────
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebarBackdrop').classList.add('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarBackdrop').classList.remove('open');
+}
+
+function toggleEditorSort(field) {
+  if (_editorSort.col === field) {
+    if (_editorSort.dir === 'asc') { _editorSort.dir = 'desc'; }
+    else { _editorSort.col = null; _editorSort.dir = 'asc'; }
+  } else {
+    _editorSort = { col: field, dir: 'asc' };
+  }
+  renderEditorTable();
+}
+
+function openColFilter(field, btn) {
+  _filterField = field;
+  const current = _editorFilters[field];
+  const allVals = [...new Set(_editorRows.map(m => m[field] || ''))].sort();
+  _filterPending = (current && current.size > 0) ? new Set(current) : new Set(allVals);
+  const label = {division:'Division',date:'Date',time:'Time',team1:'Home Team',team2:'Away Team',ground:'Ground',umpire1:'Umpire 1',umpire2:'Umpire 2'}[field] || field;
+  const popup = document.getElementById('filterPopup');
+  document.getElementById('fpTitle').textContent = label;
+  document.getElementById('fpList').innerHTML = allVals.map((v,i) => {
+    const id = 'fp_' + i;
+    return `<div class="fp-row">
+      <input type="checkbox" id="${id}" value="${esc(v)}" ${_filterPending.has(v)?'checked':''}
+        onchange="_filterPending[this.checked?'add':'delete'](this.value)">
+      <label for="${id}">${esc(v) || '<em style="opacity:0.5">empty</em>'}</label>
+    </div>`;
+  }).join('');
+  const rect = btn.getBoundingClientRect();
+  popup.style.top  = Math.min(rect.bottom + 4, window.innerHeight - 300) + 'px';
+  popup.style.left = Math.min(rect.left, window.innerWidth - 200) + 'px';
+  popup.style.display = 'block';
+}
+
+function applyColFilter() {
+  if (!_filterField) return;
+  const allVals = new Set(_editorRows.map(m => m[_filterField] || ''));
+  if (_filterPending.size === 0 || _filterPending.size >= allVals.size) delete _editorFilters[_filterField];
+  else _editorFilters[_filterField] = new Set(_filterPending);
+  closeColFilter();
+  renderEditorTable();
+}
+
+function clearColFilter() {
+  const allVals = [...new Set(_editorRows.map(m => m[_filterField] || ''))];
+  _filterPending = new Set(allVals);
+  document.getElementById('fpList').querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
+}
+
+function closeColFilter() {
+  document.getElementById('filterPopup').style.display = 'none';
+  _filterField = null;
+}
+
+function clearAllFilters() {
+  _editorFilters = {};
+  syncDivisionFilter();
+  renderDivTabs();
+  renderEditorTable();
+}
+
+function updateTeamLists(idx) {
+  const div = _editorRows[idx].division;
+  const dlId = divListId(div);
+  ['t1','t2','u1','u2'].forEach(prefix => {
+    const el = document.getElementById(`${prefix}-${idx}`);
+    if (el) el.setAttribute('list', dlId);
+  });
+}
+
+function addFixtureRow() {
+  const divs = [...new Set(_editorRows.map(m => m.division).filter(Boolean))].sort();
+  const defaultDiv = _activeDivisions.size === 1 ? [..._activeDivisions][0] : divs[0] || '';
+  _editorRows.push({
+    id: 'new_' + Date.now(),
+    division: defaultDiv,
+    matchType: 'League', date: '', time: '',
+    team1: '', team2: '', ground: '',
+    umpire1: '', umpire2: '', result: '', winner: '', status: ''
+  });
+  renderEditorTable();
+  document.getElementById('editorBody').lastElementChild?.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function deleteFixtureRow(idx) {
+  _editorRows.splice(idx, 1);
+  renderEditorTable();
+}
+
+async function saveFixtures() {
+  const msgEl = document.getElementById('editorMsg');
+  showMsg('editorMsg', 'Saving…', 'info');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const past = _allMatches.filter(m => { const d = parseEditorDate(m.date); return d && d < today; });
+  const maxId = _allMatches.reduce((mx, m) => { const n = parseInt(m.id); return isNaN(n) ? mx : Math.max(mx, n); }, 0);
+  let nextId = maxId + 1;
+  const upcoming = _editorRows.map(m => ({
+    ...m, id: String(m.id).startsWith('new_') ? String(nextId++) : m.id
+  }));
+  const combined = [...past, ...upcoming];
+  try {
+    const r = await fetch('/api/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': getPassword() },
+      body: JSON.stringify({ matches: combined, source: 'editor' })
+    });
+    const d = await r.json();
+    if (d.error) { showMsg('editorMsg', 'Error: ' + d.error, 'err'); return; }
+    // Capture changed matches BEFORE loadFixtures resets _changedIds
+    _savedForPropagation = _editorRows
+      .filter(m => String(m.id).startsWith('new_') || _changedIds.has(m.id))
+      .map(m => ({ ...m, _orig: _originalRows[m.id] ? {..._originalRows[m.id]} : null }));
+    _allMatches = combined;
+    showMsg('editorMsg', d.message + ' Now go to Propagate → CricClubs to push changes.', 'ok');
+    loadStatus(); loadFixtures(true);
+  } catch(e) {
+    showMsg('editorMsg', 'Failed: ' + e.message, 'err');
+  }
+}
+
+function exportFixtures(changedOnly) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  let exportRows;
+  if (changedOnly) {
+    exportRows = _editorRows.filter(m => String(m.id).startsWith('new_') || _changedIds.has(m.id));
+    if (!exportRows.length) { alert('No changes to export.'); return; }
+  } else {
+    const past = _allMatches.filter(m => { const d = parseEditorDate(m.date); return d && d < today; });
+    exportRows = [...past, ..._editorRows];
+  }
+  const rows = [
+    ['#','Series','Division','Match Type','Date','Time','Team One','Team Two','Ground','Umpire One','Umpire Two'],
+    ...exportRows.map(m => [String(m.id).startsWith('new_')?'':m.id, '', m.division, m.matchType||'League', m.date, m.time, m.team1, m.team2, m.ground, m.umpire1, m.umpire2])
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [6,10,14,12,12,10,22,22,20,20,20].map(w => ({wch:w}));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Schedule');
+  const suffix = changedOnly ? '_changes' : '';
+  XLSX.writeFile(wb, `sycl_schedule${suffix}_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ── Analytics helpers ─────────────────────────────────────────
+function isAM(time) {
+  if (!time) return null;
+  const t = time.toUpperCase();
+  if (t.includes('AM')) return true;
+  if (t.includes('PM')) return false;
+  return null;
+}
+
+function computeBalance(matches, teams) {
+  const s = {};
+  teams.forEach(t => { s[t] = { home:0, away:0, am:0, pm:0, umpire:0, games:0 }; });
+  matches.forEach(m => {
+    if (s[m.team1]) { s[m.team1].home++; s[m.team1].games++; }
+    if (s[m.team2]) { s[m.team2].away++; s[m.team2].games++; }
+    const a = isAM(m.time);
+    if (a===true)  { if(s[m.team1]) s[m.team1].am++; if(s[m.team2]) s[m.team2].am++; }
+    else if (a===false) { if(s[m.team1]) s[m.team1].pm++; if(s[m.team2]) s[m.team2].pm++; }
+    if (m.umpire1 && s[m.umpire1]) s[m.umpire1].umpire++;
+    if (m.umpire2 && s[m.umpire2]) s[m.umpire2].umpire++;
+  });
+  return s;
+}
+
+function balanceBadge(val, ideal) {
+  const d = Math.abs(val - ideal);
+  const cls = d===0 ? 'ok' : d===1 ? 'warn' : 'bad';
+  const bg = cls==='ok' ? 'var(--clr-ok-bg)' : cls==='warn' ? 'var(--clr-warn-bg)' : 'var(--clr-bad-bg)';
+  const fg = cls==='ok' ? 'var(--clr-ok)'    : cls==='warn' ? 'var(--clr-warn)'    : 'var(--clr-bad)';
+  return `<span style="display:inline-block;padding:1px 7px;border-radius:999px;font-size:12px;background:${bg};color:${fg};font-weight:500">${val}</span>`;
+}
+
+function populateAnalyticsSelectors() {
+  const divs = [...new Set(_allMatches.map(m => m.division))].sort();
+  ['balanceDivFilter','pairingsDivFilter'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    while (sel.options.length > 0) sel.remove(0);
+    divs.forEach(d => { const o = document.createElement('option'); o.value = d; o.textContent = d; sel.appendChild(o); });
+    if (divs.length > 0) sel.value = divs[0];
+  });
+  // Issues div filter — keep "All divisions" as first option
+  const issSel = document.getElementById('issuesDivFilter');
+  if (issSel) {
+    while (issSel.options.length > 1) issSel.remove(1);
+    divs.forEach(d => { const o = document.createElement('option'); o.value = d; o.textContent = d; issSel.appendChild(o); });
+  }
+}
+
+function renderBalance() {
+  const div = document.getElementById('balanceDivFilter').value;
+  const dm = _allMatches.filter(m => m.division === div);
+  const teams = [...new Set(dm.flatMap(m => [m.team1, m.team2]))].sort();
+  const stats = computeBalance(dm, teams);
+  const n = dm.length;
+  const iHA = teams.length > 1 ? Math.round(n * 2 / teams.length / 2) : 0;
+  const iU  = teams.length > 0 ? Math.round(n / teams.length) : 0;
+
+  document.getElementById('balanceSummary').innerHTML = `
+    <div class="stat-cell"><div class="stat-label">Teams</div><div class="stat-value">${teams.length}</div></div>
+    <div class="stat-cell"><div class="stat-label">Matches</div><div class="stat-value">${n}</div></div>
+    <div class="stat-cell"><div class="stat-label">Ideal H/A each</div><div class="stat-value">${iHA}</div></div>
+    <div class="stat-cell"><div class="stat-label">Ideal Ump</div><div class="stat-value">${iU}</div></div>
+  `;
+
+  if (!teams.length) {
+    document.getElementById('balanceBody').innerHTML = '<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--text-muted)">No data. Sync schedule first.</td></tr>';
+    return;
+  }
+
+  document.getElementById('balanceBody').innerHTML = teams.map(t => {
+    const s = stats[t];
+    const hd = Math.abs(s.home - s.away), sd = Math.abs(s.am - s.pm);
+    const haCls = hd===0?'ok':hd===1?'warn':'bad', slCls = sd===0?'ok':sd===1?'warn':'bad';
+    const haBg = haCls==='ok'?'var(--clr-ok-bg)':haCls==='warn'?'var(--clr-warn-bg)':'var(--clr-bad-bg)';
+    const haFg = haCls==='ok'?'var(--clr-ok)':haCls==='warn'?'var(--clr-warn)':'var(--clr-bad)';
+    const slBg = slCls==='ok'?'var(--clr-ok-bg)':slCls==='warn'?'var(--clr-warn-bg)':'var(--clr-bad-bg)';
+    const slFg = slCls==='ok'?'var(--clr-ok)':slCls==='warn'?'var(--clr-warn)':'var(--clr-bad)';
+    const haLabel = hd===0?'even':`${s.home>s.away?'H':'A'}+${hd}`;
+    const slLabel = sd===0?'even':`${s.am>s.pm?'AM':'PM'}+${sd}`;
+    return `<tr>
+      <td style="font-weight:500">${esc(t)}</td>
+      <td style="text-align:center">${s.games}</td>
+      <td style="text-align:center">${balanceBadge(s.home,iHA)}</td>
+      <td style="text-align:center">${balanceBadge(s.away,iHA)}</td>
+      <td style="text-align:center">${balanceBadge(s.am,iHA)}</td>
+      <td style="text-align:center">${balanceBadge(s.pm,iHA)}</td>
+      <td style="text-align:center">${balanceBadge(s.umpire,iU)}</td>
+      <td style="text-align:center"><span style="display:inline-block;padding:1px 7px;border-radius:999px;font-size:12px;background:${haBg};color:${haFg};font-weight:500">${haLabel}</span></td>
+      <td style="text-align:center"><span style="display:inline-block;padding:1px 7px;border-radius:999px;font-size:12px;background:${slBg};color:${slFg};font-weight:500">${slLabel}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderPairings() {
+  const div = document.getElementById('pairingsDivFilter').value;
+  const dm = _allMatches.filter(m => m.division === div);
+  const teams = [...new Set(dm.flatMap(m => [m.team1, m.team2]))].sort();
+  const played = new Set();
+  dm.forEach(m => { played.add([m.team1,m.team2].sort().join('|||')); });
+  const total = (teams.length * (teams.length - 1)) / 2;
+
+  document.getElementById('pairingsSummary').innerHTML = `
+    <div class="stat-cell"><div class="stat-label">Pairings scheduled</div><div class="stat-value">${played.size} / ${total}</div></div>
+    <div class="stat-cell"><div class="stat-label">Remaining</div><div class="stat-value" style="color:${total-played.size>0?'var(--clr-bad)':'var(--clr-ok)'}">${total - played.size}</div></div>
+  `;
+
+  if (!teams.length) {
+    document.getElementById('pairingsTableWrap').innerHTML = '<div style="text-align:center;padding:28px;color:var(--text-muted)">No data. Sync schedule first.</div>';
+    return;
+  }
+
+  const shortName = t => t.replace(/^(MLCA |MSKICA |Super11 |Boltz |ICCS |PBL |OCA |Seattle Chargers )/,'').substring(0,8);
+  let html = '<table><thead><tr><th style="min-width:140px"></th>';
+  teams.forEach(t => { html += `<th style="text-align:center;font-size:10px;max-width:72px" title="${esc(t)}">${esc(shortName(t))}</th>`; });
+  html += '</tr></thead><tbody>';
+  teams.forEach(t1 => {
+    html += `<tr><td style="font-weight:500;font-size:12px">${esc(t1)}</td>`;
+    teams.forEach(t2 => {
+      if (t1===t2) { html += '<td style="background:var(--bg-200)"></td>'; return; }
+      const ip = played.has([t1,t2].sort().join('|||'));
+      html += `<td style="text-align:center;background:${ip?'var(--clr-ok-bg)':'var(--clr-bad-bg)'};color:${ip?'var(--clr-ok)':'var(--clr-bad)'};font-size:13px">${ip?'✓':'✗'}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('pairingsTableWrap').innerHTML = html;
+}
+
+// ── Issue scanner ─────────────────────────────────────────────
+function scanIssues(matches) {
+  const issues = [];
+  const add = (level,div,title,detail,ids) => issues.push({level,div,title,detail,matchIds:(ids||[]).map(String)});
+  const byDiv = {};
+  matches.forEach(m => { if(!byDiv[m.division]) byDiv[m.division]=[]; byDiv[m.division].push(m); });
+  Object.entries(byDiv).forEach(([div,dms]) => {
+    const teams=[...new Set(dms.flatMap(m=>[m.team1,m.team2]))];
+    const teamSet=new Set(teams);
+    const pairCount={};
+    dms.forEach(m=>{const k=[m.team1,m.team2].sort().join('|||');if(!pairCount[k])pairCount[k]=[];pairCount[k].push(m);});
+    Object.entries(pairCount).forEach(([pair,ms])=>{
+      if(ms.length>1){const n=pair.split('|||');add('error',div,'Duplicate matchup',`${n[0]} vs ${n[1]} scheduled ${ms.length}x (#${ms.map(m=>m.id).join(', #')})`,ms.map(m=>m.id));}
+    });
+    const tdg={};
+    dms.forEach(m=>{[m.team1,m.team2].forEach(t=>{const k=`${t}|||${m.date}`;if(!tdg[k])tdg[k]=[];tdg[k].push(m);});});
+    Object.entries(tdg).forEach(([k,ms])=>{
+      if(ms.length>1){const[team,date]=k.split('|||');add('error',div,'Double-booked team',`${team} plays ${ms.length} games on ${date} (#${ms.map(m=>m.id).join(', #')})`,ms.map(m=>m.id));}
+    });
+    dms.forEach(m=>{
+      [m.umpire1,m.umpire2].forEach(u=>{
+        if(u&&(u===m.team1||u===m.team2)) add('error',div,'Self-umpiring',`${u} umpires own match #${m.id} (${m.team1} vs ${m.team2}, ${m.date})`,[m.id]);
+      });
+    });
+    dms.forEach(m=>{
+      if(m.umpire1&&!teamSet.has(m.umpire1)) add('warn',div,'Cross-division umpire',`${m.umpire1} (not in ${div}) umpires match #${m.id}`,[m.id]);
+    });
+    const stats=computeBalance(dms,teams);
+    Object.entries(stats).forEach(([team,s])=>{
+      if(Math.abs(s.home-s.away)>=3) add('warn',div,'Home/Away imbalance',`${team}: ${s.home}H / ${s.away}A`);
+      if(Math.abs(s.am-s.pm)>=3) add('warn',div,'AM/PM imbalance',`${team}: ${s.am}AM / ${s.pm}PM`);
+    });
+    const gc=Object.values(stats).map(s=>s.games);
+    if(gc.length && Math.max(...gc)-Math.min(...gc)>=2){
+      const lo=Object.entries(stats).filter(([,s])=>s.games<=Math.min(...gc)).map(([t,s])=>`${t} (${s.games})`);
+      const hi=Object.entries(stats).filter(([,s])=>s.games>=Math.max(...gc)).map(([t,s])=>`${t} (${s.games})`);
+      add('warn',div,'Uneven game counts',`Range ${Math.min(...gc)}-${Math.max(...gc)}. Fewest: ${lo.join(', ')}. Most: ${hi.join(', ')}`);
+    }
+    const noT=dms.filter(m=>!m.time); if(noT.length) add('info',div,'Missing time',`${noT.length} match(es)`);
+    const noG=dms.filter(m=>!m.ground); if(noG.length) add('info',div,'Missing ground',`${noG.length} match(es)`);
+    const noU=dms.filter(m=>!m.umpire1); if(noU.length) add('info',div,'Missing umpire',`${noU.length} match(es)`);
+  });
+  const slotMap={};
+  matches.forEach(m=>{
+    if(!m.ground||!m.date||!m.time) return;
+    const k=`${m.ground}|||${m.date}|||${m.time}`;if(!slotMap[k])slotMap[k]=[];slotMap[k].push(m);
+  });
+  Object.entries(slotMap).forEach(([k,ms])=>{
+    if(ms.length>1){const[ground,date,time]=k.split('|||');add('error','ALL','Ground conflict',`${ground} on ${date} ${time}: ${ms.map(m=>`#${m.id} ${m.division}`).join(' + ')}`,ms.map(m=>m.id));}
+  });
+  const order={error:0,warn:1,info:2};
+  issues.sort((a,b)=>order[a.level]-order[b.level]);
+  return issues;
+}
+
+let _issueLevel = 'all';
+let _acknowledgedIssues = new Set(JSON.parse(localStorage.getItem('sycl_ack_issues') || '[]'));
+
+function issueKey(issue) {
+  return `${issue.level}|||${issue.div}|||${issue.title}|||${issue.detail.slice(0, 80)}`;
+}
+
+function acknowledgeIssue(key) {
+  _acknowledgedIssues.add(key);
+  localStorage.setItem('sycl_ack_issues', JSON.stringify([..._acknowledgedIssues]));
+  renderIssues();
+}
+
+function unacknowledgeIssue(key) {
+  _acknowledgedIssues.delete(key);
+  localStorage.setItem('sycl_ack_issues', JSON.stringify([..._acknowledgedIssues]));
+  renderIssues();
+}
+
+function isIssuePast(issue) {
+  if (!issue.matchIds?.length) return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return issue.matchIds.every(id => {
+    const m = _allMatches.find(x => String(x.id) === String(id));
+    if (!m?.date) return false;
+    const d = parseEditorDate(m.date);
+    return d && d < today;
+  });
+}
+
+function setIssueFilter(val) {
+  _issueLevel = val;
+  ['all','error','warn','info'].forEach(l => {
+    const btn = document.getElementById('issLevel' + l.charAt(0).toUpperCase() + l.slice(1));
+    if (btn) btn.classList.toggle('active', l === _issueLevel);
+  });
+  renderIssues();
+}
+
+function renderIssues() {
+  if (!_allMatches.length) return;
+  const allIssues = scanIssues(_allMatches);
+  const divFilter = document.getElementById('issuesDivFilter')?.value || '';
+  const showPast = document.getElementById('showPastIssues')?.checked || false;
+  const showAck  = document.getElementById('showAcknowledged')?.checked || false;
+
+  // Count active (non-past, non-acknowledged) errors/warnings for the badge
+  const activeIssues = allIssues.filter(i => !isIssuePast(i) && !_acknowledgedIssues.has(issueKey(i)));
+  const ec = activeIssues.filter(i => i.level === 'error').length;
+  const wc = activeIssues.filter(i => i.level === 'warn').length;
+  const ic = activeIssues.filter(i => i.level === 'info').length;
+
+  const summaryRow = document.getElementById('issuesSummaryRow');
+  if (summaryRow) {
+    const total = ec + wc;
+    summaryRow.textContent = total > 0 ? total : '';
+    summaryRow.style.display = total > 0 ? '' : 'none';
+  }
+  const badge = document.getElementById('issuesNavBadge');
+  if (badge) {
+    if (ec > 0) { badge.textContent = ec; badge.style.display = ''; badge.style.background = 'var(--clr-bad-bg)'; badge.style.color = 'var(--clr-bad)'; }
+    else if (wc > 0) { badge.textContent = wc; badge.style.display = ''; badge.style.background = 'var(--clr-warn-bg)'; badge.style.color = 'var(--clr-warn)'; }
+    else { badge.style.display = 'none'; }
+  }
+
+  // Sub-counts display above the list
+  const filtered = allIssues.filter(i => {
+    if (_issueLevel !== 'all' && i.level !== _issueLevel) return false;
+    if (divFilter && i.div !== divFilter && i.div !== 'ALL') return false;
+    const past = isIssuePast(i);
+    if (!showPast && past) return false;
+    const ack = _acknowledgedIssues.has(issueKey(i));
+    if (!showAck && ack) return false;
+    return true;
+  });
+
+  const body = document.getElementById('issuesBody');
+  if (!body) return;
+
+  const total = allIssues.length;
+  const ackCount = [..._acknowledgedIssues].filter(k => allIssues.some(i => issueKey(i) === k)).length;
+  const pastCount = allIssues.filter(i => isIssuePast(i)).length;
+
+  const statsBar = `<div style="display:flex;gap:14px;margin-bottom:14px;font-size:12px;font-family:'JetBrains Mono',monospace;flex-wrap:wrap">
+    <span style="color:var(--clr-bad);font-weight:700">${ec} error${ec!==1?'s':''}</span>
+    <span style="color:var(--clr-warn);font-weight:700">${wc} warning${wc!==1?'s':''}</span>
+    <span style="color:var(--accent);font-weight:700">${ic} info</span>
+    <span style="color:var(--text-muted)">·</span>
+    <span style="color:var(--text-muted)">${ackCount} acknowledged</span>
+    <span style="color:var(--text-muted)">${pastCount} past fixture</span>
+  </div>`;
+
+  if (!filtered.length) {
+    const msg = total === 0 ? '✓ Schedule looks clean — no issues found!' : 'No issues match the current filter.';
+    body.innerHTML = statsBar + `<div style="text-align:center;padding:28px;color:${total===0?'var(--clr-ok)':'var(--text-muted)'};font-size:13px">${msg}</div>`;
+    return;
+  }
+
+  body.innerHTML = statsBar + filtered.map(issue => {
+    const key = issueKey(issue);
+    const isAck = _acknowledgedIssues.has(key);
+    const isPast = isIssuePast(issue);
+    const pastTag = isPast ? `<span style="font-size:10px;background:var(--bg-200);color:var(--text-muted);padding:1px 6px;border-radius:4px;margin-left:4px">PAST</span>` : '';
+    const sevLabel = issue.level==='error'?'ERROR':issue.level==='warn'?'WARN':'INFO';
+    return `<div class="issue-card ${issue.level}${isAck?' acknowledged':''}">
+      <div class="issue-card-body">
+        <div class="issue-header">
+          <span class="issue-sev ${issue.level}">${sevLabel}</span>
+          <span class="issue-div-badge">${esc(issue.div)}</span>
+          <span class="issue-title">${esc(issue.title)}</span>
+          ${pastTag}
+        </div>
+        <div class="issue-detail">${esc(issue.detail)}</div>
+      </div>
+      <div class="issue-card-actions">
+        ${isAck
+          ? `<button class="btn btn-ghost" style="font-size:11px;height:26px;color:var(--text-muted)" onclick="unacknowledgeIssue(${JSON.stringify(key)})">↩ Reopen</button>`
+          : `<button class="btn btn-ghost" style="font-size:11px;height:26px" onclick="acknowledgeIssue(${JSON.stringify(key)})">✓ Acknowledge</button>`
+        }
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Utilities ─────────────────────────────────────────────────
+function showMsg(id, text, type) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'msg ' + type;
+  el.textContent = text;
+}
+
+// ── Init ──────────────────────────────────────────────────────
+if (getPassword()) showAdminShell();
+document.addEventListener('click', function(e) {
+  const popup = document.getElementById('filterPopup');
+  if (popup && popup.style.display !== 'none' && !popup.contains(e.target) && !e.target.classList.contains('th-filt')) closeColFilter();
+});
+</script>
+
+<!-- Column filter popup -->
+<div id="filterPopup" class="filter-popup">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <span id="fpTitle" style="font-weight:600;font-size:12px;color:var(--text-primary)"></span>
+    <button onclick="clearColFilter()" style="font-size:11px;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:0">Select all</button>
+  </div>
+  <div id="fpList" style="max-height:200px;overflow-y:auto"></div>
+  <div style="margin-top:10px;display:flex;gap:6px">
+    <button class="btn btn-ghost" onclick="closeColFilter()" style="flex:1;height:26px;font-size:11px">Cancel</button>
+    <button class="btn" onclick="applyColFilter()" style="flex:1;height:26px;font-size:11px">Apply</button>
+  </div>
+</div>
+</body>
+</html>
