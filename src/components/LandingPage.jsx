@@ -5,6 +5,11 @@ export default function LandingPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const theme = (() => { try { return localStorage.getItem('sycl_theme') || 'light'; } catch { return 'light'; } })();
+    document.documentElement.setAttribute('data-theme', theme);
+  }, []);
+
+  useEffect(() => {
     fetch('/api/leagues')
       .then(r => r.ok ? r.json() : {})
       .then(d => { setLeagues(d || {}); setLoading(false); })
