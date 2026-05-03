@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 
 export default function SeasonOverview({ data, lastRefresh, onDrilldown, onTabClick, onDivision }) {
-  const { matches = [], results, batting, bowling, rankings } = data;
+  const { matches = [], results, batting, bowling, rankings, standings } = data;
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const parseD = s => { if (!s) return null; const d = new Date(s); return isNaN(d) ? null : d; };
   const fmtDate = d => { if (!d) return ''; const dt = parseD(d); if (!dt) return d; return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }); };
