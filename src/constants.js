@@ -1,0 +1,42 @@
+export const POINTS = { win: 2, abandoned: 1, forfeit_winner: 2, forfeit_loser: 0, loss: 0 };
+
+export const RANK_CLASS = ['gold', 'silver', 'bronze'];
+export const RANK_MEDAL = ['🥇', '🥈', '🥉'];
+
+export const ACHIEVEMENTS = [
+  { id: 'first_run', label: 'Off the Mark', emoji: '🏏', tier: 'bronze',
+    check: (bat) => bat && bat.runs >= 1 },
+  { id: 'runs50', label: '50 Run Club', emoji: '⭐', tier: 'silver',
+    check: (bat) => bat && bat.runs >= 50,
+    hint: bat => bat ? `${Math.max(0, 50 - bat.runs)} more runs` : null },
+  { id: 'runs100', label: 'Century Season', emoji: '💯', tier: 'gold',
+    check: (bat) => bat && bat.runs >= 100,
+    hint: bat => bat ? `${Math.max(0, 100 - bat.runs)} more runs` : null },
+  { id: 'runs200', label: '200 Run Star', emoji: '🌟', tier: 'platinum',
+    check: (bat) => bat && bat.runs >= 200 },
+  { id: 'hs25', label: 'First 25!', emoji: '🥈', tier: 'bronze',
+    check: (bat) => bat && parseInt(bat.hs) >= 25 },
+  { id: 'hs50', label: 'Half-Century Hero', emoji: '🥇', tier: 'silver',
+    check: (bat) => bat && parseInt(bat.hs) >= 50 },
+  { id: 'boundary_blaster', label: 'Boundary Blaster', emoji: '💥', tier: 'silver',
+    check: (bat) => bat && bat.sixes >= 5 },
+  { id: 'six_machine', label: 'Six Machine', emoji: '🚀', tier: 'gold',
+    check: (bat) => bat && bat.sixes >= 10 },
+  { id: 'first_wicket', label: 'First Strike', emoji: '🎯', tier: 'bronze',
+    check: (bat, bowl) => bowl && bowl.wickets >= 1 },
+  { id: 'wkts5', label: '5 Wicket Club', emoji: '⚡', tier: 'silver',
+    check: (bat, bowl) => bowl && bowl.wickets >= 5,
+    hint: (bat, bowl) => bowl ? `${Math.max(0, 5 - bowl.wickets)} more wickets` : null },
+  { id: 'wkts10', label: '10 Wicket Hero', emoji: '🔥', tier: 'gold',
+    check: (bat, bowl) => bowl && bowl.wickets >= 10 },
+  { id: 'wkts20', label: '20 Wicket Legend', emoji: '👑', tier: 'platinum',
+    check: (bat, bowl) => bowl && bowl.wickets >= 20 },
+  { id: 'economy_ace', label: 'Economy Ace', emoji: '🔒', tier: 'gold',
+    check: (bat, bowl) => bowl && parseFloat(bowl.econ) <= 6.0 && parseFloat(bowl.overs) >= 5 },
+  { id: 'five_haul', label: 'Five-For Legend', emoji: '🏆', tier: 'gold',
+    check: (bat, bowl) => bowl && bowl.fiveW >= 1 },
+  { id: 'maiden_master', label: 'Maiden Master', emoji: '🔐', tier: 'silver',
+    check: (bat, bowl) => bowl && bowl.maidens >= 3 },
+  { id: 'allrounder', label: 'All-Rounder', emoji: '⭐', tier: 'gold',
+    check: (bat, bowl) => bat && bowl && bat.runs >= 30 && bowl.wickets >= 5 },
+];
