@@ -12,10 +12,23 @@ import BowlingView from './BowlingView.jsx';
 import RankingsView from './RankingsView.jsx';
 import DrilldownPanel from './DrilldownPanel.jsx';
 
+function getHashParams() {
+  try {
+    const h = window.location.hash;
+    if (!h || h === '#') return {};
+    const params = {};
+    h.replace(/^#/, '').split('&').forEach(pair => {
+      const [k, v] = pair.split('=');
+      if (k && v) params[decodeURIComponent(k)] = decodeURIComponent(v);
+    });
+    return params;
+  } catch { return {}; }
+}
+
 export default function SYCLDashboard({ onFeedback }) {
   const [data, setData] = useState(null);
-  const [selectedDivision, setSelectedDivision] = useState(null);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [selectedDivision, setSelectedDivision] = useState(() => getHashParams().division || null);
+  const [activeTab, setActiveTab] = useState(() => getHashParams().tab || "overview");
   const [theme, setTheme] = useState(() => {
     try { return localStorage.getItem('sycl_theme') || 'light'; } catch { return 'light'; }
   });
@@ -65,6 +78,20 @@ export default function SYCLDashboard({ onFeedback }) {
     document.documentElement.setAttribute('data-theme', theme);
     try { localStorage.setItem('sycl_theme', theme); } catch {}
   }, [theme]);
+
+  // Sync selectedDivision + activeTab to URL hash (except when player/team page is showing)
+  useEffect(() => {
+    if (playerPage || teamPage) return;
+    const parts = [];
+    if (activeTab && activeTab !== 'overview') parts.push(`tab=${encodeURIComponent(activeTab)}`);
+    if (selectedDivision && selectedDivision !== 'combined') parts.push(`division=${encodeURIComponent(selectedDivision)}`);
+    const hash = parts.length ? '#' + parts.join('&') : '';
+    try {
+      if (window.location.hash !== hash) {
+        history.replaceState(null, '', (window.location.pathname + window.location.search + hash) || window.location.pathname);
+      }
+    } catch {}
+  }, [selectedDivision, activeTab, playerPage, teamPage]);
 
   const loadData = useCallback((bustCache, slug) => {
     setLoading(true);
@@ -117,11 +144,12 @@ export default function SYCLDashboard({ onFeedback }) {
 
   const handleTabClick = useCallback((tab) => {
     setActiveTab(tab);
-    if (selectedDivision === 'combined' && !['overview','batting','bowling','rankings'].includes(tab)) {
-      setSelectedDivision(sortedDivs[0] || null);
-    }
-    if (tab === 'overview') setSelectedDivision('combined');
-  }, [selectedDivision, sortedDivs]);
+  }, []);
+
+  const handleGoToDivision = useCallback((division, tab) => {
+    setSelectedDivision(division);
+    setActiveTab(tab);
+  }, []);
 
   if (!slug) return (
     <NavBar slug={null} onFeedback={onFeedback} />
@@ -164,6 +192,24 @@ export default function SYCLDashboard({ onFeedback }) {
               theme={theme} onThemeToggle={() => setTheme(t => t==='light'?'dark':'light')}
               onFeedback={onFeedback} />
 
+      {data && activeTab !== 'overview' && (
+        <div className="division-select-bar">
+          <label className="division-select-label">Division</label>
+          <select
+            className="division-select"
+            value={selectedDivision || ''}
+            onChange={(e) => setSelectedDivision(e.target.value)}
+          >
+            {activeTab !== 'standings' && (
+              <option value="combined">All Divisions</option>
+            )}
+            {sortedDivs.map(d => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {!data ? (
         <div className="content-wrap" style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:320}}>
           {loading
@@ -177,25 +223,9 @@ export default function SYCLDashboard({ onFeedback }) {
         </div>
       ) : (
         <div className="content-wrap">
-          {activeTab !== 'overview' && (
-            <div className="division-bar">
-              {activeTab !== 'standings' && (
-                <button className={`div-btn ${selectedDivision==="combined"?"active":""}`}
-                  onClick={()=>setSelectedDivision("combined")}>
-                  All
-                </button>
-              )}
-              {sortedDivs.map(d => (
-                <button key={d} className={`div-btn ${selectedDivision===d?"active":""}`}
-                  onClick={()=>setSelectedDivision(d)}>
-                  {d}
-                </button>
-              ))}
-            </div>
-          )}
 
           <>
-            {activeTab==="overview"  && <SeasonOverview  data={data} lastRefresh={lastRefresh} onDrilldown={handleDrilldown} onTabClick={handleTabClick} onDivision={setSelectedDivision} />}
+            {activeTab==="overview"  && <SeasonOverview  data={data} lastRefresh={lastRefresh} onDrilldown={handleDrilldown} onGoToDivision={handleGoToDivision} />}
             {selectedDivision && activeTab==="schedule"  && <ScheduleView  matches={data.matches} division={selectedDivision} onDrilldown={handleDrilldown}/>}
             {selectedDivision && activeTab==="standings" && <StandingsView matches={data.matches} division={selectedDivision} standings={data.standings} results={data.results} onDrilldown={handleDrilldown}/>}
             {activeTab==="results"   && <ResultsView  results={data.results}   division={selectedDivision} onDrilldown={handleDrilldown}/>}

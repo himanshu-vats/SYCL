@@ -161,30 +161,63 @@
     min-height: 400px;
   }
 
-  /* ── Division pill bar ── */
-  .division-bar {
-    display: flex; gap: 6px; align-items: center; padding: 14px 0 10px;
-    overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  /* ── Division Selector Bar ── */
+  .division-select-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    max-width: 1200px;
+    margin: 0 auto;
+    background: var(--bg-page);
   }
-  .division-bar::-webkit-scrollbar { display: none; }
+
+  .division-select-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    flex-shrink: 0;
+  }
+
+  .division-select {
+    padding: 7px 36px 7px 14px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    background: var(--bg-100);
+    border: 2px solid #2d2d2d;
+    border-radius: 8px;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23555555' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 14px;
+    min-width: 200px;
+    font-family: 'Inter', -apple-system, sans-serif;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .division-select:hover {
+    border-color: #1a1a1a;
+  }
+
+  .division-select:focus {
+    border-color: var(--accent);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--accent-light);
+  }
 
   /* ── Buttons ── */
-  .div-btn, .small-btn, .tab-btn, .filter-btn, .sub-tab-btn {
+  .small-btn, .tab-btn, .filter-btn, .sub-tab-btn {
     font-family: 'Inter', -apple-system, sans-serif;
     font-weight: 500; cursor: pointer; transition: all 0.12s; white-space: nowrap;
     touch-action: manipulation; -webkit-tap-highlight-color: transparent;
   }
-  .div-btn {
-    padding: 0 14px; height: 30px; border-radius: 999px;
-    border: 1.5px solid var(--border); background: var(--bg-100);
-    color: var(--text-secondary); font-size: 12px; font-weight: 600; flex-shrink: 0;
-  }
-  .div-btn:hover { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
-  .div-btn.active {
-    background: var(--accent); color: #ffffff; border-color: var(--accent);
-    box-shadow: 0 2px 6px rgba(96,1,210,0.30);
-  }
-
   .small-btn {
     display: inline-flex; align-items: center; justify-content: center;
     padding: 0 12px; height: 30px; border-radius: 6px;
@@ -454,9 +487,18 @@
     .header-sub { display: none; }
     .header-sep { display: none; }
 
-    /* Division pill bar — finger-friendly */
-    .division-bar { padding: 10px 0 8px; gap: 5px; }
-    .div-btn { height: 34px; padding: 0 12px; font-size: 11.5px; }
+    /* Division selector — full-width, finger-friendly */
+    .division-select-bar {
+      padding: 8px 10px;
+      gap: 10px;
+    }
+    .division-select {
+      width: 100%;
+      min-width: 0;
+      height: 44px;
+      font-size: 16px;
+      background-position: right 12px center;
+    }
 
     /* Tab bar — sticky below header, scrollable */
     .tab-bar { margin: 0 -10px 14px; padding: 0 10px; top: 48px; }

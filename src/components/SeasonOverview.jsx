@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 
-export default function SeasonOverview({ data, lastRefresh, onDrilldown, onTabClick, onDivision }) {
+export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToDivision }) {
   const { matches = [], results, batting, bowling, rankings, standings } = data;
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const parseD = s => { if (!s) return null; const d = new Date(s); return isNaN(d) ? null : d; };
@@ -165,8 +165,7 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onTabCl
 
   // ── Navigate to a division's full view ──
   const goToDivision = (div) => {
-    onDivision(div);
-    onTabClick('standings');
+    onGoToDivision(div, 'standings');
   };
 
   // ── Render a single division card ──
