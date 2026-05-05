@@ -1,14 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap');
+
   /* ─────────────────────────────────────────────────────────────
      DESIGN TOKENS — ESPNcricinfo-inspired light theme
      Single source of truth for all colors, spacing, typography
   ───────────────────────────────────────────────────────────── */
   :root {
     /* ── Color: Surfaces ── */
-    --bg-page:   #f8f9fa;
+    --bg-page:   #f6f8f6;
     --bg-100:    #ffffff;
     --bg-200:    #f5f5f5;
     --bg-300:    #eeeeee;
-    --bg-hover:  #f0f7ff;
+    --bg-hover:  #f0f7f2;
 
     /* ── Color: Neutral scale ── */
     --z-100: #f5f5f5;
@@ -34,12 +36,12 @@
     --text-muted:     #888888;
 
     /* ── Color: Brand ── */
-    --accent:        #1565c0;
-    --accent-dark:   #0d47a1;
-    --accent-light:  rgba(21,101,192,0.08);
+    --accent:        #22863a;
+    --accent-dark:   #166e2e;
+    --accent-light:  rgba(34,134,58,0.10);
 
     /* ── Color: Header ── */
-    --header-bg:     #1a3a5c;
+    --header-bg:     #0f2a1a;
     --header-text:   #ffffff;
     --header-sub:    rgba(255,255,255,0.75);
     --header-border: rgba(255,255,255,0.15);
@@ -49,14 +51,14 @@
     --clr-warn: #f57c00;
     --clr-bad:  #d32f2f;
     --clr-info: #1565c0;
-    --clr-am:   #1565c0;
+    --clr-am:   #22863a;
     --clr-pm:   #7b1fa2;
 
     /* ── Color: Badge backgrounds ── */
     --badge-ok-bg: #e8f5e9;   --badge-ok-fg: #2e7d32;
     --badge-warn-bg: #fff3e0; --badge-warn-fg: #f57c00;
     --badge-bad-bg: #ffebee;  --badge-bad-fg: #d32f2f;
-    --badge-am-bg: #e3f2fd;   --badge-am-fg: #1565c0;
+    --badge-am-bg: #e8f5e9;   --badge-am-fg: #22863a;
     --badge-pm-bg: #f3e5f5;   --badge-pm-fg: #7b1fa2;
 
     /* ── Color: Severity backgrounds ── */
@@ -68,14 +70,14 @@
 
     /* ── Color: Tables ── */
     --row-alt:   #f9f9f9;
-    --row-hover: rgba(21,101,192,0.05);
+    --row-hover: rgba(34,134,58,0.05);
     --table-shadow: 0 1px 3px rgba(0,0,0,0.08);
     --th-bg: #f5f5f5;
     --th-color: #666666;
 
     /* ── Color: Tabs ── */
-    --tab-active-color: #1565c0;
-    --tab-active-border: #1565c0;
+    --tab-active-color: #22863a;
+    --tab-active-border: #22863a;
 
     /* ── Spacing scale (4px base grid) ── */
     --space-1:  4px;
@@ -125,7 +127,7 @@
   /* ── Reset & base ── */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: 'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     background: var(--bg-page); color: var(--text-primary);
     font-size: var(--text-base); line-height: var(--leading-loose); -webkit-font-smoothing: antialiased;
   }
@@ -1542,3 +1544,13 @@
 .ov-activity-text {
   flex: 1;
 }
+
+/* ── Player Charts ── */
+.impact-rating-section { text-align: center; }
+.player-page .section-label { font-size: 13px; font-weight: 700; margin-bottom: 12px; text-transform: uppercase; color: var(--text-muted); }
+.impact-score { font-size: 48px; font-weight: 800; line-height: 1; }
+.impact-label { font-size: 14px; color: var(--text-muted); margin-top: 4px; }
+.impact-trend-up { color: #22c55e; }
+.impact-trend-down { color: #ef4444; }
+.impact-trend-stable { color: var(--text-muted); }
+.player-page .recharts-wrapper { margin: 0 auto; }

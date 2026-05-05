@@ -1,9 +1,10 @@
 import { aggregateBatting, aggregateBowling } from '../utils/aggregation.js';
 import { computeBattingBenchmark, computeBowlingBenchmark, getBattingArchetype, getBowlingArchetype } from '../utils/insights.js';
-import { getPlayerInningsHistory, computeBestBattingInnings, computeBestBowlingSpell, detectCurrentStreak, computeOpponentBattingStats, computeOpponentBowlingStats, formatMatchDate } from '../utils/innings.js';
+import { getPlayerInningsHistory, computeBestBattingInnings, computeBestBowlingSpell, detectCurrentStreak, computeOpponentBattingStats, computeOpponentBowlingStats, formatMatchDate, computeMatchChartData, computePlayerRadar, computeImpactRating, computeRollingAverage } from '../utils/innings.js';
 import { getNearestMilestones, computeBoundaryDistribution, computeDismissalProfile } from '../utils/milestones.js';
 import { ACHIEVEMENTS } from '../constants.js';
 import FormCurve from './FormCurve.jsx';
+import { ImpactRatingCard, RunsWicketsChart, FormTrendChart, PlayerRadarChart } from './PlayerCharts.jsx';
 
 export default function PlayerProfilePage({ name, batting, bowling, rankings, playerInnings, onClose, onTeamDrilldown }) {
   const batRows = batting ? Object.entries(batting).filter(([k]) => k !== 'updatedAt' && k !== 'combined')
@@ -46,6 +47,10 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
   const milestones = getNearestMilestones(bat, bowl, rankTotals);
   const boundaryDist = computeBoundaryDistribution(bat);
   const dismissalProfile = computeDismissalProfile(battingHistory);
+
+  const matchChartData = computeMatchChartData(battingHistory, bowlingHistory);
+  const playerRadar = computePlayerRadar(bat, bowl, battingHistory, bowlingHistory);
+  const impactRating = computeImpactRating(bat, bowl, battingBenchmark, bowlingBenchmark);
 
   const splitAvg = (inns) => {
     const runs = inns.reduce((s,i) => s + (parseInt(i.runs)||0), 0);
@@ -101,6 +106,13 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
 
       {spotlight && <div className="spotlight-banner"><div className="spotlight-title">Spotlight</div><div className="spotlight-text">{spotlight}</div></div>}
 
+      {impactRating && impactRating.score > 0 && (
+        <div className="profile-section impact-rating-section">
+          <div className="section-label">Season Impact Rating</div>
+          <ImpactRatingCard score={impactRating.score} label={impactRating.label} trend={impactRating.trend} />
+        </div>
+      )}
+
       {(battingArchetype || bowlingArchetype) && (bat || bowl) && (
         <div className="profile-section">
           <div style={{fontSize: 13, fontWeight: 700, marginBottom: 12, textTransform: 'uppercase', color: 'var(--text-muted)'}}>Your Style</div>
@@ -126,6 +138,13 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {(bat || bowl) && playerRadar && (
+        <div className="profile-section">
+          <div className="section-label">Player Profile Radar</div>
+          <PlayerRadarChart radar={playerRadar} />
         </div>
       )}
 
@@ -234,6 +253,9 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
         {battingHistory.length >= 2 && (
           <>
             <FormCurve innings={battingHistory} statKey="runs" label="runs" />
+            {battingHistory.length >= 4 && (
+              <FormTrendChart battingHistory={battingHistory} bowlingHistory={[]} />
+            )}
             {battingStreak && (
               <div className={`streak-pill streak-${battingStreak.type}`}>
                 <span>{battingStreak.emoji}</span> {battingStreak.label}
@@ -422,6 +444,13 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
           </div>)}
         </div>
       </div>}
+
+      {matchChartData.length >= 3 && (
+        <div className="profile-section">
+          <div className="section-label">Match-by-Match Performance</div>
+          <RunsWicketsChart data={matchChartData} />
+        </div>
+      )}
 
       {hasMatchData && (
         <div className="profile-section">
