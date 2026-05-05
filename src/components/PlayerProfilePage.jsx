@@ -43,6 +43,7 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
   const battingVsOpps = computeOpponentBattingStats(battingHistory).slice(0, 5);
   const bowlingVsOpps = computeOpponentBowlingStats(bowlingHistory).slice(0, 5);
   const hasMatchData = battingHistory.length > 0 || bowlingHistory.length > 0;
+  const primary = bowlingHistory.length > battingHistory.length ? 'bowling' : 'batting';
 
   const milestones = getNearestMilestones(bat, bowl, rankTotals);
   const boundaryDist = computeBoundaryDistribution(bat);
@@ -80,6 +81,241 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
 
   const spotlight = spotlightLines.slice(0, 2).join(' ');
 
+  const battingSection = !bat ? null : (
+    <div className="profile-section">
+      <div style={{fontSize: 13, fontWeight: 700, marginBottom: 12, textTransform: 'uppercase', color: 'var(--text-muted)'}}>Batting</div>
+      <div className="mega-stat">{bat.hs}</div>
+      <div className="mega-stat-lbl">Highest Score</div>
+      {milestones.filter(m => m.id.startsWith('runs') || m.id.startsWith('hs') || m.id.startsWith('sixes')).length > 0 && (
+        <div className="smart-milestones">
+          {milestones.filter(m => m.id.startsWith('runs') || m.id.startsWith('hs') || m.id.startsWith('sixes')).slice(0,3).map(m => (
+            <div key={m.id} className="smart-milestone">
+              <div className="sm-header">
+                <span className="sm-emoji">{m.emoji}</span>
+                <span className="sm-label">{m.label}</span>
+                <span className="sm-remaining">{m.remaining} more {m.unit} to go</span>
+              </div>
+              <div className="milestone-bar">
+                <div className="milestone-bar-fill" style={{width:`${m.pct}%`}} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="stat-tile-grid">
+        {[
+          ['Runs', bat.runs, 'Total runs scored this season'],
+          ['Average', bat.avg, 'Runs per dismissal (excluding not-outs)'],
+          ['Strike Rate', bat.sr, 'Runs scored per 100 balls faced'],
+          ['Fours', bat.fours, 'Boundary 4s hit'],
+          ['Sixes', bat.sixes, 'Boundary 6s hit'],
+          ['Boundary %', bat.boundaryPct, 'Percent of runs from 4s and 6s']
+        ].map(([l,v,desc]) => (
+          <div key={l} className="stat-tile" title={desc}>
+            <div className="stat-tile-val">{v??'—'}</div>
+            <div className="stat-tile-lbl">{l}</div>
+          </div>
+        ))}
+      </div>
+      {boundaryDist && (
+        <div className="boundary-dist">
+          <div className="boundary-dist-title">Where Your Runs Come From</div>
+          <div className="boundary-bar">
+            {boundaryDist.fourPct > 0 && <div className="bd-seg bd-four" style={{width:`${boundaryDist.fourPct}%`}} title={`Fours: ${boundaryDist.fourRuns} runs`} />}
+            {boundaryDist.sixPct  > 0 && <div className="bd-seg bd-six"  style={{width:`${boundaryDist.sixPct}%`}}  title={`Sixes: ${boundaryDist.sixRuns} runs`} />}
+            {boundaryDist.runningPct > 0 && <div className="bd-seg bd-run" style={{width:`${boundaryDist.runningPct}%`}} title={`Running: ${boundaryDist.runningRuns} runs`} />}
+          </div>
+          <div className="boundary-legend">
+            {boundaryDist.fourPct > 0 && <span className="bd-item bd-four">{boundaryDist.fourPct}% Fours ({boundaryDist.fours}×4)</span>}
+            {boundaryDist.sixPct  > 0 && <span className="bd-item bd-six">{boundaryDist.sixPct}% Sixes ({boundaryDist.sixes}×6)</span>}
+            <span className="bd-item bd-run">{boundaryDist.runningPct}% Running</span>
+          </div>
+          <div className="insight-text">{boundaryDist.insight}</div>
+        </div>
+      )}
+      {battingHistory.length >= 2 && (
+        <>
+          <FormCurve innings={battingHistory} statKey="runs" label="runs" />
+          {battingHistory.length >= 4 && (
+            <FormTrendChart battingHistory={battingHistory} bowlingHistory={[]} />
+          )}
+          {battingStreak && (
+            <div className={`streak-pill streak-${battingStreak.type}`}>
+              <span>{battingStreak.emoji}</span> {battingStreak.label}
+            </div>
+          )}
+        </>
+      )}
+      {battingVsOpps.length > 0 && (
+        <div className="opp-block">
+          <div className="opp-title">Vs Opponents</div>
+          <div className="opp-rows">
+            {battingVsOpps.map(o => (
+              <div key={o.opponent} className="opp-row">
+                <div className="opp-name">{o.opponent}</div>
+                <div className="opp-stats">
+                  <span>{o.inns} inns</span>
+                  <span>·</span>
+                  <span>avg <strong>{o.avg}</strong></span>
+                  <span>·</span>
+                  <span>best <strong>{o.best}</strong></span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {dismissalProfile && (
+        <div className="dismissal-profile">
+          <div className="dismissal-profile-title">How You Get Out</div>
+          <div className="dismissal-bars">
+            {dismissalProfile.items.map(item => (
+              <div key={item.type} className="dismissal-row">
+                <span className="dismissal-emoji">{item.emoji}</span>
+                <span className="dismissal-type">{item.type}</span>
+                <div className="dismissal-bar-wrap">
+                  <div className="dismissal-bar-fill" style={{width:`${item.pct}%`}} />
+                </div>
+                <span className="dismissal-count">{item.count}×</span>
+              </div>
+            ))}
+          </div>
+          <div className="insight-text">{dismissalProfile.insight}</div>
+        </div>
+      )}
+      {winSplit && (
+        <div className="win-split">
+          <div className="win-split-grid">
+            <div className="win-split-col win-col">
+              <div className="win-split-badge">When Team Wins</div>
+              <div className="win-split-avg">{winSplit.won.avg}</div>
+              <div className="win-split-meta">{winSplit.won.inns} inns · {winSplit.won.runs} runs</div>
+            </div>
+            <div className="win-split-col loss-col">
+              <div className="win-split-badge">When Team Loses</div>
+              <div className="win-split-avg">{winSplit.lost.avg}</div>
+              <div className="win-split-meta">{winSplit.lost.inns} inns · {winSplit.lost.runs} runs</div>
+            </div>
+          </div>
+          {(() => {
+            const wA = parseFloat(winSplit.won.avg), lA = parseFloat(winSplit.lost.avg);
+            if (!isNaN(wA) && !isNaN(lA) && wA > 0 && lA > 0) {
+              if (wA >= lA * 1.3) return <div className="insight-text">You lift when the team needs it most — your average in wins ({winSplit.won.avg}) is noticeably higher. Keep bringing that big-match energy!</div>;
+              if (lA >= wA * 1.3) return <div className="insight-text">You&apos;re a fighter! You actually score more when the team is under pressure ({winSplit.lost.avg} avg vs {winSplit.won.avg}). A true match-saver in the making!</div>;
+            }
+            return <div className="insight-text">Consistent performer — you deliver in both winning and losing matches. That reliability is priceless!</div>;
+          })()}
+        </div>
+      )}
+      {battingBenchmark && (
+        <div className="benchmark-block">
+          <div className="benchmark-title">Where you stand in {battingBenchmark.division} <span className="benchmark-meta">({battingBenchmark.totalPlayers} batters)</span></div>
+          {[
+            ['Runs',         battingBenchmark.runs],
+            ['Average',      battingBenchmark.avg],
+            ['Strike Rate',  battingBenchmark.sr],
+            ['Boundary %',   battingBenchmark.boundaryPct],
+            ['Sixes',        battingBenchmark.sixes],
+          ].map(([label, stat]) => stat.pct == null ? null : (
+            <div key={label} className="benchmark-row">
+              <div className="benchmark-row-label">{label}</div>
+              <div className="benchmark-bar-wrap">
+                <div className="benchmark-bar-fill" style={{width: `${stat.pct}%`, background: stat.pct >= 75 ? 'var(--clr-ok)' : stat.pct >= 50 ? 'var(--accent)' : 'var(--z-300)'}} />
+              </div>
+              <div className="benchmark-row-val">{stat.pct >= 50 ? `Top ${Math.max(1, 100 - stat.pct)}%` : `${stat.pct}%ile`}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const bowlingSection = !bowl ? null : (
+    <div className="profile-section">
+      <div style={{fontSize: 13, fontWeight: 700, marginBottom: 12, textTransform: 'uppercase', color: 'var(--text-muted)'}}>Bowling</div>
+      <div className="mega-stat">{bowl.bbf}</div>
+      <div className="mega-stat-lbl">Best Figures</div>
+      {milestones.filter(m => m.id.startsWith('wkts')).length > 0 && (
+        <div className="smart-milestones">
+          {milestones.filter(m => m.id.startsWith('wkts')).map(m => (
+            <div key={m.id} className="smart-milestone">
+              <div className="sm-header">
+                <span className="sm-emoji">{m.emoji}</span>
+                <span className="sm-label">{m.label}</span>
+                <span className="sm-remaining">{m.remaining} more {m.unit} to go</span>
+              </div>
+              <div className="milestone-bar">
+                <div className="milestone-bar-fill" style={{width:`${m.pct}%`}} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="stat-tile-grid">
+        {[
+          ['Wickets', bowl.wickets, 'Total wickets taken'],
+          ['Economy', bowl.econ, 'Runs conceded per over'],
+          ['Average', bowl.avg, 'Runs conceded per wicket'],
+          ['Maidens', bowl.maidens, 'Overs where no runs were conceded'],
+          ['Dots %', bowl.dotPct, 'Percent of balls that were dot balls'],
+          ['Extras / Over', bowl.extrasPer6, 'Wides + no-balls per over']
+        ].map(([l,v,desc]) => (
+          <div key={l} className="stat-tile" title={desc}>
+            <div className="stat-tile-val">{v??'—'}</div>
+            <div className="stat-tile-lbl">{l}</div>
+          </div>
+        ))}
+      </div>
+      {bowlingHistory.length >= 2 && (
+        <>
+          <FormCurve innings={bowlingHistory} statKey="wickets" label="wkts" />
+          {bowlingStreak && (
+            <div className={`streak-pill streak-${bowlingStreak.type}`}>
+              <span>{bowlingStreak.emoji}</span> {bowlingStreak.label}
+            </div>
+          )}
+        </>
+      )}
+      {bowlingVsOpps.length > 0 && (
+        <div className="opp-block">
+          <div className="opp-title">Vs Opponents</div>
+          <div className="opp-rows">
+            {bowlingVsOpps.map(o => (
+              <div key={o.opponent} className="opp-row">
+                <div className="opp-name">{o.opponent}</div>
+                <div className="opp-stats">
+                  <span>{o.inns} spells</span>
+                  <span>·</span>
+                  <span><strong>{o.wickets}</strong> wkts</span>
+                  <span>·</span>
+                  <span>best <strong>{o.best}</strong></span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {bowlingBenchmark && (
+        <div className="benchmark-block">
+          <div className="benchmark-title">Where you stand in {bowlingBenchmark.division} <span className="benchmark-meta">({bowlingBenchmark.totalPlayers} bowlers)</span></div>
+          {[
+            ['Wickets', bowlingBenchmark.wickets],
+            ['Economy', bowlingBenchmark.econ],
+            ['Maidens', bowlingBenchmark.maidens],
+          ].map(([label, stat]) => stat.pct == null ? null : (
+            <div key={label} className="benchmark-row">
+              <div className="benchmark-row-label">{label}</div>
+              <div className="benchmark-bar-wrap">
+                <div className="benchmark-bar-fill" style={{width: `${stat.pct}%`, background: stat.pct >= 75 ? 'var(--clr-ok)' : stat.pct >= 50 ? 'var(--accent)' : 'var(--z-300)'}} />
+              </div>
+              <div className="benchmark-row-val">{stat.pct >= 50 ? `Top ${Math.max(1, 100 - stat.pct)}%` : `${stat.pct}%ile`}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="player-page">
       <div className="player-hero">
@@ -90,14 +326,28 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
       </div>
 
       <div className="headline-pills">
-        <div className="headline-pill">
-          <div className="headline-pill-val">{bat?.runs || 0}</div>
-          <div className="headline-pill-lbl">Runs</div>
-        </div>
-        <div className="headline-pill">
-          <div className="headline-pill-val">{bowl?.wickets || 0}</div>
-          <div className="headline-pill-lbl">Wickets</div>
-        </div>
+        {primary === 'bowling' ? (
+          <div className="headline-pill">
+            <div className="headline-pill-val">{bowl?.wickets || 0}</div>
+            <div className="headline-pill-lbl">Wickets</div>
+          </div>
+        ) : (
+          <div className="headline-pill">
+            <div className="headline-pill-val">{bat?.runs || 0}</div>
+            <div className="headline-pill-lbl">Runs</div>
+          </div>
+        )}
+        {primary === 'bowling' ? (
+          <div className="headline-pill">
+            <div className="headline-pill-val">{bat?.runs || 0}</div>
+            <div className="headline-pill-lbl">Runs</div>
+          </div>
+        ) : (
+          <div className="headline-pill">
+            <div className="headline-pill-val">{bowl?.wickets || 0}</div>
+            <div className="headline-pill-lbl">Wickets</div>
+          </div>
+        )}
         <div className="headline-pill">
           <div className="headline-pill-val">{bat?.matches || bowl?.matches || battingHistory.length || bowlingHistory.length || 0}</div>
           <div className="headline-pill-lbl">Matches</div>
@@ -199,236 +449,7 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
         </div>
       )}
 
-      {bat && <div className="profile-section">
-        <div style={{fontSize: 13, fontWeight: 700, marginBottom: 12, textTransform: 'uppercase', color: 'var(--text-muted)'}}>Batting</div>
-        <div className="mega-stat">{bat.hs}</div>
-        <div className="mega-stat-lbl">Highest Score</div>
-        {milestones.filter(m => m.id.startsWith('runs') || m.id.startsWith('hs') || m.id.startsWith('sixes')).length > 0 && (
-          <div className="smart-milestones">
-            {milestones.filter(m => m.id.startsWith('runs') || m.id.startsWith('hs') || m.id.startsWith('sixes')).slice(0,3).map(m => (
-              <div key={m.id} className="smart-milestone">
-                <div className="sm-header">
-                  <span className="sm-emoji">{m.emoji}</span>
-                  <span className="sm-label">{m.label}</span>
-                  <span className="sm-remaining">{m.remaining} more {m.unit} to go</span>
-                </div>
-                <div className="milestone-bar">
-                  <div className="milestone-bar-fill" style={{width:`${m.pct}%`}} />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="stat-tile-grid">
-          {[
-            ['Runs', bat.runs, 'Total runs scored this season'],
-            ['Average', bat.avg, 'Runs per dismissal (excluding not-outs)'],
-            ['Strike Rate', bat.sr, 'Runs scored per 100 balls faced'],
-            ['Fours', bat.fours, 'Boundary 4s hit'],
-            ['Sixes', bat.sixes, 'Boundary 6s hit'],
-            ['Boundary %', bat.boundaryPct, 'Percent of runs from 4s and 6s']
-          ].map(([l,v,desc]) => (
-            <div key={l} className="stat-tile" title={desc}>
-              <div className="stat-tile-val">{v??'—'}</div>
-              <div className="stat-tile-lbl">{l}</div>
-            </div>
-          ))}
-        </div>
-        {boundaryDist && (
-          <div className="boundary-dist">
-            <div className="boundary-dist-title">Where Your Runs Come From</div>
-            <div className="boundary-bar">
-              {boundaryDist.fourPct > 0 && <div className="bd-seg bd-four" style={{width:`${boundaryDist.fourPct}%`}} title={`Fours: ${boundaryDist.fourRuns} runs`} />}
-              {boundaryDist.sixPct  > 0 && <div className="bd-seg bd-six"  style={{width:`${boundaryDist.sixPct}%`}}  title={`Sixes: ${boundaryDist.sixRuns} runs`} />}
-              {boundaryDist.runningPct > 0 && <div className="bd-seg bd-run" style={{width:`${boundaryDist.runningPct}%`}} title={`Running: ${boundaryDist.runningRuns} runs`} />}
-            </div>
-            <div className="boundary-legend">
-              {boundaryDist.fourPct > 0 && <span className="bd-item bd-four">{boundaryDist.fourPct}% Fours ({boundaryDist.fours}×4)</span>}
-              {boundaryDist.sixPct  > 0 && <span className="bd-item bd-six">{boundaryDist.sixPct}% Sixes ({boundaryDist.sixes}×6)</span>}
-              <span className="bd-item bd-run">{boundaryDist.runningPct}% Running</span>
-            </div>
-            <div className="insight-text">{boundaryDist.insight}</div>
-          </div>
-        )}
-        {battingHistory.length >= 2 && (
-          <>
-            <FormCurve innings={battingHistory} statKey="runs" label="runs" />
-            {battingHistory.length >= 4 && (
-              <FormTrendChart battingHistory={battingHistory} bowlingHistory={[]} />
-            )}
-            {battingStreak && (
-              <div className={`streak-pill streak-${battingStreak.type}`}>
-                <span>{battingStreak.emoji}</span> {battingStreak.label}
-              </div>
-            )}
-          </>
-        )}
-        {battingVsOpps.length > 0 && (
-          <div className="opp-block">
-            <div className="opp-title">Vs Opponents</div>
-            <div className="opp-rows">
-              {battingVsOpps.map(o => (
-                <div key={o.opponent} className="opp-row">
-                  <div className="opp-name">{o.opponent}</div>
-                  <div className="opp-stats">
-                    <span>{o.inns} inns</span>
-                    <span>·</span>
-                    <span>avg <strong>{o.avg}</strong></span>
-                    <span>·</span>
-                    <span>best <strong>{o.best}</strong></span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        {dismissalProfile && (
-          <div className="dismissal-profile">
-            <div className="dismissal-profile-title">How You Get Out</div>
-            <div className="dismissal-bars">
-              {dismissalProfile.items.map(item => (
-                <div key={item.type} className="dismissal-row">
-                  <span className="dismissal-emoji">{item.emoji}</span>
-                  <span className="dismissal-type">{item.type}</span>
-                  <div className="dismissal-bar-wrap">
-                    <div className="dismissal-bar-fill" style={{width:`${item.pct}%`}} />
-                  </div>
-                  <span className="dismissal-count">{item.count}×</span>
-                </div>
-              ))}
-            </div>
-            <div className="insight-text">{dismissalProfile.insight}</div>
-          </div>
-        )}
-        {winSplit && (
-          <div className="win-split">
-            <div className="win-split-grid">
-              <div className="win-split-col win-col">
-                <div className="win-split-badge">When Team Wins</div>
-                <div className="win-split-avg">{winSplit.won.avg}</div>
-                <div className="win-split-meta">{winSplit.won.inns} inns · {winSplit.won.runs} runs</div>
-              </div>
-              <div className="win-split-col loss-col">
-                <div className="win-split-badge">When Team Loses</div>
-                <div className="win-split-avg">{winSplit.lost.avg}</div>
-                <div className="win-split-meta">{winSplit.lost.inns} inns · {winSplit.lost.runs} runs</div>
-              </div>
-            </div>
-            {(() => {
-              const wA = parseFloat(winSplit.won.avg), lA = parseFloat(winSplit.lost.avg);
-              if (!isNaN(wA) && !isNaN(lA) && wA > 0 && lA > 0) {
-                if (wA >= lA * 1.3) return <div className="insight-text">You lift when the team needs it most — your average in wins ({winSplit.won.avg}) is noticeably higher. Keep bringing that big-match energy!</div>;
-                if (lA >= wA * 1.3) return <div className="insight-text">You&apos;re a fighter! You actually score more when the team is under pressure ({winSplit.lost.avg} avg vs {winSplit.won.avg}). A true match-saver in the making!</div>;
-              }
-              return <div className="insight-text">Consistent performer — you deliver in both winning and losing matches. That reliability is priceless!</div>;
-            })()}
-          </div>
-        )}
-        {battingBenchmark && (
-          <div className="benchmark-block">
-            <div className="benchmark-title">Where you stand in {battingBenchmark.division} <span className="benchmark-meta">({battingBenchmark.totalPlayers} batters)</span></div>
-            {[
-              ['Runs',         battingBenchmark.runs],
-              ['Average',      battingBenchmark.avg],
-              ['Strike Rate',  battingBenchmark.sr],
-              ['Boundary %',   battingBenchmark.boundaryPct],
-              ['Sixes',        battingBenchmark.sixes],
-            ].map(([label, stat]) => stat.pct == null ? null : (
-              <div key={label} className="benchmark-row">
-                <div className="benchmark-row-label">{label}</div>
-                <div className="benchmark-bar-wrap">
-                  <div className="benchmark-bar-fill" style={{width: `${stat.pct}%`, background: stat.pct >= 75 ? 'var(--clr-ok)' : stat.pct >= 50 ? 'var(--accent)' : 'var(--z-300)'}} />
-                </div>
-                <div className="benchmark-row-val">{stat.pct >= 50 ? `Top ${Math.max(1, 100 - stat.pct)}%` : `${stat.pct}%ile`}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>}
-
-      {bowl && <div className="profile-section">
-        <div style={{fontSize: 13, fontWeight: 700, marginBottom: 12, textTransform: 'uppercase', color: 'var(--text-muted)'}}>Bowling</div>
-        <div className="mega-stat">{bowl.bbf}</div>
-        <div className="mega-stat-lbl">Best Figures</div>
-        {milestones.filter(m => m.id.startsWith('wkts')).length > 0 && (
-          <div className="smart-milestones">
-            {milestones.filter(m => m.id.startsWith('wkts')).map(m => (
-              <div key={m.id} className="smart-milestone">
-                <div className="sm-header">
-                  <span className="sm-emoji">{m.emoji}</span>
-                  <span className="sm-label">{m.label}</span>
-                  <span className="sm-remaining">{m.remaining} more {m.unit} to go</span>
-                </div>
-                <div className="milestone-bar">
-                  <div className="milestone-bar-fill" style={{width:`${m.pct}%`}} />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="stat-tile-grid">
-          {[
-            ['Wickets', bowl.wickets, 'Total wickets taken'],
-            ['Economy', bowl.econ, 'Runs conceded per over'],
-            ['Average', bowl.avg, 'Runs conceded per wicket'],
-            ['Maidens', bowl.maidens, 'Overs where no runs were conceded'],
-            ['Dots %', bowl.dotPct, 'Percent of balls that were dot balls'],
-            ['Extras / Over', bowl.extrasPer6, 'Wides + no-balls per over']
-          ].map(([l,v,desc]) => (
-            <div key={l} className="stat-tile" title={desc}>
-              <div className="stat-tile-val">{v??'—'}</div>
-              <div className="stat-tile-lbl">{l}</div>
-            </div>
-          ))}
-        </div>
-        {bowlingHistory.length >= 2 && (
-          <>
-            <FormCurve innings={bowlingHistory} statKey="wickets" label="wkts" />
-            {bowlingStreak && (
-              <div className={`streak-pill streak-${bowlingStreak.type}`}>
-                <span>{bowlingStreak.emoji}</span> {bowlingStreak.label}
-              </div>
-            )}
-          </>
-        )}
-        {bowlingVsOpps.length > 0 && (
-          <div className="opp-block">
-            <div className="opp-title">Vs Opponents</div>
-            <div className="opp-rows">
-              {bowlingVsOpps.map(o => (
-                <div key={o.opponent} className="opp-row">
-                  <div className="opp-name">{o.opponent}</div>
-                  <div className="opp-stats">
-                    <span>{o.inns} spells</span>
-                    <span>·</span>
-                    <span><strong>{o.wickets}</strong> wkts</span>
-                    <span>·</span>
-                    <span>best <strong>{o.best}</strong></span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        {bowlingBenchmark && (
-          <div className="benchmark-block">
-            <div className="benchmark-title">Where you stand in {bowlingBenchmark.division} <span className="benchmark-meta">({bowlingBenchmark.totalPlayers} bowlers)</span></div>
-            {[
-              ['Wickets', bowlingBenchmark.wickets],
-              ['Economy', bowlingBenchmark.econ],
-              ['Maidens', bowlingBenchmark.maidens],
-            ].map(([label, stat]) => stat.pct == null ? null : (
-              <div key={label} className="benchmark-row">
-                <div className="benchmark-row-label">{label}</div>
-                <div className="benchmark-bar-wrap">
-                  <div className="benchmark-bar-fill" style={{width: `${stat.pct}%`, background: stat.pct >= 75 ? 'var(--clr-ok)' : stat.pct >= 50 ? 'var(--accent)' : 'var(--z-300)'}} />
-                </div>
-                <div className="benchmark-row-val">{stat.pct >= 50 ? `Top ${Math.max(1, 100 - stat.pct)}%` : `${stat.pct}%ile`}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>}
+      {primary === 'bowling' ? <>{bowlingSection}{battingSection}</> : <>{battingSection}{bowlingSection}</>}
 
       {(earnedAchievements.length > 0 || lockedAchievements.length > 0) && <div className="profile-section">
         <div style={{fontSize: 13, fontWeight: 700, marginBottom: 12, textTransform: 'uppercase', color: 'var(--text-muted)'}}>Achievements</div>
