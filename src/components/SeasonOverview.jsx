@@ -165,7 +165,7 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
 
   // ── Navigate to a division's full view ──
   const goToDivision = (div) => {
-    onGoToDivision(div, 'standings');
+    onGoToDivision(div, 'overview');
   };
 
   // ── Render a single division card ──

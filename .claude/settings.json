@@ -1,7 +1,15 @@
 {
   "permissions": {
     "allow": [
-      "WebSearch"
+      "WebSearch",
+      "Bash(git diff*)",
+      "Bash(git status*)",
+      "Bash(git checkout*)",
+      "Bash(git log*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(source ~/.deepseek.env*)",
+      "Bash(claude -p*)"
     ]
   }
 }

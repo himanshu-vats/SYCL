@@ -4,6 +4,7 @@ import NavBar from './NavBar.jsx';
 import PlayerProfilePage from './PlayerProfilePage.jsx';
 import TeamProfilePage from './TeamProfilePage.jsx';
 import SeasonOverview from './SeasonOverview.jsx';
+import DivisionOverview from './DivisionOverview.jsx';
 import ScheduleView from './ScheduleView.jsx';
 import StandingsView from './StandingsView.jsx';
 import ResultsView from './ResultsView.jsx';
@@ -149,7 +150,7 @@ export default function SYCLDashboard({ onFeedback }) {
 
   const handleGoToDivision = useCallback((division, tab) => {
     setSelectedDivision(division);
-    setActiveTab(tab);
+    setActiveTab(tab === 'overview' ? 'overview' : tab);
   }, []);
 
   if (!slug) return (
@@ -226,7 +227,8 @@ export default function SYCLDashboard({ onFeedback }) {
         <div className="content-wrap">
 
           <>
-            {activeTab==="overview"  && <SeasonOverview  data={data} lastRefresh={lastRefresh} onDrilldown={handleDrilldown} onGoToDivision={handleGoToDivision} />}
+            {activeTab==="overview" && selectedDivision && selectedDivision !== 'combined' && <DivisionOverview data={data} division={selectedDivision} onTabClick={handleTabClick} onDrilldown={handleDrilldown} onAllDivisions={() => setSelectedDivision('combined')} />}
+            {activeTab==="overview" && (!selectedDivision || selectedDivision === 'combined') && <SeasonOverview  data={data} lastRefresh={lastRefresh} onDrilldown={handleDrilldown} onGoToDivision={handleGoToDivision} />}
             {selectedDivision && activeTab==="schedule"  && <ScheduleView  matches={data.matches} division={selectedDivision} onDrilldown={handleDrilldown}/>}
             {selectedDivision && activeTab==="standings" && <StandingsView matches={data.matches} division={selectedDivision} standings={data.standings} results={data.results} onDrilldown={handleDrilldown}/>}
             {activeTab==="results"   && <ResultsView  results={data.results}   division={selectedDivision} onDrilldown={handleDrilldown}/>}
