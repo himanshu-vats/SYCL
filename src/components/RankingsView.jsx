@@ -60,12 +60,11 @@ export default function RankingsView({ rankings, division, onDrilldown }) {
             <th style={{width:32}}>#</th>
             <Th col="player">Player</Th>
             <Th col="team">Team</Th>
-            <Th col="matches" style={{textAlign:"center"}} className="mob-hide">Mat</Th>
-            <Th col="batting" style={{textAlign:"center"}} className="mob-hide">Bat Pts</Th>
-            <Th col="bowling" style={{textAlign:"center"}} className="mob-hide">Bowl Pts</Th>
-            <Th col="fielding" style={{textAlign:"center"}} className="mob-hide">Field Pts</Th>
-            <Th col="mom" style={{textAlign:"center"}} className="mob-hide">POM Pts</Th>
-            <Th col="total" style={{textAlign:"center"}} className="points-cell">Total</Th>
+            <Th col="bowling" style={{textAlign:"center"}} className="mob-hide">MAT</Th>
+            <Th col="fielding" style={{textAlign:"center"}} className="mob-hide">FIELD</Th>
+            <Th col="other" style={{textAlign:"center"}} className="mob-hide">OTHER</Th>
+            <Th col="mom" style={{textAlign:"center"}} className="mob-hide">POM</Th>
+            <Th col="total" style={{textAlign:"center"}} className="points-cell">TOTAL</Th>
           </tr></thead>
           <tbody>
             {rows.map((r, i) => (
@@ -73,10 +72,9 @@ export default function RankingsView({ rankings, division, onDrilldown }) {
                 <td className="num-cell" style={{color:"var(--text-muted)"}}>{i+1}</td>
                 <td className="team-name clickable" style={{fontWeight:500}} onClick={() => onDrilldown({type:'player',name:r.player})}>{r.player}</td>
                 <td className="clickable" style={{fontSize:12,color:"var(--text-secondary)"}} onClick={() => onDrilldown({type:'team',name:r.team})}>{r.team}</td>
-                <td className="num-cell mob-hide">{r.matches}</td>
-                <td className="num-cell mob-hide">{r.batting}</td>
                 <td className="num-cell mob-hide">{r.bowling}</td>
                 <td className="num-cell mob-hide">{r.fielding}</td>
+                <td className="num-cell mob-hide">{r.other}</td>
                 <td className="num-cell mob-hide">{r.mom}</td>
                 <td className="num-cell points-cell">{r.total}</td>
               </tr>
@@ -84,6 +82,7 @@ export default function RankingsView({ rankings, division, onDrilldown }) {
           </tbody>
         </table>
       </div>
+      <div style={{fontStyle:"italic",fontSize:11,color:"var(--text-muted)",marginTop:6}}>Mat / breakdown columns reflect CricClubs data — resync admin to update.</div>
     </div>
   );
 }
