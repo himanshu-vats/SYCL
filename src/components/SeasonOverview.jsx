@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { aggregateBatting, aggregateBowling } from '../utils/aggregation.js';
 
 export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToDivision }) {
   const { matches = [], results, batting, bowling, rankings, standings } = data;
@@ -30,16 +31,18 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
   // ── All batters / bowlers / ranked (for overall card) ──
   const allBatters = useMemo(() => {
     if (!batting) return [];
-    return Object.entries(batting)
+    const flat = Object.entries(batting)
       .filter(([k]) => k !== 'updatedAt' && k !== 'combined')
       .flatMap(([, rows]) => Array.isArray(rows) ? rows : []);
+    return aggregateBatting(flat);
   }, [batting]);
 
   const allBowlers = useMemo(() => {
     if (!bowling) return [];
-    return Object.entries(bowling)
+    const flat = Object.entries(bowling)
       .filter(([k]) => k !== 'updatedAt' && k !== 'combined')
       .flatMap(([, rows]) => Array.isArray(rows) ? rows : []);
+    return aggregateBowling(flat);
   }, [bowling]);
 
   const allRanked = useMemo(() => {
@@ -382,7 +385,7 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
           </div>
 
           {/* CTA */}
-          <button className="div-card-cta" onClick={() => goToDivision('combined')}>
+          <button className="div-card-cta" onClick={() => onGoToDivision('combined', 'standings')}>
             View All Divisions →
           </button>
         </div>
