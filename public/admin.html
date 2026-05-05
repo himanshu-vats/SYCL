@@ -1275,7 +1275,10 @@ function parseRankings(doc){
     var player=g(1);if(!player)return;
     var teamTds=cells[2]?cells[2].querySelectorAll('td'):[];
     var team=teamTds.length>1?teamTds[teamTds.length-1].textContent.replace(/\\s+/g,' ').trim():g(2);
-    rows.push({rank:parseInt(g(0))||0,player:player,team:team,matches:parseInt(g(3))||0,batting:parseInt(g(4))||0,bowling:parseInt(g(5))||0,fielding:parseInt(g(6))||0,other:parseInt(g(7))||0,mom:parseInt(g(8))||0,total:parseInt(g(9))||0});
+    // CricClubs SYCL rankings table has 2 extra non-numeric columns (player/team image) at indices 3-4.
+    // Actual stats start at col 5: Mat, BatPts, BowlPts, MoM, Total.
+    // fielding/other breakdowns aren't published on CricClubs, so those are left at 0.
+    rows.push({rank:parseInt(g(0))||0,player:player,team:team,matches:parseInt(g(5))||0,batting:parseInt(g(6))||0,bowling:parseInt(g(7))||0,fielding:0,other:0,mom:parseInt(g(8))||0,total:parseInt(g(9))||0});
   });
   return rows.length?rows:null;
 }
