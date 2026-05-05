@@ -63,8 +63,7 @@ export default function RankingsView({ rankings, division, onDrilldown }) {
             <Th col="matches" style={{textAlign:"center"}} className="mob-hide">MAT</Th>
             <Th col="batting" style={{textAlign:"center"}} className="mob-hide">BAT PTS</Th>
             <Th col="bowling" style={{textAlign:"center"}} className="mob-hide">BOWL PTS</Th>
-            <Th col="fielding" style={{textAlign:"center"}} className="mob-hide">FIELD PTS</Th>
-            <Th col="mom" style={{textAlign:"center"}} className="mob-hide">POM PTS</Th>
+            <Th col="mom" style={{textAlign:"center"}} className="mob-hide">POM</Th>
             <Th col="total" style={{textAlign:"center"}} className="points-cell">TOTAL</Th>
           </tr></thead>
           <tbody>
@@ -76,7 +75,6 @@ export default function RankingsView({ rankings, division, onDrilldown }) {
                 <td className="num-cell mob-hide">{r.matches}</td>
                 <td className="num-cell mob-hide">{r.batting}</td>
                 <td className="num-cell mob-hide">{r.bowling}</td>
-                <td className="num-cell mob-hide">{r.fielding}</td>
                 <td className="num-cell mob-hide">{r.mom}</td>
                 <td className="num-cell points-cell">{r.total}</td>
               </tr>
@@ -84,7 +82,10 @@ export default function RankingsView({ rankings, division, onDrilldown }) {
           </tbody>
         </table>
       </div>
-      <div style={{fontStyle:"italic",fontSize:11,color:"var(--text-muted)",marginTop:6}}>Mat / breakdown columns reflect CricClubs data — resync admin to update.</div>
+      <div style={{fontSize:11,color:"var(--text-muted)",marginTop:6,lineHeight:1.5}}>
+        <div><strong>TOTAL</strong> = 25 pts per team win (CricClubs league points)</div>
+        <div><strong>BAT / BOWL PTS</strong> = CricClubs performance rating (not runs/wickets)</div>
+      </div>
     </div>
   );
 }
