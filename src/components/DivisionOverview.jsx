@@ -220,7 +220,7 @@ export default function DivisionOverview({ data, division, onTabClick, onDrilldo
                     <td className="num-cell">{s.lost}</td>
                     <td className="num-cell points-cell">{s.pts}</td>
                     {hasResults && (
-                      <td><FormGuide results={data.results} team={s.team} /></td>
+                      <td><FormGuide results={data.results} team={s.team} division={division} played={s.played} /></td>
                     )}
                   </tr>
                 ))}

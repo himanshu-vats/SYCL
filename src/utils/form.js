@@ -1,11 +1,13 @@
 import { parseDate } from './schedule.js';
 
-export function computeFormGuide(results, team, n = 5) {
+export function computeFormGuide(results, team, n = 5, division, played) {
   if (!results?.matches?.length) return [];
-  return results.matches
-    .filter(m => m.team1 === team || m.team2 === team)
+  let chain = results.matches.filter(m => m.team1 === team || m.team2 === team);
+  if (division) chain = chain.filter(m => m.division === division);
+  const limit = played != null ? Math.min(n, played) : n;
+  return chain
     .sort((a, b) => { const da = parseDate(a.date), db = parseDate(b.date); return da && db ? da - db : 0; })
-    .slice(-n)
+    .slice(-limit)
     .map(m => {
       const r = (m.result || '').toLowerCase();
       if (r.includes('abandon') || r.includes('no result')) return 'A';

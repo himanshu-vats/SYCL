@@ -32,7 +32,7 @@ export default function StandingsView({ matches, division, standings, results, o
               <div className="leader-stat">{leader.pts} pts</div>
               <div className="leader-name clickable" onClick={() => onDrilldown({type:'team',name:leader.team})}>{leader.team}</div>
               <div className="leader-sub">{leader.won}W · {leader.lost}L{leader.nr>0?` · ${leader.nr}NR`:''} · Win% {leader.winPct}</div>
-              {hasResults && <div style={{marginTop:10}}><FormGuide results={results} team={leader.team}/></div>}
+              {hasResults && <div style={{marginTop:10}}><FormGuide results={results} team={leader.team} division={division} played={leader.played}/></div>}
               <div className="leader-bar"><div className="leader-bar-fill" style={{width:'100%'}}></div></div>
             </div>
             {rows[1] && <div className="leader-card silver">
@@ -40,7 +40,7 @@ export default function StandingsView({ matches, division, standings, results, o
               <div className="leader-stat">{rows[1].pts} pts</div>
               <div className="leader-name clickable" onClick={() => onDrilldown({type:'team',name:rows[1].team})}>{rows[1].team}</div>
               <div className="leader-sub">{rows[1].won}W · {rows[1].lost}L · {leader.pts - rows[1].pts} pts behind</div>
-              {hasResults && <div style={{marginTop:10}}><FormGuide results={results} team={rows[1].team}/></div>}
+              {hasResults && <div style={{marginTop:10}}><FormGuide results={results} team={rows[1].team} division={division} played={rows[1].played}/></div>}
               <div className="leader-bar"><div className="leader-bar-fill" style={{width:`${(rows[1].pts/leader.pts)*100}%`}}></div></div>
             </div>}
             {rows[2] && <div className="leader-card bronze">
@@ -48,7 +48,7 @@ export default function StandingsView({ matches, division, standings, results, o
               <div className="leader-stat">{rows[2].pts} pts</div>
               <div className="leader-name clickable" onClick={() => onDrilldown({type:'team',name:rows[2].team})}>{rows[2].team}</div>
               <div className="leader-sub">{rows[2].won}W · {rows[2].lost}L · {leader.pts - rows[2].pts} pts behind</div>
-              {hasResults && <div style={{marginTop:10}}><FormGuide results={results} team={rows[2].team}/></div>}
+              {hasResults && <div style={{marginTop:10}}><FormGuide results={results} team={rows[2].team} division={division} played={rows[2].played}/></div>}
               <div className="leader-bar"><div className="leader-bar-fill" style={{width:`${(rows[2].pts/leader.pts)*100}%`}}></div></div>
             </div>}
           </div>
@@ -91,8 +91,8 @@ export default function StandingsView({ matches, division, standings, results, o
                   <td className="num-cell points-cell">{s.pts}</td>
                   <td className="num-cell mob-hide" style={{fontWeight:600}}>{s.nrr}</td>
                   <td className="num-cell mob-hide">{s.winPct}</td>
-                  {hasResults && <td><FormGuide results={results} team={s.team}/></td>}
-                  {hasResults && <td className="mob-hide"><StreakBadge results={results} team={s.team}/></td>}
+                  {hasResults && <td><FormGuide results={results} team={s.team} division={division} played={s.played}/></td>}
+                  {hasResults && <td className="mob-hide"><StreakBadge results={results} team={s.team} division={division}/></td>}
                 </tr>
               ))}
             </tbody>
