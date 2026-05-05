@@ -384,6 +384,10 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
             <div className="div-card-progress-label">{completed}/{total} matches played</div>
           </div>
 
+          <button className="div-card-cta" onClick={() => onGoToDivision('combined', 'overview')}>
+            View All Divisions →
+          </button>
+
         </div>
 
         {/* Per-division cards */}

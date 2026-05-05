@@ -146,7 +146,10 @@ export default function SYCLDashboard({ onFeedback }) {
 
   const handleTabClick = useCallback((tab) => {
     setActiveTab(tab);
-  }, []);
+    if (tab === 'balance' && (!selectedDivision || selectedDivision === 'combined') && sortedDivs.length > 0) {
+      setSelectedDivision(sortedDivs[0]);
+    }
+  }, [selectedDivision, sortedDivs]);
 
   const handleGoToDivision = useCallback((division, tab) => {
     setSelectedDivision(division);
@@ -202,7 +205,7 @@ export default function SYCLDashboard({ onFeedback }) {
             value={selectedDivision || ''}
             onChange={(e) => setSelectedDivision(e.target.value)}
           >
-            {activeTab !== 'standings' && (
+            {activeTab !== 'standings' && activeTab !== 'balance' && (
               <option value="combined">All Divisions</option>
             )}
             {sortedDivs.map(d => (

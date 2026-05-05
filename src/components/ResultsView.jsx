@@ -7,7 +7,6 @@ export default function ResultsView({ results, division, onDrilldown }) {
   const [sortCol, setSortCol] = useState('date');
   const [sortDir, setSortDir] = useState('desc');
   const [teamFilter, setTeamFilter] = useState('');
-  const [divFilter, setDivFilter] = useState(() => (division && division !== 'combined') ? division : '');
 
   const matches = results?.matches || [];
   if (!matches.length) return (
@@ -17,10 +16,10 @@ export default function ResultsView({ results, division, onDrilldown }) {
   const ts = results?.updatedAt;
   function toggleSort(col) { sortCol === col ? setSortDir(d => d==='asc'?'desc':'asc') : (setSortCol(col), setSortDir('asc')); }
   const teamOptions = [...new Set(matches.flatMap(m => [m.team1,m.team2]).filter(Boolean))].sort();
-  const divOptions  = [...new Set(matches.map(m => m.division).filter(Boolean))].sort();
+  const activeDiv = division && division !== 'combined' ? division : null;
   const filtered = matches.filter(m =>
     (!teamFilter || m.team1===teamFilter || m.team2===teamFilter) &&
-    (!divFilter  || m.division===divFilter)
+    (!activeDiv  || m.division===activeDiv)
   );
   const rows = sortRows(filtered, sortCol, sortDir);
   const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
@@ -34,11 +33,7 @@ export default function ResultsView({ results, division, onDrilldown }) {
           <option value="">All Teams</option>
           {teamOptions.map(t=><option key={t} value={t}>{t}</option>)}
         </select>
-        <select className="team-select" value={divFilter} onChange={e=>setDivFilter(e.target.value)}>
-          <option value="">All Divisions</option>
-          {divOptions.map(d=><option key={d} value={d}>{d}</option>)}
-        </select>
-        {(teamFilter||divFilter) && <button className="small-btn" onClick={()=>{setTeamFilter('');setDivFilter('');}}>✕</button>}
+        {teamFilter && <button className="small-btn" onClick={()=>setTeamFilter('')}>✕</button>}
         <span style={{fontSize:11,color:"var(--text-muted)",marginLeft:"auto"}}>{rows.length} result{rows.length!==1?'s':''}</span>
       </div>
       <div className="insight-callout"><span className="insight-callout-icon">💡</span><span>Click any <strong>player name</strong> to see full stats, milestones &amp; insights · Click any <strong>team name</strong> to see team profile</span></div>

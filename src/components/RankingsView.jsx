@@ -8,6 +8,7 @@ export default function RankingsView({ rankings, division, onDrilldown }) {
   const [sortDir, setSortDir] = useState('desc');
   const [teamFilter, setTeamFilter] = useState('');
   const [playerSearch, setPlayerSearch] = useState('');
+  const [showPointsInfo, setShowPointsInfo] = useState(false);
   const isCombined = division === 'combined';
 
   if (!rankings) return <div className="empty-state">No rankings data. Use Sync All in admin to fetch.</div>;
@@ -45,6 +46,29 @@ export default function RankingsView({ rankings, division, onDrilldown }) {
       <div className="insight-callout"><span className="insight-callout-icon">💡</span><span>Click any <strong>player name</strong> to see full stats, milestones &amp; insights · Click any <strong>team name</strong> to see team profile</span></div>
       <div className="section-label">Full Rankings</div>
       {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}
+      <div className="points-info-box">
+        <button className="points-info-toggle" onClick={() => setShowPointsInfo(v => !v)} aria-expanded={showPointsInfo}>
+          <span className="points-info-icon">{showPointsInfo ? 'ⓘ' : 'ⓘ'}</span>
+          <span>How are points calculated?</span>
+          <span className="points-info-chevron" style={{transform: showPointsInfo ? 'rotate(180deg)' : 'rotate(0deg)'}}>▾</span>
+        </button>
+        {showPointsInfo && (
+          <div className="points-info-content">
+            <div className="points-info-row">
+              <span className="points-info-col points-info-label">TOTAL</span>
+              <span className="points-info-col">25 points per team win in the season</span>
+            </div>
+            <div className="points-info-row">
+              <span className="points-info-col points-info-label">BAT PTS<br/>BOWL PTS</span>
+              <span className="points-info-col">CricClubs internal performance rating — reflects batting/bowling quality across all matches, <em>not</em> runs or wickets. Higher = better performer. These do <em>not</em> add up to TOTAL.</span>
+            </div>
+            <div className="points-info-row">
+              <span className="points-info-col points-info-label">MAT</span>
+              <span className="points-info-col">Number of matches played this season</span>
+            </div>
+          </div>
+        )}
+      </div>
       <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
         <select className="team-select" value={teamFilter} onChange={e=>{setTeamFilter(e.target.value);setPlayerSearch('');}}>
           <option value="">All Teams</option>
@@ -81,10 +105,6 @@ export default function RankingsView({ rankings, division, onDrilldown }) {
             ))}
           </tbody>
         </table>
-      </div>
-      <div style={{fontSize:11,color:"var(--text-muted)",marginTop:6,lineHeight:1.5}}>
-        <div><strong>TOTAL</strong> = 25 pts per team win (CricClubs league points)</div>
-        <div><strong>BAT / BOWL PTS</strong> = CricClubs performance rating (not runs/wickets)</div>
       </div>
     </div>
   );

@@ -8,6 +8,17 @@ function median(arr) {
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
+function isUpcoming(dateStr) {
+  if (!dateStr) return false;
+  const parts = dateStr.split('/');
+  if (parts.length !== 3) return false;
+  const m = parseInt(parts[0], 10);
+  const d = parseInt(parts[1], 10);
+  const y = parseInt(parts[2], 10);
+  if (!m || !d || !y) return false;
+  return y * 10000 + m * 100 + d > 20260505;
+}
+
 export default function BalanceView({ matches, division }) {
   const filtered = matches.filter(m => {
     if (division !== 'combined' && m.division !== division) return false;
@@ -53,8 +64,10 @@ export default function BalanceView({ matches, division }) {
 
   // Issues: Self-Umpiring
   const selfUmpiring = filtered.filter(m =>
-    (m.umpire1 && (m.umpire1 === m.team1 || m.umpire1 === m.team2)) ||
-    (m.umpire2 && (m.umpire2 === m.team1 || m.umpire2 === m.team2))
+    isUpcoming(m.date) && (
+      (m.umpire1 && (m.umpire1 === m.team1 || m.umpire1 === m.team2)) ||
+      (m.umpire2 && (m.umpire2 === m.team1 || m.umpire2 === m.team2))
+    )
   );
 
   // Issues: AM/PM Imbalance
@@ -76,7 +89,7 @@ export default function BalanceView({ matches, division }) {
     if (!groundGroups[key]) groundGroups[key] = [];
     groundGroups[key].push(m);
   });
-  const groundConflicts = Object.values(groundGroups).filter(g => g.length >= 2);
+  const groundConflicts = Object.values(groundGroups).filter(g => g.length >= 2 && g.some(m => isUpcoming(m.date)));
 
   // Cell flagging
   const haStyle = (team, side) => {
