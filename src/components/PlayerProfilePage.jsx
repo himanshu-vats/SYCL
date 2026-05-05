@@ -5,6 +5,7 @@ import { getNearestMilestones, computeBoundaryDistribution, computeDismissalProf
 import { ACHIEVEMENTS } from '../constants.js';
 import FormCurve from './FormCurve.jsx';
 import { ImpactRatingCard, RunsWicketsChart, FormTrendChart, PlayerRadarChart } from './PlayerCharts.jsx';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function PlayerProfilePage({ name, batting, bowling, rankings, playerInnings, onClose, onTeamDrilldown }) {
   const batRows = batting ? Object.entries(batting).filter(([k]) => k !== 'updatedAt' && k !== 'combined')
@@ -47,6 +48,11 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
 
   const milestones = getNearestMilestones(bat, bowl, rankTotals);
   const boundaryDist = computeBoundaryDistribution(bat);
+  const donutData = boundaryDist ? [
+    { name: 'Fours', value: boundaryDist.fourRuns, color: '#1565c0', pct: boundaryDist.fourPct },
+    { name: 'Sixes', value: boundaryDist.sixRuns, color: '#7b1fa2', pct: boundaryDist.sixPct },
+    { name: 'Running', value: boundaryDist.runningRuns, color: '#9ca3af', pct: boundaryDist.runningPct },
+  ].filter(d => d.value > 0) : [];
   const dismissalProfile = computeDismissalProfile(battingHistory);
 
   const matchChartData = computeMatchChartData(battingHistory, bowlingHistory);
@@ -117,18 +123,57 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
           </div>
         ))}
       </div>
-      {boundaryDist && (
+      {boundaryDist && donutData.length > 0 && (
         <div className="boundary-dist">
           <div className="boundary-dist-title">Where Your Runs Come From</div>
-          <div className="boundary-bar">
-            {boundaryDist.fourPct > 0 && <div className="bd-seg bd-four" style={{width:`${boundaryDist.fourPct}%`}} title={`Fours: ${boundaryDist.fourRuns} runs`} />}
-            {boundaryDist.sixPct  > 0 && <div className="bd-seg bd-six"  style={{width:`${boundaryDist.sixPct}%`}}  title={`Sixes: ${boundaryDist.sixRuns} runs`} />}
-            {boundaryDist.runningPct > 0 && <div className="bd-seg bd-run" style={{width:`${boundaryDist.runningPct}%`}} title={`Running: ${boundaryDist.runningRuns} runs`} />}
+          <div className="donut-wrapper">
+            <ResponsiveContainer width="100%" height={180}>
+              <PieChart>
+                <Pie
+                  data={donutData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={80}
+                  dataKey="value"
+                  stroke="none"
+                  label={({ cx, cy, midAngle, outerRadius, name, payload }) => {
+                    const RADIAN = Math.PI / 180;
+                    const r = outerRadius + 28;
+                    const x = cx + r * Math.cos(-midAngle * RADIAN);
+                    const y = cy + r * Math.sin(-midAngle * RADIAN);
+                    return (
+                      <text x={x} y={y} fill="#1a1a1a" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={11} fontWeight={500}>
+                        {name} {payload.pct}%
+                      </text>
+                    );
+                  }}
+                  labelLine={({ cx, cy, midAngle, outerRadius }) => {
+                    const RADIAN = Math.PI / 180;
+                    const startR = outerRadius + 4;
+                    const endR = outerRadius + 22;
+                    const x1 = cx + startR * Math.cos(-midAngle * RADIAN);
+                    const y1 = cy + startR * Math.sin(-midAngle * RADIAN);
+                    const x2 = cx + endR * Math.cos(-midAngle * RADIAN);
+                    const y2 = cy + endR * Math.sin(-midAngle * RADIAN);
+                    return <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#888" strokeWidth={1} />;
+                  }}
+                >
+                  {donutData.map((entry, i) => (
+                    <Cell key={i} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(v) => [`${v} runs`, '']} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="donut-center">{boundaryDist.total}</div>
           </div>
           <div className="boundary-legend">
-            {boundaryDist.fourPct > 0 && <span className="bd-item bd-four">{boundaryDist.fourPct}% Fours ({boundaryDist.fours}×4)</span>}
-            {boundaryDist.sixPct  > 0 && <span className="bd-item bd-six">{boundaryDist.sixPct}% Sixes ({boundaryDist.sixes}×6)</span>}
-            <span className="bd-item bd-run">{boundaryDist.runningPct}% Running</span>
+            {donutData.map(d => (
+              <span key={d.name} className="bd-item" style={{'--bd-color': d.color}}>
+                {d.name}: {d.value} runs
+              </span>
+            ))}
           </div>
           <div className="insight-text">{boundaryDist.insight}</div>
         </div>

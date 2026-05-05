@@ -876,20 +876,14 @@
   .sm-label { font-size:12px; font-weight:600; color:var(--text-primary); flex:1; }
   .sm-remaining { font-size:11px; color:var(--text-muted); white-space:nowrap; }
 
-  /* ── Boundary Distribution (Phase 3D-1) ── */
+  /* ── Boundary Distribution (Donut) ── */
   .boundary-dist { margin:16px 0; }
   .boundary-dist-title { font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:8px; text-transform:uppercase; letter-spacing:.5px; }
-  .boundary-bar { display:flex; height:18px; border-radius:6px; overflow:hidden; gap:1px; margin-bottom:8px; }
-  .bd-seg { height:100%; transition:width .4s ease; }
-  .bd-four { background:#2563eb; }
-  .bd-six  { background:#7c3aed; }
-  .bd-run  { background:#d1d5db; }
-  .boundary-legend { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
-  .bd-item { font-size:11px; display:flex; align-items:center; gap:4px; }
-  .bd-item::before { content:''; width:10px; height:10px; border-radius:2px; display:inline-block; }
-  .bd-item.bd-four::before { background:#2563eb; }
-  .bd-item.bd-six::before  { background:#7c3aed; }
-  .bd-item.bd-run::before  { background:#d1d5db; }
+  .donut-wrapper { position:relative; max-height:220px; display:flex; align-items:center; justify-content:center; }
+  .donut-center { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:22px; font-weight:700; color:var(--text-primary); pointer-events:none; }
+  .boundary-legend { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; margin:4px 0 8px; }
+  .bd-item { font-size:12px; color:var(--text-primary); display:flex; align-items:center; gap:6px; }
+  .bd-item::before { content:''; width:10px; height:10px; border-radius:50%; display:inline-block; background:var(--bd-color); flex-shrink:0; }
 
   /* ── Dismissal Profile (Phase 3D-1) ── */
   .dismissal-profile { margin:16px 0; }
