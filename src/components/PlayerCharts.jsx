@@ -29,21 +29,24 @@ export function ImpactRatingCard({ score, label, trend }) {
 
   return (
     <div style={{ textAlign: 'center' }}>
-      <div style={{ position: 'relative', width: 180, height: 140, margin: '0 auto' }}>
+      <div style={{ position: 'relative', width: 220, height: 165, margin: '0 auto' }}>
         <ResponsiveContainer width="100%" height="100%">
           <RadialBarChart
-            cx="50%" cy="80%"
-            innerRadius="70%" outerRadius="100%"
+            cx="50%" cy="70%"
+            innerRadius="48%" outerRadius="68%"
             barSize={10}
             data={[{ name: 'Impact', value: score }]}
             startAngle={180} endAngle={0}
           >
             <RadialBar dataKey="value" fill={color} background={{ fill: '#e5e7eb' }} />
+            <Tooltip formatter={(value) => [`Impact Score: ${value} / 100`, '']} />
           </RadialBarChart>
         </ResponsiveContainer>
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, textAlign: 'center' }}>
           <div className="impact-score" style={{ color }}>{score}</div>
+          <div className="impact-subtitle">/100 — composite season score</div>
           <div className="impact-label">{label}</div>
+          <div className="impact-desc">Based on runs, wickets, economy &amp; match impact</div>
           <div className={trendClass} style={{ fontSize: 14, marginTop: 2 }}>
             {trendIcon}
           </div>

@@ -1571,7 +1571,9 @@
 .impact-rating-section { text-align: center; }
 .player-page .section-label { font-size: 13px; font-weight: 700; margin-bottom: 12px; text-transform: uppercase; color: var(--text-muted); }
 .impact-score { font-size: 48px; font-weight: 800; line-height: 1; }
+.impact-subtitle { font-size: 11px; color: var(--z-400, #999); margin-top: 2px; }
 .impact-label { font-size: 14px; color: var(--text-muted); margin-top: 4px; }
+.impact-desc { font-size: 10px; color: var(--z-400, #999); margin-top: 2px; font-style: italic; }
 .impact-trend-up { color: #22c55e; }
 .impact-trend-down { color: #ef4444; }
 .impact-trend-stable { color: var(--text-muted); }

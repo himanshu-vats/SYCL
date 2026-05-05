@@ -3,6 +3,7 @@ export default function NavBar({ slug, leagueName, season, activeTab, onTabClick
   const goHome = () => { window.location.href = '/'; };
   const goLeague = () => {
     if (playerName && onClosePlayer) onClosePlayer();
+    if (teamName && onCloseTeam) onCloseTeam();
     if (onTabClick) onTabClick('overview');
   };
   return (
@@ -31,8 +32,8 @@ export default function NavBar({ slug, leagueName, season, activeTab, onTabClick
         <div className="nav-row-2">
           {TABS.map(([k, l]) => (
             <button key={k}
-              className={`nav-tab${activeTab === k && !playerName ? ' active' : ''}`}
-              onClick={() => { if (playerName && onClosePlayer) onClosePlayer(); if (onTabClick) onTabClick(k); }}>
+              className={`nav-tab${activeTab === k && !playerName && !teamName ? ' active' : ''}`}
+              onClick={() => { if (playerName && onClosePlayer) onClosePlayer(); if (teamName && onCloseTeam) onCloseTeam(); if (onTabClick) onTabClick(k); }}>
               {l}
             </button>
           ))}
