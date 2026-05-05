@@ -22,7 +22,6 @@ function isUpcoming(dateStr) {
 export default function BalanceView({ matches, division }) {
   const filtered = matches.filter(m => {
     if (division !== 'combined' && m.division !== division) return false;
-    if (m.date && (m.date.startsWith('05/09') || m.date.startsWith('05/10'))) return false;
     return true;
   });
 

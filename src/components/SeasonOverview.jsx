@@ -314,7 +314,7 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
       </div>
 
       {/* ── Division Cards Grid ── */}
-      <div className="div-card-grid">
+      <div className="div-card-grid" id="all-divisions-grid">
         {/* Overall Season Card */}
         <div className="div-card div-card-overall">
           <div className="div-card-header">
@@ -384,8 +384,8 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
             <div className="div-card-progress-label">{completed}/{total} matches played</div>
           </div>
 
-          <button className="div-card-cta" onClick={() => onGoToDivision('combined', 'overview')}>
-            View All Divisions →
+          <button className="div-card-cta" onClick={() => document.getElementById('all-divisions-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+            View All Divisions ↓
           </button>
 
         </div>
