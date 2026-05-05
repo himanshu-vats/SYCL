@@ -1,5 +1,5 @@
 export default function NavBar({ slug, leagueName, season, activeTab, onTabClick, playerName, onClosePlayer, teamName, onCloseTeam, loading, onRefresh, theme, onThemeToggle, onFeedback }) {
-  const TABS = [["overview","⌂ Home"],["schedule","Schedule"],["standings","Standings"],["results","Results"],["batting","Batting"],["bowling","Bowling"],["rankings","Rankings"]];
+  const TABS = [["overview","⌂ Home"],["schedule","Schedule"],["standings","Standings"],["results","Results"],["batting","Batting"],["bowling","Bowling"],["rankings","Rankings"],["balance","Balance"]];
   const goHome = () => { window.location.href = '/'; };
   const goLeague = () => {
     if (playerName && onClosePlayer) onClosePlayer();

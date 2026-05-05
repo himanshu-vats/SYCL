@@ -10,6 +10,7 @@ import ResultsView from './ResultsView.jsx';
 import BattingView from './BattingView.jsx';
 import BowlingView from './BowlingView.jsx';
 import RankingsView from './RankingsView.jsx';
+import BalanceView from './BalanceView.jsx';
 import DrilldownPanel from './DrilldownPanel.jsx';
 
 function getHashParams() {
@@ -232,6 +233,7 @@ export default function SYCLDashboard({ onFeedback }) {
             {activeTab==="batting"   && <BattingView  batting={data.batting}   division={selectedDivision} onDrilldown={handleDrilldown}/>}
             {activeTab==="bowling"   && <BowlingView  bowling={data.bowling}   division={selectedDivision} onDrilldown={handleDrilldown}/>}
             {activeTab==="rankings"  && <RankingsView rankings={data.rankings} division={selectedDivision} onDrilldown={handleDrilldown}/>}
+            {activeTab==="balance"   && <BalanceView   matches={data.matches || []} division={selectedDivision} />}
           </>
         </div>
       )}
