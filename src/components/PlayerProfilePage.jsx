@@ -230,15 +230,20 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
       )}
       {winSplit && (
         <div className="win-split">
+          <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+            Batting Average by Match Result
+          </div>
           <div className="win-split-grid">
             <div className="win-split-col win-col">
               <div className="win-split-badge">When Team Wins</div>
               <div className="win-split-avg">{winSplit.won.avg}</div>
+              <div style={{ fontSize: 10, color: '#888', marginBottom: 2 }}>batting avg</div>
               <div className="win-split-meta">{winSplit.won.inns} inns · {winSplit.won.runs} runs</div>
             </div>
             <div className="win-split-col loss-col">
               <div className="win-split-badge">When Team Loses</div>
               <div className="win-split-avg">{winSplit.lost.avg}</div>
+              <div style={{ fontSize: 10, color: '#888', marginBottom: 2 }}>batting avg</div>
               <div className="win-split-meta">{winSplit.lost.inns} inns · {winSplit.lost.runs} runs</div>
             </div>
           </div>

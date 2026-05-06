@@ -20,37 +20,27 @@ function scoreColor(score) {
   return '#f97316';
 }
 
-export function ImpactRatingCard({ score, label, trend }) {
+export function ImpactRatingCard({ score, label }) {
   if (score == null) return null;
   const color = scoreColor(score);
 
-  const trendIcon = trend === 'up' ? '▲' : trend === 'down' ? '▼' : '—';
-  const trendClass = `impact-trend-${trend || 'stable'}`;
-
   return (
-    <div style={{ textAlign: 'center' }}>
-      <div style={{ position: 'relative', width: 220, height: 165, margin: '0 auto' }}>
+    <div style={{ textAlign: 'center', padding: '8px 0' }}>
+      <div style={{ fontSize: 52, fontWeight: 800, color, lineHeight: 1 }}>{score}</div>
+      <div style={{ fontSize: 11, color: '#999', marginBottom: 8 }}>/100 · composite season score</div>
+      <div style={{ width: 160, height: 80, margin: '0 auto' }}>
         <ResponsiveContainer width="100%" height="100%">
-          <RadialBarChart
-            cx="50%" cy="70%"
-            innerRadius="48%" outerRadius="68%"
-            barSize={10}
-            data={[{ name: 'Impact', value: score }]}
+          <RadialBarChart cx="50%" cy="100%" innerRadius="60%" outerRadius="90%"
+            barSize={12} data={[{ value: score }]}
             startAngle={180} endAngle={0}
           >
-            <RadialBar dataKey="value" fill={color} background={{ fill: '#e5e7eb' }} />
-            <Tooltip formatter={(value) => [`Impact Score: ${value} / 100`, '']} />
+            <RadialBar dataKey="value" fill={color} background={{ fill: '#e5e7eb' }} cornerRadius={6} />
           </RadialBarChart>
         </ResponsiveContainer>
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, textAlign: 'center' }}>
-          <div className="impact-score" style={{ color }}>{score}</div>
-          <div className="impact-subtitle">/100 — composite season score</div>
-          <div className="impact-label">{label}</div>
-          <div className="impact-desc">Based on runs, wickets, economy &amp; match impact</div>
-          <div className={trendClass} style={{ fontSize: 14, marginTop: 2 }}>
-            {trendIcon}
-          </div>
-        </div>
+      </div>
+      <div style={{ fontSize: 15, fontWeight: 700, marginTop: 6 }}>{label}</div>
+      <div style={{ fontSize: 11, color: '#888', fontStyle: 'italic', marginTop: 3 }}>
+        Runs · wickets · economy · match contribution
       </div>
     </div>
   );
