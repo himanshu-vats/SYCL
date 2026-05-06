@@ -65,8 +65,8 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
     if (!inns.length) return '—';
     return dism === 0 ? runs + '*' : (runs / dism).toFixed(1);
   };
-  const wonBatInns  = battingHistory.filter(i => i.result && /\bwon\b|\bwin\b/i.test(i.result));
-  const lostBatInns = battingHistory.filter(i => i.result && /\blo(?:s[st])\b/i.test(i.result));
+  const wonBatInns  = battingHistory.filter(i => i.result && i.result.trim().toLowerCase().startsWith((i.team||'').trim().toLowerCase()) && i.team);
+  const lostBatInns = battingHistory.filter(i => i.result && i.team && !i.result.trim().toLowerCase().startsWith(i.team.trim().toLowerCase()));
   const winSplit = (wonBatInns.length + lostBatInns.length >= 3) ? {
     won:  { inns: wonBatInns.length,  avg: splitAvg(wonBatInns),  runs: wonBatInns.reduce((s,i)=>s+(parseInt(i.runs)||0),0) },
     lost: { inns: lostBatInns.length, avg: splitAvg(lostBatInns), runs: lostBatInns.reduce((s,i)=>s+(parseInt(i.runs)||0),0) },
@@ -529,7 +529,7 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
           <div className="story-strip">
             {(battingHistory.length > 0 ? [...battingHistory].reverse() : [...bowlingHistory].reverse()).slice(0, 15).map((inn, idx) => {
               const isBat = inn.role === 'bat';
-              const won  = inn.result && /\bwon\b|\bwin\b/i.test(inn.result);
+              const won  = inn.result && inn.team && inn.result.trim().toLowerCase().startsWith(inn.team.trim().toLowerCase());
               const lost = inn.result && /\blo(?:s[st])\b/i.test(inn.result);
               return (
                 <div key={idx} className={`story-card${won ? ' story-win' : lost ? ' story-loss' : ''}`}>

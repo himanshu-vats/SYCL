@@ -4,6 +4,12 @@ export function parseInningsDate(s) {
   return isNaN(d.getTime()) ? null : d;
 }
 
+// result strings are always "[WinnerTeam] won by X" — check if player's own team is the winner
+export function didTeamWin(inn) {
+  if (!inn.result || !inn.team) return null;
+  return inn.result.trim().toLowerCase().startsWith(inn.team.trim().toLowerCase());
+}
+
 export function getPlayerInningsHistory(innings, name, role) {
   if (!Array.isArray(innings) || !name) return [];
   const lower = name.toLowerCase().trim();
@@ -27,7 +33,7 @@ export function computeBestBattingInnings(innings, name) {
     const balls = parseInt(inn.balls) || 0;
     const runs = parseInt(inn.runs) || 0;
     const sr = balls > 0 ? (runs / balls) * 100 : 0;
-    const won = inn.result && /\bwon\b|\bwin\b/i.test(inn.result);
+    const won = didTeamWin(inn) === true;
     let impact = runs;
     if (inn.notOut)         impact += 8;
     if (won)                impact += 6;
@@ -60,7 +66,7 @@ export function computeBestBowlingSpell(innings, name) {
     if (econ < 3)  impact += 4;
     if (inn.wickets >= 3) impact += 5;
     if (inn.wickets >= 5) impact += 15;
-    const won = inn.result && /\bwon\b|\bwin\b/i.test(inn.result);
+    const won = didTeamWin(inn) === true;
     if (won) impact += 4;
     return { ...inn, _impact: impact, _econ: econ };
   });
@@ -146,7 +152,7 @@ export function computeMatchChartData(battingHistory, bowlingHistory) {
     if (!map.has(k)) map.set(k, { opponent: inn.opponent, date: inn.date, runs: 0, wickets: 0, econ: null, win: null });
     const e = map.get(k);
     e.runs = Math.max(e.runs, parseInt(inn.runs)||0);
-    if (inn.result) e.win = /\bwon\b|\bwin\b/i.test(inn.result);
+    if (inn.result) e.win = didTeamWin(inn);
   });
 
   (bowlingHistory||[]).forEach(inn => {
@@ -156,7 +162,7 @@ export function computeMatchChartData(battingHistory, bowlingHistory) {
     e.wickets += parseInt(inn.wickets)||0;
     const balls = oversToBalls(inn.overs);
     if (balls > 0) e.econ = Math.round((inn.runs * 6 / balls) * 10) / 10;
-    if (!e.win && inn.result) e.win = /\bwon\b|\bwin\b/i.test(inn.result);
+    if (e.win === null && inn.result) e.win = didTeamWin(inn);
   });
 
   return [...map.values()]
