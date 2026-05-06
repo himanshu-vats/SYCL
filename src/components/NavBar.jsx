@@ -29,7 +29,7 @@ export default function NavBar({ slug, leagueName, season, activeTab, onTabClick
         </div>
       </div>
       {slug && (
-        <div className="nav-row-2">
+        <div className="nav-row-2 mobile-only">
           {TABS.map(([k, l]) => (
             <button key={k}
               className={`nav-tab${activeTab === k && !playerName && !teamName ? ' active' : ''}`}

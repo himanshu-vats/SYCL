@@ -1005,6 +1005,110 @@
   .nav-player-name { font-size:14px; font-weight:700; color:var(--text-primary); }
   @media(max-width:480px) { .nav-brand-name { font-size:13px; } .nav-league { font-size:12px; max-width:120px; } .nav-btn { padding:0 8px; font-size:12px; } }
 
+  /* ── mobile-only / desktop-only helpers ── */
+  .mobile-only { display: none; }
+  @media(max-width:767px) { .mobile-only { display: flex; } }
+
+  /* ── Sidebar layout (desktop) ── */
+  .app-body { display: flex; align-items: flex-start; }
+  .app-main { flex: 1; min-width: 0; }
+
+  .side-nav {
+    width: 176px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 50px; /* height of nav-row-1 */
+    max-height: calc(100vh - 50px);
+    overflow-y: auto;
+    scrollbar-width: none;
+    background: var(--bg-100);
+    border-right: 1px solid var(--border);
+    padding: 8px 0 20px;
+    align-self: flex-start;
+  }
+  .side-nav::-webkit-scrollbar { display: none; }
+
+  .side-nav-list { list-style: none; padding: 0; margin: 0 0 4px; }
+
+  .side-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 16px;
+    background: none;
+    border: none;
+    border-left: 3px solid transparent;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.12s, color 0.12s;
+    white-space: nowrap;
+  }
+  .side-nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .side-nav-item.active {
+    color: var(--accent);
+    font-weight: 700;
+    border-left-color: var(--accent);
+    background: var(--accent-light);
+  }
+  .side-nav-icon { font-size: 14px; line-height: 1; flex-shrink: 0; }
+  .side-nav-label { flex: 1; }
+
+  .side-nav-divs {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .side-nav-div-heading {
+    padding: 0 16px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+  }
+  .side-nav-div-btn {
+    display: block;
+    width: 100%;
+    padding: 7px 16px;
+    background: none;
+    border: none;
+    border-left: 3px solid transparent;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.12s, color 0.12s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .side-nav-div-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .side-nav-div-btn.active {
+    color: var(--accent);
+    font-weight: 700;
+    border-left-color: var(--accent);
+    background: var(--accent-light);
+  }
+
+  /* On mobile: hide sidebar, show tab row and division bar */
+  @media(max-width:767px) {
+    .side-nav { display: none; }
+    .app-body { display: block; }
+    .nav-row-2 { display: flex !important; }
+    .content-wrap { margin-left: 8px; margin-right: 8px; }
+  }
+
+  /* On desktop: adjust content-wrap margin (no outer margin needed, sidebar provides separation) */
+  @media(min-width:768px) {
+    .content-wrap { margin: 12px 16px 0 12px; }
+    .app { max-width: 1200px; }
+  }
+
   /* ── Landing hero stats ── */
   .landing-hero-stats { display:flex; gap:var(--space-6); padding:var(--space-4) var(--space-6); background:var(--bg-100); border-bottom:1px solid var(--border); flex-wrap:wrap; }
   .landing-hero-stat { display:flex; flex-direction:column; }

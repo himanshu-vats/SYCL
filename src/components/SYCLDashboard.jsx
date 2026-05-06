@@ -13,6 +13,7 @@ import BowlingView from './BowlingView.jsx';
 import RankingsView from './RankingsView.jsx';
 import BalanceView from './BalanceView.jsx';
 import DrilldownPanel from './DrilldownPanel.jsx';
+import SideNav from './SideNav.jsx';
 
 function getHashParams() {
   try {
@@ -197,8 +198,9 @@ export default function SYCLDashboard({ onFeedback }) {
               theme={theme} onThemeToggle={() => setTheme(t => t==='light'?'dark':'light')}
               onFeedback={onFeedback} />
 
+      {/* Mobile-only: division selector bar (sidebar handles this on desktop) */}
       {data && activeTab !== 'overview' && (
-        <div className="division-select-bar">
+        <div className="division-select-bar mobile-only">
           <label className="division-select-label">Division</label>
           <select
             className="division-select"
@@ -215,33 +217,44 @@ export default function SYCLDashboard({ onFeedback }) {
         </div>
       )}
 
-      {!data ? (
-        <div className="content-wrap" style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:320}}>
-          {loading
-            ? <div className="loading-text" style={{fontSize:13,color:"var(--text-muted)"}}>Loading…</div>
-            : <div style={{textAlign:"center"}}>
-                <div style={{fontSize:40,marginBottom:14}}>🏏</div>
-                <div style={{fontSize:16,fontWeight:700,color:"var(--text-secondary)",marginBottom:6}}>No schedule data yet</div>
-                <button className="small-btn" style={{marginTop:16}} onClick={() => loadData(true)}>Try again</button>
-              </div>
-          }
-        </div>
-      ) : (
-        <div className="content-wrap">
+      <div className="app-body">
+        {data && (
+          <SideNav
+            activeTab={activeTab}
+            onTabClick={handleTabClick}
+            divisions={sortedDivs}
+            selectedDivision={selectedDivision}
+            onDivisionChange={setSelectedDivision}
+          />
+        )}
 
-          <>
-            {activeTab==="overview" && selectedDivision && selectedDivision !== 'combined' && <DivisionOverview data={data} division={selectedDivision} onTabClick={handleTabClick} onDrilldown={handleDrilldown} onAllDivisions={() => setSelectedDivision('combined')} />}
-            {activeTab==="overview" && (!selectedDivision || selectedDivision === 'combined') && <SeasonOverview  data={data} lastRefresh={lastRefresh} onDrilldown={handleDrilldown} onGoToDivision={handleGoToDivision} />}
-            {selectedDivision && activeTab==="schedule"  && <ScheduleView  matches={data.matches} division={selectedDivision} onDrilldown={handleDrilldown}/>}
-            {selectedDivision && activeTab==="standings" && <StandingsView matches={data.matches} division={selectedDivision} standings={data.standings} results={data.results} onDrilldown={handleDrilldown}/>}
-            {activeTab==="results"   && <ResultsView  results={data.results}   division={selectedDivision} onDrilldown={handleDrilldown}/>}
-            {activeTab==="batting"   && <BattingView  batting={data.batting}   division={selectedDivision} onDrilldown={handleDrilldown}/>}
-            {activeTab==="bowling"   && <BowlingView  bowling={data.bowling}   division={selectedDivision} onDrilldown={handleDrilldown}/>}
-            {activeTab==="rankings"  && <RankingsView rankings={data.rankings} division={selectedDivision} onDrilldown={handleDrilldown}/>}
-            {activeTab==="balance"   && <BalanceView   matches={data.matches || []} division={selectedDivision} />}
-          </>
-        </div>
-      )}
+        <main className="app-main">
+          {!data ? (
+            <div className="content-wrap" style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:320}}>
+              {loading
+                ? <div className="loading-text" style={{fontSize:13,color:"var(--text-muted)"}}>Loading…</div>
+                : <div style={{textAlign:"center"}}>
+                    <div style={{fontSize:40,marginBottom:14}}>🏏</div>
+                    <div style={{fontSize:16,fontWeight:700,color:"var(--text-secondary)",marginBottom:6}}>No schedule data yet</div>
+                    <button className="small-btn" style={{marginTop:16}} onClick={() => loadData(true)}>Try again</button>
+                  </div>
+              }
+            </div>
+          ) : (
+            <div className="content-wrap">
+              {activeTab==="overview" && selectedDivision && selectedDivision !== 'combined' && <DivisionOverview data={data} division={selectedDivision} onTabClick={handleTabClick} onDrilldown={handleDrilldown} onAllDivisions={() => setSelectedDivision('combined')} />}
+              {activeTab==="overview" && (!selectedDivision || selectedDivision === 'combined') && <SeasonOverview  data={data} lastRefresh={lastRefresh} onDrilldown={handleDrilldown} onGoToDivision={handleGoToDivision} />}
+              {selectedDivision && activeTab==="schedule"  && <ScheduleView  matches={data.matches} division={selectedDivision} onDrilldown={handleDrilldown}/>}
+              {selectedDivision && activeTab==="standings" && <StandingsView matches={data.matches} division={selectedDivision} standings={data.standings} results={data.results} onDrilldown={handleDrilldown}/>}
+              {activeTab==="results"   && <ResultsView  results={data.results}   division={selectedDivision} onDrilldown={handleDrilldown}/>}
+              {activeTab==="batting"   && <BattingView  batting={data.batting}   division={selectedDivision} onDrilldown={handleDrilldown}/>}
+              {activeTab==="bowling"   && <BowlingView  bowling={data.bowling}   division={selectedDivision} onDrilldown={handleDrilldown}/>}
+              {activeTab==="rankings"  && <RankingsView rankings={data.rankings} division={selectedDivision} onDrilldown={handleDrilldown}/>}
+              {activeTab==="balance"   && <BalanceView   matches={data.matches || []} division={selectedDivision} />}
+            </div>
+          )}
+        </main>
+      </div>
 
       {data && <DrilldownPanel drilldown={drilldown} data={data} onClose={closeDrilldown} onDrilldown={handleDrilldown}/>}
     </div>
