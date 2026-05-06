@@ -26,7 +26,13 @@ export function median(values) {
   return sorted[Math.floor(sorted.length / 2)];
 }
 
-export function computeBattingBenchmark(divisionRows, playerName) {
+function avg(values) {
+  const valid = values.filter(v => v > 0);
+  if (!valid.length) return null;
+  return Math.round((valid.reduce((s, v) => s + v, 0) / valid.length) * 10) / 10;
+}
+
+export function computeBattingBenchmark(divisionRows, playerName, allBattingRows) {
   const eligible = (divisionRows || []).filter(r => (parseInt(r.inns)||0) > 0);
   if (eligible.length < 5) return null;
 
@@ -39,8 +45,12 @@ export function computeBattingBenchmark(divisionRows, playerName) {
   const playerSixes = parseInt(player.sixes) || 0;
   const playerBoundaryPct = rowBoundaryPct(player);
 
+  const teamRows = eligible.filter(r => r.team === player.team);
+  const leagueRows = (allBattingRows || []).filter(r => (parseInt(r.inns)||0) > 0);
+
   return {
     division: player._div || '',
+    team: player.team || '',
     totalPlayers: eligible.length,
     runs:    { value: playerRuns,  pct: percentileHigher(eligible.map(r => parseInt(r.runs)||0),     playerRuns) },
     avg:     { value: playerAvg,   pct: percentileHigher(eligible.map(r => parseFloat(r.avg)||0),    playerAvg) },
@@ -50,10 +60,15 @@ export function computeBattingBenchmark(divisionRows, playerName) {
     medianAvg: median(eligible.map(r => parseFloat(r.avg)||0)),
     medianSr:  median(eligible.map(r => parseFloat(r.sr)||0)),
     medianBoundaryPct: median(eligible.map(rowBoundaryPct)),
+    compare: {
+      team:     { runs: avg(teamRows.map(r=>parseInt(r.runs)||0)),   batAvg: avg(teamRows.map(r=>parseFloat(r.avg)||0)),   sr: avg(teamRows.map(r=>parseFloat(r.sr)||0)) },
+      division: { runs: avg(eligible.map(r=>parseInt(r.runs)||0)),   batAvg: avg(eligible.map(r=>parseFloat(r.avg)||0)),   sr: avg(eligible.map(r=>parseFloat(r.sr)||0)) },
+      league:   { runs: avg(leagueRows.map(r=>parseInt(r.runs)||0)), batAvg: avg(leagueRows.map(r=>parseFloat(r.avg)||0)), sr: avg(leagueRows.map(r=>parseFloat(r.sr)||0)) },
+    },
   };
 }
 
-export function computeBowlingBenchmark(divisionRows, playerName) {
+export function computeBowlingBenchmark(divisionRows, playerName, allBowlingRows) {
   const eligible = (divisionRows || []).filter(r => (parseInt(r.inns)||0) > 0 && (parseFloat(r.overs)||0) > 0);
   if (eligible.length < 5) return null;
 
@@ -64,14 +79,23 @@ export function computeBowlingBenchmark(divisionRows, playerName) {
   const playerEcon = parseFloat(player.econ) || 0;
   const playerMaidens = parseInt(player.maidens) || 0;
 
+  const teamRows = eligible.filter(r => r.team === player.team);
+  const leagueRows = (allBowlingRows || []).filter(r => (parseInt(r.inns)||0) > 0 && (parseFloat(r.overs)||0) > 0);
+
   return {
     division: player._div || '',
+    team: player.team || '',
     totalPlayers: eligible.length,
     wickets: { value: playerWkts,    pct: percentileHigher(eligible.map(r => parseInt(r.wickets)||0),  playerWkts) },
     econ:    { value: playerEcon,    pct: percentileLower (eligible.map(r => parseFloat(r.econ)||0),   playerEcon) },
     maidens: { value: playerMaidens, pct: percentileHigher(eligible.map(r => parseInt(r.maidens)||0),  playerMaidens) },
     medianWickets: median(eligible.map(r => parseInt(r.wickets)||0)),
     medianEcon:    median(eligible.map(r => parseFloat(r.econ)||0)),
+    compare: {
+      team:     { wickets: avg(teamRows.map(r=>parseInt(r.wickets)||0)),   econ: avg(teamRows.map(r=>parseFloat(r.econ)||0)) },
+      division: { wickets: avg(eligible.map(r=>parseInt(r.wickets)||0)),   econ: avg(eligible.map(r=>parseFloat(r.econ)||0)) },
+      league:   { wickets: avg(leagueRows.map(r=>parseInt(r.wickets)||0)), econ: avg(leagueRows.map(r=>parseFloat(r.econ)||0)) },
+    },
   };
 }
 

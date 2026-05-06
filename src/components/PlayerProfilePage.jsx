@@ -25,11 +25,14 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
   const primaryBowlRow = bowlRows.length === 0 ? null
     : bowlRows.reduce((a,b) => (parseInt(b.inns)||0) > (parseInt(a.inns)||0) ? b : a);
 
+  const allBattingRows = batting ? Object.entries(batting).filter(([k])=>k!=='updatedAt'&&k!=='combined').flatMap(([,rows])=>Array.isArray(rows)?rows:[]) : [];
+  const allBowlingRows = bowling ? Object.entries(bowling).filter(([k])=>k!=='updatedAt'&&k!=='combined').flatMap(([,rows])=>Array.isArray(rows)?rows:[]) : [];
+
   const battingBenchmark = primaryBatRow
-    ? computeBattingBenchmark(batting?.[primaryBatRow._div], name)
+    ? computeBattingBenchmark(batting?.[primaryBatRow._div], name, allBattingRows)
     : null;
   const bowlingBenchmark = primaryBowlRow
-    ? computeBowlingBenchmark(bowling?.[primaryBowlRow._div], name)
+    ? computeBowlingBenchmark(bowling?.[primaryBowlRow._div], name, allBowlingRows)
     : null;
 
   const battingArchetype = primaryBatRow ? getBattingArchetype(primaryBatRow, battingBenchmark) : null;
@@ -275,6 +278,37 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
               <div className="benchmark-row-val">{stat.pct >= 50 ? `Top ${Math.max(1, 100 - stat.pct)}%` : `${stat.pct}%ile`}</div>
             </div>
           ))}
+          {battingBenchmark.compare && (
+            <div className="compare-table">
+              <div className="compare-title">How you compare — batting averages</div>
+              <table className="compare-grid">
+                <thead><tr>
+                  <th></th>
+                  <th>You</th>
+                  <th>Team<br/><span className="compare-sub">{battingBenchmark.team}</span></th>
+                  <th>Division<br/><span className="compare-sub">{battingBenchmark.division}</span></th>
+                  <th>League</th>
+                </tr></thead>
+                <tbody>
+                  {[
+                    ['Avg', battingBenchmark.avg.value, battingBenchmark.compare.team.batAvg, battingBenchmark.compare.division.batAvg, battingBenchmark.compare.league.batAvg, true],
+                    ['SR',  battingBenchmark.sr.value,  battingBenchmark.compare.team.sr,     battingBenchmark.compare.division.sr,     battingBenchmark.compare.league.sr,     true],
+                    ['Runs',battingBenchmark.runs.value, battingBenchmark.compare.team.runs,  battingBenchmark.compare.division.runs,   battingBenchmark.compare.league.runs,   true],
+                  ].map(([label, you, team, div, league, higherBetter]) => (
+                    <tr key={label}>
+                      <td className="compare-label">{label}</td>
+                      <td className="compare-you">{you ?? '—'}</td>
+                      {[team, div, league].map((v, i) => {
+                        const delta = v != null && you != null ? (higherBetter ? you - v : v - you) : null;
+                        const cls = delta == null ? '' : delta > 0 ? 'compare-better' : delta < 0 ? 'compare-worse' : '';
+                        return <td key={i} className={`compare-avg ${cls}`}>{v ?? '—'}{delta != null && delta !== 0 ? <span className="compare-delta">{delta > 0 ? ` ▲${Math.abs(Math.round(delta*10)/10)}` : ` ▼${Math.abs(Math.round(delta*10)/10)}`}</span> : null}</td>;
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -361,6 +395,36 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
               <div className="benchmark-row-val">{stat.pct >= 50 ? `Top ${Math.max(1, 100 - stat.pct)}%` : `${stat.pct}%ile`}</div>
             </div>
           ))}
+          {bowlingBenchmark.compare && (
+            <div className="compare-table">
+              <div className="compare-title">How you compare — bowling averages</div>
+              <table className="compare-grid">
+                <thead><tr>
+                  <th></th>
+                  <th>You</th>
+                  <th>Team<br/><span className="compare-sub">{bowlingBenchmark.team}</span></th>
+                  <th>Division<br/><span className="compare-sub">{bowlingBenchmark.division}</span></th>
+                  <th>League</th>
+                </tr></thead>
+                <tbody>
+                  {[
+                    ['Wkts', bowlingBenchmark.wickets.value, bowlingBenchmark.compare.team.wickets, bowlingBenchmark.compare.division.wickets, bowlingBenchmark.compare.league.wickets, true],
+                    ['Econ', bowlingBenchmark.econ.value,    bowlingBenchmark.compare.team.econ,    bowlingBenchmark.compare.division.econ,    bowlingBenchmark.compare.league.econ,    false],
+                  ].map(([label, you, team, div, league, higherBetter]) => (
+                    <tr key={label}>
+                      <td className="compare-label">{label}</td>
+                      <td className="compare-you">{you ?? '—'}</td>
+                      {[team, div, league].map((v, i) => {
+                        const delta = v != null && you != null ? (higherBetter ? you - v : v - you) : null;
+                        const cls = delta == null ? '' : delta > 0 ? 'compare-better' : delta < 0 ? 'compare-worse' : '';
+                        return <td key={i} className={`compare-avg ${cls}`}>{v ?? '—'}{delta != null && delta !== 0 ? <span className="compare-delta">{delta > 0 ? ` ▲${Math.abs(Math.round(delta*10)/10)}` : ` ▼${Math.abs(Math.round(delta*10)/10)}`}</span> : null}</td>;
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

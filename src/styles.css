@@ -1575,3 +1575,18 @@
 .impact-label { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-top: 6px; }
 .impact-desc { font-size: 11px; color: #888; margin-top: 3px; font-style: italic; }
 .player-page .recharts-wrapper { margin: 0 auto; }
+
+/* Phase 1 comparison table */
+.compare-table { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+.compare-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin-bottom: 10px; }
+.compare-grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+.compare-grid th { text-align: center; font-size: 11px; font-weight: 600; color: var(--text-muted); padding: 0 6px 6px; line-height: 1.3; }
+.compare-grid th:first-child { text-align: left; }
+.compare-sub { font-size: 10px; font-weight: 400; color: var(--text-muted); }
+.compare-grid td { padding: 5px 6px; text-align: center; border-top: 1px solid var(--border); }
+.compare-label { text-align: left !important; font-weight: 600; color: var(--text-secondary); }
+.compare-you { font-weight: 700; color: var(--text-primary); }
+.compare-avg { color: var(--text-secondary); }
+.compare-better { color: var(--clr-ok) !important; }
+.compare-worse  { color: var(--clr-bad) !important; }
+.compare-delta  { font-size: 11px; margin-left: 2px; opacity: .85; }
