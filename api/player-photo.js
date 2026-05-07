@@ -20,54 +20,56 @@ module.exports = async function (req, res) {
       return res.json({ photoUrl: cached.data().photoUrl ?? null, cached: true });
     }
 
-    // ── Try CricClubs member search ──────────────────────────────
-    // CricClubs has a player search endpoint used by their search box
-    const searchUrl = `${BASE}/searchPlayer.do?playerName=${encodeURIComponent(name)}&clubId=${CLUB_ID}`;
+    // ── Step 1: Search for player profile URL ────────────────────
     let profileUrl = null;
+    const searchUrl = `${BASE}/searchPlayer.do?playerName=${encodeURIComponent(name)}&clubId=${CLUB_ID}`;
 
-    try {
-      const searchResp = await fetch(searchUrl);
-      const searchHtml = await searchResp.text();
-      // Look for user profile links
-      const linkMatch = searchHtml.match(/href="(\/SYCLYouth\/user\/[^"?]+[^"]*)"[^>]*>/i);
-      if (linkMatch) {
-        profileUrl = `https://cricclubs.com${linkMatch[1]}`;
+    const searchResp = await fetch(searchUrl);
+    const searchHtml = await searchResp.text();
+
+    // Look for user profile links in search results
+    const linkRe = /href="(\/SYCLYouth\/user\/[^"?]+(?:\?[^"]*)?)"[^>]*>/gi;
+    let m;
+    while ((m = linkRe.exec(searchHtml)) !== null) {
+      const href = m[1];
+      // Prefer links that have the player name in them
+      if (!profileUrl || href.toLowerCase().includes(encodeURIComponent(name.split(' ')[0]).toLowerCase())) {
+        profileUrl = `https://cricclubs.com${href}`;
       }
-    } catch (_) {}
-
-    // ── Fallback: try player profile URL with name directly ────────
-    if (!profileUrl) {
-      // CricClubs allows direct access: /user/search?playerName=Name&clubId=X
-      const directUrl = `${BASE}/viewPlayer.do?playerName=${encodeURIComponent(name)}&clubId=${CLUB_ID}`;
-      profileUrl = directUrl;
+      break; // take first match
     }
 
-    // ── Fetch the player profile page ────────────────────────────
+    // Fallback: try direct player search URL with GET
+    if (!profileUrl) {
+      profileUrl = `${BASE}/searchPlayer.do?playerName=${encodeURIComponent(name)}&clubId=${CLUB_ID}`;
+    }
+
+    // ── Step 2: Fetch profile page and extract og:image ──────────
     const profileResp = await fetch(profileUrl);
     const profileHtml = await profileResp.text();
 
-    // Photo URL patterns CricClubs uses:
-    // src="https://cricclubs.com/documentsRep/profilePics/UUID.jpeg"
-    // or background-image: url('...')
-    const patterns = [
-      /src="(https:\/\/cricclubs\.com\/documentsRep\/profilePics\/[^"]+)"/,
-      /src="(\/documentsRep\/profilePics\/[^"]+)"/,
-      /profilePics\/([a-f0-9-]+\.(?:jpeg|jpg|png))/i,
-    ];
+    // Primary: og:image meta tag (always in <head>, server-rendered)
+    // Matches: <meta property='og:image' content='https://media.cricclubs.com/...jpeg'/>
+    const ogMatch = profileHtml.match(
+      /<meta[^>]+property=['"]og:image['"][^>]+content=['"]([^'"]+)['"]/i
+    ) || profileHtml.match(
+      /<meta[^>]+content=['"]([^'"]+media\.cricclubs\.com\/documentsRep\/profilePics\/[^'"]+)['"]/i
+    );
 
-    let photoUrl = null;
-    for (const re of patterns) {
-      const m = profileHtml.match(re);
-      if (m) {
-        photoUrl = m[1].startsWith('http') ? m[1] : `https://cricclubs.com${m[1].startsWith('/') ? m[1] : '/documentsRep/profilePics/' + m[1]}`;
-        break;
-      }
+    let photoUrl = ogMatch ? ogMatch[1] : null;
+
+    // Secondary: any img src pointing to profilePics
+    if (!photoUrl) {
+      const imgMatch = profileHtml.match(
+        /src=['"]([^'"]*(?:media\.cricclubs\.com|cricclubs\.com)\/documentsRep\/profilePics\/[^'"]+)['"]/i
+      );
+      if (imgMatch) photoUrl = imgMatch[1];
     }
 
-    await cacheRef.set({ photoUrl, updatedAt: new Date().toISOString() });
-    return res.json({ photoUrl, cached: false });
+    await cacheRef.set({ photoUrl: photoUrl || null, updatedAt: new Date().toISOString() });
+    return res.json({ photoUrl: photoUrl || null, cached: false });
   } catch (e) {
     console.error('player-photo error:', e);
-    return res.status(500).json({ error: 'Failed to fetch photo' });
+    return res.status(500).json({ error: e.message });
   }
 };
