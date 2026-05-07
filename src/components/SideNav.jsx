@@ -1,33 +1,30 @@
+import { Home, Calendar, Trophy, BarChart2, Activity, Wind, Star, Scale } from 'lucide-react';
+
 const TABS = [
-  ["overview",  "⌂",  "Home"],
-  ["schedule",  "📅", "Schedule"],
-  ["standings", "🏆", "Standings"],
-  ["results",   "📊", "Results"],
-  ["batting",   "🏏", "Batting"],
-  ["bowling",   "⚡", "Bowling"],
-  ["rankings",  "⭐", "Rankings"],
-  ["balance",   "⚖",  "Balance"],
+  ["overview",  Home,      "Home"],
+  ["schedule",  Calendar,  "Schedule"],
+  ["standings", Trophy,    "Standings"],
+  ["results",   BarChart2, "Results"],
+  ["batting",   Activity,  "Batting"],
+  ["bowling",   Wind,      "Bowling"],
+  ["rankings",  Star,      "Rankings"],
+  ["balance",   Scale,     "Balance"],
 ];
 
 export default function SideNav({ activeTab, onTabClick, divisions, selectedDivision, onDivisionChange, playerName, teamName }) {
   const showDivision = divisions?.length > 0 && activeTab !== 'overview';
   const showCombined = activeTab !== 'standings' && activeTab !== 'balance';
 
-  const handleTab = (key) => {
-    if (playerName || teamName) return;
-    onTabClick(key);
-  };
-
   return (
     <nav className="side-nav">
       <ul className="side-nav-list">
-        {TABS.map(([key, icon, label]) => (
+        {TABS.map(([key, Icon, label]) => (
           <li key={key}>
             <button
               className={`side-nav-item${activeTab === key && !playerName && !teamName ? ' active' : ''}`}
-              onClick={() => handleTab(key)}
+              onClick={() => onTabClick(key)}
             >
-              <span className="side-nav-icon">{icon}</span>
+              <Icon size={15} strokeWidth={1.8} className="side-nav-icon" />
               <span className="side-nav-label">{label}</span>
             </button>
           </li>

@@ -3,9 +3,6 @@ const { db } = require('../lib/firebase');
 const CLUB_ID = '10669';
 const BASE    = 'https://cricclubs.com/SYCLYouth';
 
-// Series to search for the player link (most recent first)
-const SEARCH_SERIES = [218, 173, 163, 159, 149, 130, 122, 110, 94, 87, 83];
-
 module.exports = async function (req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -14,52 +11,58 @@ module.exports = async function (req, res) {
   const { league, name } = req.query;
   if (!league || !name) return res.status(400).json({ error: 'league and name required' });
 
-  const docId   = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const docId    = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const cacheRef = db.collection('leagues').doc(league).collection('playerPhotos').doc(docId);
 
   try {
-    // Return cached result (including null = "no photo found")
     const cached = await cacheRef.get();
     if (cached.exists) {
       return res.json({ photoUrl: cached.data().photoUrl ?? null, cached: true });
     }
 
-    // ── Find the player's CricClubs profile link ──────────────────
+    // ── Try CricClubs member search ──────────────────────────────
+    // CricClubs has a player search endpoint used by their search box
+    const searchUrl = `${BASE}/searchPlayer.do?playerName=${encodeURIComponent(name)}&clubId=${CLUB_ID}`;
     let profileUrl = null;
-    const escapedName = escapeRegExp(name.trim());
 
-    for (const seriesId of SEARCH_SERIES) {
-      const resp = await fetch(
-        `${BASE}/battingRecords.do?divisions=all&league=${seriesId}&clubId=${CLUB_ID}`
-      );
-      const html = await resp.text();
+    try {
+      const searchResp = await fetch(searchUrl);
+      const searchHtml = await searchResp.text();
+      // Look for user profile links
+      const linkMatch = searchHtml.match(/href="(\/SYCLYouth\/user\/[^"?]+[^"]*)"[^>]*>/i);
+      if (linkMatch) {
+        profileUrl = `https://cricclubs.com${linkMatch[1]}`;
+      }
+    } catch (_) {}
 
-      // Strategy 1: find a link containing the player name in the href playerName param
-      const encoded = encodeURIComponent(name.trim()).replace(/%20/g, '+');
-      const re1 = new RegExp(`href="(/SYCLYouth/user/[^"]+playerName=${encoded.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^"]*)"`, 'i');
-      const m1 = html.match(re1);
-      if (m1) { profileUrl = `https://cricclubs.com${m1[1]}`; break; }
-
-      // Strategy 2: find any user link adjacent to the player name text
-      const re2 = new RegExp(`href="(/SYCLYouth/user/[^"]+)"[^>]*>\\s*${escapedName}\\s*<`, 'i');
-      const m2 = html.match(re2);
-      if (m2) { profileUrl = `https://cricclubs.com${m2[1]}`; break; }
-    }
-
+    // ── Fallback: try player profile URL with name directly ────────
     if (!profileUrl) {
-      await cacheRef.set({ photoUrl: null, updatedAt: new Date().toISOString() });
-      return res.json({ photoUrl: null });
+      // CricClubs allows direct access: /user/search?playerName=Name&clubId=X
+      const directUrl = `${BASE}/viewPlayer.do?playerName=${encodeURIComponent(name)}&clubId=${CLUB_ID}`;
+      profileUrl = directUrl;
     }
 
     // ── Fetch the player profile page ────────────────────────────
     const profileResp = await fetch(profileUrl);
     const profileHtml = await profileResp.text();
 
-    // Photo URL pattern: src="https://cricclubs.com/documentsRep/profilePics/UUID.jpeg"
-    const imgMatch = profileHtml.match(
-      /src="(https:\/\/cricclubs\.com\/documentsRep\/profilePics\/[^"]+)"/
-    );
-    const photoUrl = imgMatch ? imgMatch[1] : null;
+    // Photo URL patterns CricClubs uses:
+    // src="https://cricclubs.com/documentsRep/profilePics/UUID.jpeg"
+    // or background-image: url('...')
+    const patterns = [
+      /src="(https:\/\/cricclubs\.com\/documentsRep\/profilePics\/[^"]+)"/,
+      /src="(\/documentsRep\/profilePics\/[^"]+)"/,
+      /profilePics\/([a-f0-9-]+\.(?:jpeg|jpg|png))/i,
+    ];
+
+    let photoUrl = null;
+    for (const re of patterns) {
+      const m = profileHtml.match(re);
+      if (m) {
+        photoUrl = m[1].startsWith('http') ? m[1] : `https://cricclubs.com${m[1].startsWith('/') ? m[1] : '/documentsRep/profilePics/' + m[1]}`;
+        break;
+      }
+    }
 
     await cacheRef.set({ photoUrl, updatedAt: new Date().toISOString() });
     return res.json({ photoUrl, cached: false });
@@ -68,7 +71,3 @@ module.exports = async function (req, res) {
     return res.status(500).json({ error: 'Failed to fetch photo' });
   }
 };
-
-function escapeRegExp(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}

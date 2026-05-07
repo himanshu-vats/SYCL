@@ -991,6 +991,8 @@
 
   .nav-bar { position:sticky; top:0; z-index:100; }
   .nav-row-1 { display:flex; align-items:center; gap:10px; padding:0 16px; height:50px; background:var(--header-bg); }
+  .nav-hamburger { display:none; background:none; border:none; color:var(--header-text); cursor:pointer; padding:4px; line-height:1; border-radius:6px; flex-shrink:0; }
+  .nav-hamburger:hover { background:rgba(255,255,255,0.1); }
   .nav-brand { display:flex; align-items:center; gap:8px; cursor:pointer; flex-shrink:0; }
   .nav-brand-icon { font-size:20px; line-height:1; }
   .nav-brand-name { font-size:15px; font-weight:800; color:var(--header-text); letter-spacing:-0.3px; }
@@ -1003,21 +1005,40 @@
   .nav-btn { height:32px; padding:0 10px; background:rgba(255,255,255,0.1); border:1px solid var(--header-border); border-radius:6px; color:var(--header-text); font-size:13px; cursor:pointer; white-space:nowrap; text-decoration:none; display:inline-flex; align-items:center; transition:background .15s; }
   .nav-btn:hover { background:rgba(255,255,255,0.18); }
   .nav-btn:disabled { opacity:0.4; cursor:default; }
-  .nav-row-2 { display:flex; overflow-x:auto; background:var(--bg-100); border-bottom:2px solid var(--border); padding:0 8px; scrollbar-width:none; }
-  .nav-row-2::-webkit-scrollbar { display:none; }
-  .nav-tab { padding:0 14px; height:40px; background:none; border:none; border-bottom:2px solid transparent; margin-bottom:-2px; font-size:13px; font-weight:500; color:var(--text-muted); cursor:pointer; white-space:nowrap; transition:color .15s, border-color .15s; }
-  .nav-tab:hover { color:var(--text-primary); }
-  .nav-tab.active { color:var(--accent); border-bottom-color:var(--accent); font-weight:600; }
   .nav-player-crumb { display:flex; align-items:center; gap:8px; padding:8px 16px; background:var(--bg-200); border-bottom:1px solid var(--border); }
   .nav-back-btn { background:none; border:none; color:var(--accent); cursor:pointer; font-size:18px; font-weight:700; padding:0 4px; line-height:1; }
   .nav-player-name { font-size:14px; font-weight:700; color:var(--text-primary); }
-  /* Hide Admin link on mobile; theme toggle removed entirely */
-  @media(max-width:767px) { .nav-btn-admin { display:none !important; } }
-  @media(max-width:480px) { .nav-brand-name { font-size:13px; } .nav-league { font-size:12px; max-width:130px; } .nav-btn { padding:0 8px; font-size:12px; } }
+
+  /* Mobile hamburger drawer */
+  .nav-drawer-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:199; }
+  .nav-drawer {
+    position:fixed; top:50px; left:0; right:0; z-index:200;
+    background:var(--header-bg); border-bottom:1px solid var(--header-border);
+    display:flex; flex-direction:column; padding:8px 12px 14px;
+    animation: drawerIn 0.18s ease;
+  }
+  @keyframes drawerIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+  .nav-drawer-item {
+    display:flex; align-items:center; gap:12px;
+    padding:12px 10px; background:none; border:none; border-radius:8px;
+    color:var(--header-sub); font-size:14px; font-weight:500;
+    cursor:pointer; text-align:left; font-family:inherit;
+    transition:background .12s, color .12s;
+  }
+  .nav-drawer-item:hover { background:rgba(255,255,255,0.08); color:var(--header-text); }
+  .nav-drawer-item.active { color:var(--header-text); font-weight:700; background:rgba(255,255,255,0.10); }
+
+  /* Hide Admin on mobile, show hamburger on mobile */
+  @media(max-width:767px) {
+    .nav-btn-admin { display:none !important; }
+    .nav-hamburger { display:flex; }
+    .nav-brand-name { font-size:13px; }
+    .nav-league { font-size:12px; max-width:130px; }
+    .nav-btn { padding:0 8px; font-size:12px; }
+  }
 
   /* ── mobile-only / desktop-only helpers ── */
-  .mobile-only { display: none; }
-  @media(max-width:767px) { .mobile-only { display: flex; } }
+  .mobile-only { display: none !important; }
 
   /* ── Sidebar layout (desktop) ── */
   .app-body { display: flex; align-items: flex-start; }
@@ -1064,7 +1085,7 @@
     border-left-color: var(--accent);
     background: var(--accent-light);
   }
-  .side-nav-icon { font-size: 14px; line-height: 1; flex-shrink: 0; }
+  .side-nav-icon { width: 15px; height: 15px; flex-shrink: 0; color: inherit; }
   .side-nav-label { flex: 1; }
 
   .side-nav-divs {
@@ -1105,11 +1126,10 @@
     background: var(--accent-light);
   }
 
-  /* On mobile: hide sidebar, show tab row and division bar */
+  /* On mobile: hide sidebar */
   @media(max-width:767px) {
     .side-nav { display: none; }
     .app-body { display: block; }
-    .nav-row-2 { display: flex !important; }
     .content-wrap { margin-left: 8px; margin-right: 8px; }
   }
 
