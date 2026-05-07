@@ -4,12 +4,25 @@ function getLeagueSlug() {
   return window.location.pathname.split('/').filter(Boolean)[0] || '';
 }
 
-// Split text into sentences, return [preview (first 3), rest]
-function splitSentences(text) {
+function useIsMobile() {
+  const [mobile, setMobile] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const h = () => setMobile(window.innerWidth < 768);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
+  return mobile;
+}
+
+function splitContent(text, isMobile) {
+  if (isMobile) {
+    const words = text.split(/\s+/);
+    const preview = words.slice(0, 15).join(' ') + (words.length > 15 ? '…' : '');
+    const rest = words.length > 15 ? words.slice(15).join(' ') : '';
+    return [preview, rest];
+  }
   const sentences = text.match(/[^.!?]+[.!?]+[\s]*/g) || [text];
-  const preview = sentences.slice(0, 5).join('').trim();
-  const rest    = sentences.slice(5).join('').trim();
-  return [preview, rest];
+  return [sentences.slice(0, 5).join('').trim(), sentences.slice(5).join('').trim()];
 }
 
 export default function AiSummaryBlock({ type, summaryKey }) {
@@ -17,6 +30,7 @@ export default function AiSummaryBlock({ type, summaryKey }) {
   const [insight,     setInsight]     = useState('');
   const [generatedAt, setGeneratedAt] = useState('');
   const [expanded,    setExpanded]    = useState(false);
+  const isMobile = useIsMobile();
   const league = getLeagueSlug();
 
   useEffect(() => {
@@ -60,7 +74,7 @@ export default function AiSummaryBlock({ type, summaryKey }) {
   );
 
   if (state === 'done') {
-    const [preview, rest] = splitSentences(insight);
+    const [preview, rest] = splitContent(insight, isMobile);
     const hasMore = rest.length > 0;
 
     return (
