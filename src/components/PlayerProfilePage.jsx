@@ -169,14 +169,60 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
     { id: 'compare', label: 'Compare' },
   ];
 
+  // ── Player photo ──────────────────────────────────────────────
+  const [photoUrl,    setPhotoUrl]    = useState(null);
+  const [photoState,  setPhotoState]  = useState('idle'); // idle | loading | done | none
+  const league = window.location.pathname.split('/').filter(Boolean)[0] || '';
+
+  useEffect(() => {
+    // Silent check — show photo automatically if already cached
+    fetch(`/api/player-photo?league=${encodeURIComponent(league)}&name=${encodeURIComponent(name)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.photoUrl) { setPhotoUrl(d.photoUrl); setPhotoState('done'); }
+        else setPhotoState('idle');
+      })
+      .catch(() => setPhotoState('idle'));
+  }, [name, league]);
+
+  const loadPhoto = () => {
+    setPhotoState('loading');
+    fetch(`/api/player-photo?league=${encodeURIComponent(league)}&name=${encodeURIComponent(name)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.photoUrl) { setPhotoUrl(d.photoUrl); setPhotoState('done'); }
+        else setPhotoState('none');
+      })
+      .catch(() => setPhotoState('none'));
+  };
+
   return (
     <div className="player-page">
       <div className="player-hero">
-        <div className="player-name-lg">{name}</div>
-        <div className="player-meta">
-          {teams.length > 0 && <span>{teams.map((t, i) => <span key={t}>{i > 0 ? ', ' : ''}<span className="clickable" onClick={() => { onClose(); onTeamDrilldown({type:'team',name:t}); }}>{t}</span></span>)}</span>}
+        <div className="player-hero-row">
+          {/* Photo avatar */}
+          <div className="player-avatar-wrap">
+            {photoState === 'done' && photoUrl
+              ? <img className="player-avatar" src={photoUrl} alt={name} />
+              : <div className="player-avatar-placeholder">
+                  {name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase()}
+                </div>
+            }
+            {photoState === 'idle' && (
+              <button className="player-avatar-load" onClick={loadPhoto} title="Load profile photo">📷</button>
+            )}
+            {photoState === 'loading' && (
+              <div className="player-avatar-loading">…</div>
+            )}
+          </div>
+          <div className="player-hero-info">
+            <div className="player-name-lg">{name}</div>
+            <div className="player-meta">
+              {teams.length > 0 && <span>{teams.map((t, i) => <span key={t}>{i > 0 ? ', ' : ''}<span className="clickable" onClick={() => { onClose(); onTeamDrilldown({type:'team',name:t}); }}>{t}</span></span>)}</span>}
+            </div>
+            {spotlight && <div className="player-spotlight">{spotlight}</div>}
+          </div>
         </div>
-        {spotlight && <div className="player-spotlight">{spotlight}</div>}
       </div>
 
       <div style={{padding:'0 16px 8px'}}>
