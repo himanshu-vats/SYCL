@@ -34,13 +34,16 @@ module.exports = async function (req, res) {
       );
       const html = await resp.text();
 
-      // Player links look like: href="/SYCLYouth/user/TOKEN?playerName=..."
-      const re = new RegExp(`href="(/SYCLYouth/user/[^"?]+\\?[^"]*playerName=[^"]*)"[^>]*>[^<]*${escapedName}[^<]*<`, 'i');
-      const m  = html.match(re);
-      if (m) {
-        profileUrl = `https://cricclubs.com${m[1]}`;
-        break;
-      }
+      // Strategy 1: find a link containing the player name in the href playerName param
+      const encoded = encodeURIComponent(name.trim()).replace(/%20/g, '+');
+      const re1 = new RegExp(`href="(/SYCLYouth/user/[^"]+playerName=${encoded.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^"]*)"`, 'i');
+      const m1 = html.match(re1);
+      if (m1) { profileUrl = `https://cricclubs.com${m1[1]}`; break; }
+
+      // Strategy 2: find any user link adjacent to the player name text
+      const re2 = new RegExp(`href="(/SYCLYouth/user/[^"]+)"[^>]*>\\s*${escapedName}\\s*<`, 'i');
+      const m2 = html.match(re2);
+      if (m2) { profileUrl = `https://cricclubs.com${m2[1]}`; break; }
     }
 
     if (!profileUrl) {

@@ -1011,7 +1011,9 @@
   .nav-player-crumb { display:flex; align-items:center; gap:8px; padding:8px 16px; background:var(--bg-200); border-bottom:1px solid var(--border); }
   .nav-back-btn { background:none; border:none; color:var(--accent); cursor:pointer; font-size:18px; font-weight:700; padding:0 4px; line-height:1; }
   .nav-player-name { font-size:14px; font-weight:700; color:var(--text-primary); }
-  @media(max-width:480px) { .nav-brand-name { font-size:13px; } .nav-league { font-size:12px; max-width:120px; } .nav-btn { padding:0 8px; font-size:12px; } }
+  /* Hide Admin link on mobile; theme toggle removed entirely */
+  @media(max-width:767px) { .nav-btn-admin { display:none !important; } }
+  @media(max-width:480px) { .nav-brand-name { font-size:13px; } .nav-league { font-size:12px; max-width:130px; } .nav-btn { padding:0 8px; font-size:12px; } }
 
   /* ── mobile-only / desktop-only helpers ── */
   .mobile-only { display: none; }
@@ -1019,7 +1021,7 @@
 
   /* ── Sidebar layout (desktop) ── */
   .app-body { display: flex; align-items: flex-start; }
-  .app-main { flex: 1; min-width: 0; }
+  .app-main { flex: 1; min-width: 0; overflow-x: hidden; }
 
   .side-nav {
     width: 176px;
@@ -1818,18 +1820,20 @@
 }
 
 /* ── Home page (SeasonOverview redesign) ── */
-.home-page { padding: 12px 14px 32px; max-width: 1100px; }
+.home-page { padding: 12px 14px 32px; max-width: 1100px; overflow-x: hidden; }
 
 .home-search-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; position: relative; }
 .home-search-wrap { position: relative; flex: 1; min-width: 160px; }
 
 .home-stats-strip {
-  display: flex; flex-wrap: wrap; gap: 0;
+  display: flex; flex-wrap: nowrap; gap: 0;
   background: var(--bg-100); border: 1px solid var(--border); border-radius: var(--radius-md);
-  overflow: hidden; margin-bottom: 16px;
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+  margin-bottom: 16px;
 }
+.home-stats-strip::-webkit-scrollbar { display: none; }
 .hss-item {
-  flex: 1; min-width: 60px; padding: 10px 12px; text-align: center;
+  flex: 0 0 auto; min-width: 68px; padding: 10px 12px; text-align: center;
   border-right: 1px solid var(--border);
 }
 .hss-item:last-child { border-right: none; }
@@ -1849,6 +1853,8 @@
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 10px;
   margin-bottom: 20px;
+  /* Prevent grid columns from ever overflowing the container */
+  max-width: 100%;
 }
 .hdc {
   background: var(--bg-100); border: 1px solid var(--border); border-radius: var(--radius-md);
@@ -1891,13 +1897,23 @@
 .hsc-stat { font-size: 12px; font-weight: 600; color: var(--accent); }
 
 @media(max-width: 640px) {
+  .home-page { padding: 10px 10px 24px; }
   .home-div-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .home-activity-row { grid-template-columns: 1fr; gap: 10px; }
-  .home-stars-row { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .home-stars-row { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .hdc { padding: 9px 10px; }
+  .hdc-name { font-size: 13px; }
+  .hdc-leader-name { font-size: 11px; }
+  .hdc-next-teams { font-size: 10px; }
   .hsc-emoji { font-size: 18px; }
   .hsc-name { font-size: 11px; }
   .hsc-stat { font-size: 10px; }
-  .hss-val { font-size: 14px; }
+  .hss-val { font-size: 15px; }
+  .hss-item { min-width: 60px; padding: 8px 10px; }
+}
+@media(max-width: 380px) {
+  /* Very small phones: single column divisions */
+  .home-div-grid { grid-template-columns: 1fr; }
 }
 
 /* ── Player Charts ── */

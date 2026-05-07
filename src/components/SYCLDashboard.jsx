@@ -168,7 +168,7 @@ export default function SYCLDashboard({ onFeedback }) {
               activeTab={activeTab} onTabClick={handleTabClick}
               playerName={playerPage} onClosePlayer={closePlayerPage}
               loading={loading} onRefresh={() => loadData(true, slug)}
-              theme={theme} onThemeToggle={() => setTheme(t => t==='light'?'dark':'light')}
+              
               onFeedback={onFeedback} />
       <div className="app-body">
         <SideNav activeTab={activeTab} onTabClick={(t) => { closePlayerPage(); handleTabClick(t); }} divisions={[]} />
@@ -187,7 +187,7 @@ export default function SYCLDashboard({ onFeedback }) {
               activeTab={activeTab} onTabClick={handleTabClick}
               teamName={teamPage} onCloseTeam={closeTeamPage}
               loading={loading} onRefresh={() => loadData(true, slug)}
-              theme={theme} onThemeToggle={() => setTheme(t => t==='light'?'dark':'light')}
+              
               onFeedback={onFeedback} />
       <div className="app-body">
         <SideNav activeTab={activeTab} onTabClick={(t) => { closeTeamPage(); handleTabClick(t); }} divisions={[]} />
@@ -206,7 +206,7 @@ export default function SYCLDashboard({ onFeedback }) {
       <NavBar slug={slug} leagueName={data?.leagueName} season={data?.season}
               activeTab={activeTab} onTabClick={handleTabClick}
               loading={loading} onRefresh={() => loadData(true, slug)}
-              theme={theme} onThemeToggle={() => setTheme(t => t==='light'?'dark':'light')}
+              
               onFeedback={onFeedback} />
 
       {/* Mobile-only: division selector bar (sidebar handles this on desktop) */}

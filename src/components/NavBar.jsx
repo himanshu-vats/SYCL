@@ -1,5 +1,5 @@
-export default function NavBar({ slug, leagueName, season, activeTab, onTabClick, playerName, onClosePlayer, teamName, onCloseTeam, loading, onRefresh, theme, onThemeToggle, onFeedback }) {
-  const TABS = [["overview","⌂ Home"],["schedule","Schedule"],["standings","Standings"],["results","Results"],["batting","Batting"],["bowling","Bowling"],["rankings","Rankings"],["balance","Balance"]];
+export default function NavBar({ slug, leagueName, season, activeTab, onTabClick, playerName, onClosePlayer, teamName, onCloseTeam, loading, onRefresh, onFeedback }) {
+  const TABS = [["overview","⌂"],["schedule","Schedule"],["standings","Standings"],["results","Results"],["batting","Batting"],["bowling","Bowling"],["rankings","Rankings"],["balance","Balance"]];
   const goHome = () => { window.location.href = '/'; };
   const goLeague = () => {
     if (playerName && onClosePlayer) onClosePlayer();
@@ -23,8 +23,7 @@ export default function NavBar({ slug, leagueName, season, activeTab, onTabClick
         )}
         <div className="nav-actions">
           {onRefresh && <button className="nav-btn" onClick={onRefresh} disabled={loading} title="Refresh">{loading ? '…' : '↻'}</button>}
-          {slug && <a href={`/${slug}/admin`} className="nav-btn">Admin</a>}
-          {onThemeToggle && <button className="nav-btn nav-btn-theme" onClick={onThemeToggle} title="Toggle theme">{theme === 'light' ? '☾' : '☀'}</button>}
+          {slug && <a href={`/${slug}/admin`} className="nav-btn nav-btn-admin">Admin</a>}
           {onFeedback && <button className="nav-btn nav-btn-feedback" onClick={onFeedback} title="Send feedback">💬</button>}
         </div>
       </div>

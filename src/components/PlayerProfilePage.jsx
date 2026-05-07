@@ -171,11 +171,11 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
 
   // ── Player photo ──────────────────────────────────────────────
   const [photoUrl,    setPhotoUrl]    = useState(null);
-  const [photoState,  setPhotoState]  = useState('idle'); // idle | loading | done | none
+  const [photoState,  setPhotoState]  = useState('checking'); // checking | idle | loading | done | none
   const league = window.location.pathname.split('/').filter(Boolean)[0] || '';
 
   useEffect(() => {
-    // Silent check — show photo automatically if already cached
+    setPhotoState('checking');
     fetch(`/api/player-photo?league=${encodeURIComponent(league)}&name=${encodeURIComponent(name)}`)
       .then(r => r.json())
       .then(d => {
@@ -208,10 +208,12 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
                   {name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase()}
                 </div>
             }
-            {photoState === 'idle' && (
-              <button className="player-avatar-load" onClick={loadPhoto} title="Load profile photo">📷</button>
+            {(photoState === 'idle' || photoState === 'none') && (
+              <button className="player-avatar-load" onClick={loadPhoto} title="Load profile photo">
+                {photoState === 'none' ? '✕' : '📷'}
+              </button>
             )}
-            {photoState === 'loading' && (
+            {(photoState === 'loading' || photoState === 'checking') && (
               <div className="player-avatar-loading">…</div>
             )}
           </div>
