@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import SYCLDashboard from './components/SYCLDashboard.jsx';
 import FeedbackModal from './components/FeedbackModal.jsx';
 
@@ -31,6 +32,7 @@ export default function App() {
     <>
       <SYCLDashboard onFeedback={() => setFeedbackOpen(true)} />
       <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
+      <Analytics />
     </>
   );
 }
