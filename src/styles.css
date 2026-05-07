@@ -2377,6 +2377,55 @@
 .chat-msg-ai .chat-msg-bubble tr:nth-child(even) td { background: var(--bg-page); }
 .chat-msg-ai .chat-msg-bubble hr { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
 
+/* ── Feedback full page ─────────────────────────────────────── */
+.feedback-page {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 50px);
+  background: var(--bg-page);
+}
+.feedback-page-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-100);
+  flex-shrink: 0;
+}
+.feedback-page-icon { color: var(--accent); }
+.feedback-page-title { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.feedback-page-body {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 16px;
+}
+.feedback-form {
+  width: 100%;
+  max-width: 560px;
+  background: var(--bg-100);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.feedback-success {
+  text-align: center;
+  padding: 48px 24px;
+  max-width: 400px;
+}
+.feedback-success-icon { font-size: 40px; margin-bottom: 12px; }
+.feedback-success-title { font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+.feedback-success-sub { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+@media (max-width: 640px) {
+  .feedback-page-body { padding: 16px 12px; align-items: flex-start; }
+  .feedback-form { padding: 16px; }
+}
+
 /* ── Division filter pills (top of every tab page) ──────────── */
 .div-pills {
   display: flex;

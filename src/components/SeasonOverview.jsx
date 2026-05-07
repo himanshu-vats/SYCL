@@ -172,6 +172,40 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
         ))}
       </div>
 
+      {/* ── Season Stars ── */}
+      {(topBatter || topBowler || topEcon) && <>
+        <div className="home-section-hd">Season Stars</div>
+        <div className="home-stars-row">
+          {topBatter && (
+            <div className="home-star-card" onClick={() => onDrilldown({type:'player',name:topBatter.player})}>
+              <div className="hsc-emoji">🏏</div>
+              <div className="hsc-label">Top Scorer</div>
+              <div className="hsc-name">{topBatter.player}</div>
+              <div className="hsc-team">{topBatter.team}</div>
+              <div className="hsc-stat">{topBatter.runs} runs · avg {topBatter.avg}</div>
+            </div>
+          )}
+          {topBowler && (
+            <div className="home-star-card" onClick={() => onDrilldown({type:'player',name:topBowler.player})}>
+              <div className="hsc-emoji">🎯</div>
+              <div className="hsc-label">Top Wicket-Taker</div>
+              <div className="hsc-name">{topBowler.player}</div>
+              <div className="hsc-team">{topBowler.team}</div>
+              <div className="hsc-stat">{topBowler.wickets} wkts · econ {topBowler.econ}</div>
+            </div>
+          )}
+          {topEcon && topEcon.player !== topBowler?.player && (
+            <div className="home-star-card" onClick={() => onDrilldown({type:'player',name:topEcon.player})}>
+              <div className="hsc-emoji">🔒</div>
+              <div className="hsc-label">Best Economy</div>
+              <div className="hsc-name">{topEcon.player}</div>
+              <div className="hsc-team">{topEcon.team}</div>
+              <div className="hsc-stat">econ {topEcon.econ} · {topEcon.wickets} wkts</div>
+            </div>
+          )}
+        </div>
+      </>}
+
       {/* ── Division Grid ── */}
       <div className="home-section-hd">Divisions</div>
       <div className="home-div-grid">
@@ -232,40 +266,6 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
           ))}
         </div>
       </div>
-
-      {/* ── Season Stars ── */}
-      {(topBatter || topBowler || topEcon) && <>
-        <div className="home-section-hd">Season Stars</div>
-        <div className="home-stars-row">
-          {topBatter && (
-            <div className="home-star-card" onClick={() => onDrilldown({type:'player',name:topBatter.player})}>
-              <div className="hsc-emoji">🏏</div>
-              <div className="hsc-label">Top Scorer</div>
-              <div className="hsc-name">{topBatter.player}</div>
-              <div className="hsc-team">{topBatter.team}</div>
-              <div className="hsc-stat">{topBatter.runs} runs · avg {topBatter.avg}</div>
-            </div>
-          )}
-          {topBowler && (
-            <div className="home-star-card" onClick={() => onDrilldown({type:'player',name:topBowler.player})}>
-              <div className="hsc-emoji">🎯</div>
-              <div className="hsc-label">Top Wicket-Taker</div>
-              <div className="hsc-name">{topBowler.player}</div>
-              <div className="hsc-team">{topBowler.team}</div>
-              <div className="hsc-stat">{topBowler.wickets} wkts · econ {topBowler.econ}</div>
-            </div>
-          )}
-          {topEcon && topEcon.player !== topBowler?.player && (
-            <div className="home-star-card" onClick={() => onDrilldown({type:'player',name:topEcon.player})}>
-              <div className="hsc-emoji">🔒</div>
-              <div className="hsc-label">Best Economy</div>
-              <div className="hsc-name">{topEcon.player}</div>
-              <div className="hsc-team">{topEcon.team}</div>
-              <div className="hsc-stat">econ {topEcon.econ} · {topEcon.wickets} wkts</div>
-            </div>
-          )}
-        </div>
-      </>}
 
     </div>
   );

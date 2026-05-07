@@ -14,6 +14,7 @@ import RankingsView from './RankingsView.jsx';
 import DrilldownPanel from './DrilldownPanel.jsx';
 import SideNav from './SideNav.jsx';
 import AiChat from './AiChat.jsx';
+import FeedbackPage from './FeedbackPage.jsx';
 
 function getHashParams() {
   try {
@@ -28,7 +29,7 @@ function getHashParams() {
   } catch { return {}; }
 }
 
-export default function SYCLDashboard({ onFeedback }) {
+export default function SYCLDashboard() {
   const [data, setData] = useState(null);
   const [selectedDivision, setSelectedDivision] = useState(() => getHashParams().division || null);
   const [activeTab, setActiveTab] = useState(() => getHashParams().tab || "overview");
@@ -159,7 +160,7 @@ export default function SYCLDashboard({ onFeedback }) {
   }, []);
 
   if (!slug) return (
-    <NavBar slug={null} onFeedback={onFeedback} />
+    <NavBar slug={null} />
   );
 
   if (playerPage) return (
@@ -169,9 +170,9 @@ export default function SYCLDashboard({ onFeedback }) {
               playerName={playerPage} onClosePlayer={closePlayerPage}
               loading={loading} onRefresh={() => loadData(true, slug)}
               
-              onFeedback={onFeedback} />
+              />
       <div className="app-body">
-        <SideNav activeTab={activeTab} onTabClick={(t) => { closePlayerPage(); handleTabClick(t); }} divisions={[]} onFeedback={onFeedback} />
+        <SideNav activeTab={activeTab} onTabClick={(t) => { closePlayerPage(); handleTabClick(t); }} />
         <main className="app-main">
           <PlayerProfilePage name={playerPage} batting={data?.batting} bowling={data?.bowling}
                   rankings={data?.rankings} playerInnings={data?.playerInnings}
@@ -188,9 +189,9 @@ export default function SYCLDashboard({ onFeedback }) {
               teamName={teamPage} onCloseTeam={closeTeamPage}
               loading={loading} onRefresh={() => loadData(true, slug)}
               
-              onFeedback={onFeedback} />
+              />
       <div className="app-body">
-        <SideNav activeTab={activeTab} onTabClick={(t) => { closeTeamPage(); handleTabClick(t); }} divisions={[]} onFeedback={onFeedback} />
+        <SideNav activeTab={activeTab} onTabClick={(t) => { closeTeamPage(); handleTabClick(t); }} />
         <main className="app-main">
           {data
             ? <TeamProfilePage name={teamPage} data={data} onClose={closeTeamPage} onDrilldown={handleDrilldown} />
@@ -207,20 +208,22 @@ export default function SYCLDashboard({ onFeedback }) {
               activeTab={activeTab} onTabClick={handleTabClick}
               loading={loading} onRefresh={() => loadData(true, slug)}
               
-              onFeedback={onFeedback} />
+              />
 
       <div className="app-body">
         {data && (
           <SideNav
             activeTab={activeTab}
             onTabClick={handleTabClick}
-            onFeedback={onFeedback}
+           
           />
         )}
 
         <main className="app-main">
           {activeTab === 'chat' ? (
             <AiChat slug={slug} />
+          ) : activeTab === 'feedback' ? (
+            <FeedbackPage slug={slug} />
           ) : !data ? (
             <div className="content-wrap" style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:320}}>
               {loading

@@ -1,4 +1,4 @@
-import { Home, Calendar, Trophy, BarChart2, Activity, Wind, Star, Bot, MessageSquare } from 'lucide-react';
+import { Home, Calendar, Trophy, BarChart2, Activity, Wind, Star, Bot, MessageSquare, Send } from 'lucide-react';
 
 const TABS = [
   ["overview",  Home,      "Home"],
@@ -11,7 +11,7 @@ const TABS = [
   ["chat",      Bot,       "Ask AI"],
 ];
 
-export default function SideNav({ activeTab, onTabClick, onFeedback }) {
+export default function SideNav({ activeTab, onTabClick }) {
   const isActive = (key) => activeTab === key;
 
   return (
@@ -28,14 +28,15 @@ export default function SideNav({ activeTab, onTabClick, onFeedback }) {
             </button>
           </li>
         ))}
-        {onFeedback && (
-          <li>
-            <button className="side-nav-item" onClick={onFeedback}>
-              <MessageSquare size={15} strokeWidth={1.8} className="side-nav-icon" />
-              <span className="side-nav-label">Feedback</span>
-            </button>
-          </li>
-        )}
+        <li>
+          <button
+            className={`side-nav-item${isActive('feedback') ? ' active' : ''}`}
+            onClick={() => onTabClick('feedback')}
+          >
+            <Send size={15} strokeWidth={1.8} className="side-nav-icon" />
+            <span className="side-nav-label">Feedback</span>
+          </button>
+        </li>
       </ul>
     </nav>
   );
