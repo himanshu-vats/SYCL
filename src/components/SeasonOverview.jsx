@@ -220,9 +220,14 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
           <div className="home-section-hd">Upcoming</div>
           {upcoming.length === 0 && <div className="home-empty">No upcoming matches</div>}
           {upcoming.map((m,i) => (
-            <div key={i} className="home-result-row">
+            <div key={i} className="home-result-row" style={{flexWrap:'wrap',gap:4}}>
               <span className="home-result-div">{m.division}</span>
               <span className="home-result-text">{m.team1} vs {m.team2} · {fmtDate(m.date)}{m.time ? ` ${m.time}` : ''}</span>
+              <button
+                className="prematch-btn"
+                onClick={() => onDrilldown({type:'match', matchId:m.id, team1:m.team1, team2:m.team2, date:m.date, division:m.division})}
+                title="AI Match Preview & Prediction"
+              >⚡ Predict</button>
             </div>
           ))}
         </div>

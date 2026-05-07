@@ -42,7 +42,7 @@ export default function MatchPreviewPanel({ matchId, team1, team2, date, divisio
     <div className="panel-content">
       <div className="panel-header">
         <div>
-          <div className="panel-title">⚡ Pre-Match Preview</div>
+          <div className="panel-title">⚡ Match Preview & Prediction</div>
           <div className="panel-sub">{team1} vs {team2}{division ? ` · ${division}` : ''}{date ? ` · ${date}` : ''}</div>
         </div>
         <button className="panel-close" onClick={onClose}>✕</button>
@@ -56,7 +56,7 @@ export default function MatchPreviewPanel({ matchId, team1, team2, date, divisio
       {state === 'loading' && (
         <div className="prematch-loading">
           <div className="prematch-spinner"/>
-          <span>Generating AI preview… (may take 10–20s)</span>
+          <span>Generating match preview & prediction… (may take 10–20s)</span>
         </div>
       )}
 
@@ -71,7 +71,7 @@ export default function MatchPreviewPanel({ matchId, team1, team2, date, divisio
 
       {state === 'done' && (
         <div className="prematch-insight">
-          <div className="prematch-insight-badge">AI Preview</div>
+          <div className="prematch-insight-badge">⚡ AI Prediction</div>
           <p className="prematch-insight-text">{insight}</p>
           {generatedAt && (
             <div className="prematch-insight-footer">
