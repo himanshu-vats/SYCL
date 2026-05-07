@@ -68,7 +68,7 @@ export default function AiChat({ slug }) {
     if (!name.trim()) return;
     const welcome = {
       role: 'ai',
-      content: `Hi ${name.trim()}! 🏏 I'm your SYCL Season Insight assistant. Ask me anything about the season — player stats, standings, upcoming matches, or how to improve your game!`,
+      content: `Hi ${name.trim()}! 🏏 I'm your CricClubs AI assistant. Ask me anything about the season — player stats, standings, upcoming matches, or how to improve your game!`,
     };
     setMessages([welcome]);
     setPhase('chat');
@@ -142,7 +142,7 @@ export default function AiChat({ slug }) {
       <div className="chat-page-header">
         <div className="chat-page-header-left">
           <Bot size={17} strokeWidth={1.8} className="chat-page-bot-icon" />
-          <span className="chat-page-title">SYCL AI Assistant</span>
+          <span className="chat-page-title">CricClubs AI</span>
           {phase === 'chat' && name && (
             <span className="chat-page-user">· {name}</span>
           )}

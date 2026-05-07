@@ -68,7 +68,7 @@ export default function ScheduleView({ matches, division, onDrilldown }) {
     const list = subTab === "upcoming" ? upcoming : past;
     if (!list.length) return;
     const label = subTab === "upcoming" ? "Upcoming Fixtures" : "Past Fixtures";
-    let text = `🏏 SYCL — ${division}\n${label}\n\n`;
+    let text = `🏏 CricClubs — ${division}\n${label}\n\n`;
     const grouped = groupByDate(list);
     grouped.forEach(([date, grp]) => {
       const d = parseDate(date);

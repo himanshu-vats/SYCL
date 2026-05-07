@@ -40,9 +40,19 @@ export default function NavBar({ slug, leagueName, season, activeTab, onTabClick
             </button>
           )}
 
-          <div className="nav-brand" onClick={goHome} title="All leagues">
-            <span className="nav-brand-icon">🏏</span>
-            <span className="nav-brand-name">Season Insight</span>
+          <div className="nav-brand" onClick={goHome} title="CricClubs home">
+            <span className="nav-brand-icon">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+                <circle cx="11" cy="11" r="10.5" fill="#dc2626"/>
+                <path d="M1.5 11Q11 7.5 20.5 11" stroke="white" strokeWidth="1.4" fill="none" strokeLinecap="round"/>
+                <path d="M1.5 11Q11 14.5 20.5 11" stroke="white" strokeWidth="1.4" fill="none" strokeLinecap="round"/>
+                <path d="M5.5 8.5L6.2 7.4M8.8 7L9.4 5.9M12 6.5L12.6 5.4M15.2 7L15.8 7.8" stroke="white" strokeWidth="0.9" strokeLinecap="round" opacity="0.85"/>
+                <path d="M5.5 13.5L6.2 14.6M8.8 15L9.4 16.1M12 15.5L12.6 16.6M15.2 15L15.8 14.2" stroke="white" strokeWidth="0.9" strokeLinecap="round" opacity="0.85"/>
+              </svg>
+            </span>
+            <span className="nav-brand-name">
+              <span className="nav-brand-cric">Cric</span><span className="nav-brand-clubs">Clubs</span>
+            </span>
           </div>
 
           {slug && leagueName && (
