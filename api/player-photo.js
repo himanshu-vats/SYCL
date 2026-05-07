@@ -8,15 +8,16 @@ module.exports = async function (req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
 
-  const { league, name } = req.query;
+  const { league, name, bust } = req.query;
   if (!league || !name) return res.status(400).json({ error: 'league and name required' });
 
   const docId    = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const cacheRef = db.collection('leagues').doc(league).collection('playerPhotos').doc(docId);
 
   try {
+    // Return cached result unless bust=true is passed
     const cached = await cacheRef.get();
-    if (cached.exists) {
+    if (cached.exists && bust !== 'true') {
       return res.json({ photoUrl: cached.data().photoUrl ?? null, cached: true });
     }
 

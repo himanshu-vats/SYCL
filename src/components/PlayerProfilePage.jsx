@@ -187,7 +187,8 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
 
   const loadPhoto = () => {
     setPhotoState('loading');
-    fetch(`/api/player-photo?league=${encodeURIComponent(league)}&name=${encodeURIComponent(name)}`)
+    // Always bust cache on manual click — re-fetches from CricClubs fresh
+    fetch(`/api/player-photo?league=${encodeURIComponent(league)}&name=${encodeURIComponent(name)}&bust=true`)
       .then(r => r.json())
       .then(d => {
         if (d.photoUrl) { setPhotoUrl(d.photoUrl); setPhotoState('done'); }
