@@ -26,7 +26,7 @@ export default function ScheduleView({ matches, division, onDrilldown }) {
     return Object.entries(g);
   };
 
-  const matchRow = m => (
+  const matchRow = (m, isUpcomingRow) => (
     <tr key={m.id}>
       <td className="num-cell mob-hide" style={{color:"var(--text-muted)",width:40}}>{m.id}</td>
       <td style={{width:80}}>
@@ -36,7 +36,16 @@ export default function ScheduleView({ matches, division, onDrilldown }) {
       <td className="team-name clickable" onClick={() => onDrilldown({type:'team',name:m.team2})}>{m.team2}</td>
       <td className="mob-hide" style={{color:"var(--text-muted)",fontSize:12}}>{m.ground||"—"}</td>
       <td className="mob-hide" style={{color:"var(--text-muted)",fontSize:12}}>{m.umpire1||"—"}</td>
-      <td style={{fontSize:12,color:m.result||m.winner?"var(--text-primary)":"var(--text-muted)"}}>{m.result||m.winner||"—"}</td>
+      <td style={{fontSize:12,color:m.result||m.winner?"var(--text-primary)":"var(--text-muted)"}}>
+        {m.result||m.winner||"—"}
+        {isUpcomingRow && !m.result && !m.winner && (
+          <button
+            className="prematch-btn"
+            onClick={() => onDrilldown({type:'match', matchId:m.id, team1:m.team1, team2:m.team2, date:m.date, division:m.division})}
+            title="AI pre-match preview"
+          >⚡ Preview</button>
+        )}
+      </td>
     </tr>
   );
 
@@ -49,7 +58,7 @@ export default function ScheduleView({ matches, division, onDrilldown }) {
           {isPast && <span style={{marginLeft:8,opacity:0.6}}>played</span>}
         </td>
       </tr>,
-      ...grp.map(matchRow)
+      ...grp.map(m => matchRow(m, !isPast))
     ];
   });
 

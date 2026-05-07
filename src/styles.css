@@ -1109,6 +1109,93 @@
     .app { max-width: 1200px; }
   }
 
+  /* ── Pre-match preview ── */
+  .prematch-btn {
+    margin-left: 8px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-light);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-pill);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.12s;
+    vertical-align: middle;
+  }
+  .prematch-btn:hover { background: rgba(34,134,58,0.18); }
+
+  .prematch-team-btn {
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-light);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .prematch-team-btn:hover { background: rgba(34,134,58,0.18); }
+
+  .prematch-loading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 32px 0;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  .prematch-spinner {
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .prematch-error {
+    padding: 16px;
+    background: var(--sev-warn-bg);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    color: var(--clr-warn);
+  }
+
+  .prematch-insight {
+    background: var(--bg-200);
+    border-radius: var(--radius-lg);
+    padding: 18px 16px;
+    position: relative;
+  }
+  .prematch-insight-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 10px;
+  }
+  .prematch-insight-badge::before { content: '✦'; font-size: 8px; }
+  .prematch-insight-text {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-primary);
+    margin: 0;
+    white-space: pre-wrap;
+  }
+  .prematch-insight-footer {
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
   /* ── Landing hero stats ── */
   .landing-hero-stats { display:flex; gap:var(--space-6); padding:var(--space-4) var(--space-6); background:var(--bg-100); border-bottom:1px solid var(--border); flex-wrap:wrap; }
   .landing-hero-stat { display:flex; flex-direction:column; }

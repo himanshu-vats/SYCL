@@ -256,7 +256,7 @@ export default function SYCLDashboard({ onFeedback }) {
         </main>
       </div>
 
-      {data && <DrilldownPanel drilldown={drilldown} data={data} onClose={closeDrilldown} onDrilldown={handleDrilldown}/>}
+      {data && <DrilldownPanel drilldown={drilldown} data={data} slug={slug} onClose={closeDrilldown} onDrilldown={handleDrilldown}/>}
     </div>
   );
 }

@@ -8,6 +8,7 @@
     "test": "node test/sycl.test.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.95.0",
     "firebase-admin": "^12.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

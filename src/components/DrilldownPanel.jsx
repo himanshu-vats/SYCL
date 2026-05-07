@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 import PlayerPanel from './PlayerPanel.jsx';
 import TeamPanel from './TeamPanel.jsx';
+import MatchPreviewPanel from './MatchPreviewPanel.jsx';
 
-export default function DrilldownPanel({ drilldown, data, onClose, onDrilldown }) {
+export default function DrilldownPanel({ drilldown, data, slug, onClose, onDrilldown }) {
   useEffect(() => {
     if (!drilldown) return;
     const handler = e => { if (e.key === 'Escape') onClose(); };
@@ -16,7 +17,9 @@ export default function DrilldownPanel({ drilldown, data, onClose, onDrilldown }
     <>
       <div className="panel-overlay" onClick={onClose}/>
       <div className="panel-drawer">
-        {drilldown.type === 'player'
+        {drilldown.type === 'match'
+          ? <MatchPreviewPanel {...drilldown} league={slug} onClose={onClose} onDrilldown={onDrilldown}/>
+          : drilldown.type === 'player'
           ? <PlayerPanel name={drilldown.name} {...pd} onClose={onClose} onDrilldown={onDrilldown}/>
           : <TeamPanel   name={drilldown.name} {...pd} onClose={onClose} onDrilldown={onDrilldown}/>}
       </div>
