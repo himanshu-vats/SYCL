@@ -384,7 +384,7 @@
   .loading-text { animation: pulse 1.5s ease-in-out infinite; }
 
   /* ── Stat leader cards ── */
-  .leader-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; margin-bottom: 10px; }
+  .leader-row { display: grid; grid-template-columns: repeat(3, minmax(0, 260px)); gap: 6px; margin-bottom: 10px; }
   .leader-card {
     background: var(--bg-100); border: 1.5px solid var(--border); border-radius: 8px;
     padding: 8px 10px; position: relative; overflow: hidden;
@@ -958,7 +958,7 @@
 
   /* ── NavBar ── */
   /* ── Rankings podium ── */
-  .podium-row { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px; }
+  .podium-row { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px; max-width:800px; }
   .podium-card { padding:14px 12px; border:1px solid var(--border); border-radius:10px; background:var(--bg-100); cursor:pointer; text-align:center; transition:box-shadow .15s, transform .15s; }
   .podium-card:hover { box-shadow:0 4px 12px rgba(0,0,0,0.1); transform:translateY(-2px); }
   .podium-medal { font-size:22px; margin-bottom:6px; }
@@ -1135,9 +1135,9 @@
     .content-wrap { margin-left: 8px; margin-right: 8px; }
   }
 
-  /* On desktop: adjust content-wrap margin (no outer margin needed, sidebar provides separation) */
+  /* On desktop: cap content width so tables don't stretch across wide screens */
   @media(min-width:768px) {
-    .content-wrap { margin: 12px 16px 0 12px; }
+    .content-wrap { max-width: 1200px; margin: 12px 16px 0 12px; }
   }
 
   /* ── Pre-match preview ── */
@@ -1286,7 +1286,7 @@
   .landing-hero-stat { display:flex; flex-direction:column; }
 
   /* ── Season Overview home page ── */
-  .overview-page { padding:16px; max-width:900px; margin:0 auto; }
+  .overview-page { padding:16px; }
   .ov-section { background:var(--bg-100); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:14px; }
   .ov-progress-header { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:10px; }
   .ov-progress-label { font-size:14px; font-weight:700; color:var(--text-primary); }
@@ -1363,10 +1363,7 @@
    DIVISION CARDS — Season Overview Redesign
    ═══════════════════════════════════════════════════════════════════ */
 
-.overview-page {
-  max-width: 1440px;
-  margin: 0 auto;
-}
+.overview-page { }
 
 /* ── Season Header ── */
 .ov-season-header {

@@ -172,7 +172,7 @@ export default function AiChat({ slug }) {
               <label className="chat-label">Your name</label>
               <input
                 className="chat-input-field"
-                placeholder="e.g. Aditya or Parent of Aditya"
+                placeholder="e.g. your name or your child's name"
                 value={name}
                 onChange={e => setName(e.target.value)}
                 required
