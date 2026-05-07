@@ -1,4 +1,4 @@
-import { Home, Calendar, Trophy, BarChart2, Activity, Wind, Star, Scale, MessageSquare } from 'lucide-react';
+import { Home, Calendar, Trophy, BarChart2, Activity, Wind, Star, Scale, MessageSquare, Bot } from 'lucide-react';
 
 const TABS = [
   ["overview",  Home,      "Home"],
@@ -12,8 +12,9 @@ const TABS = [
 ];
 
 export default function SideNav({ activeTab, onTabClick, divisions, selectedDivision, onDivisionChange, playerName, teamName, onFeedback }) {
-  const showDivision = divisions?.length > 0 && activeTab !== 'overview';
+  const showDivision = divisions?.length > 0 && activeTab !== 'overview' && activeTab !== 'chat';
   const showCombined = activeTab !== 'standings' && activeTab !== 'balance';
+  const isActive = (key) => activeTab === key && !playerName && !teamName;
 
   return (
     <nav className="side-nav">
@@ -21,7 +22,7 @@ export default function SideNav({ activeTab, onTabClick, divisions, selectedDivi
         {TABS.map(([key, Icon, label]) => (
           <li key={key}>
             <button
-              className={`side-nav-item${activeTab === key && !playerName && !teamName ? ' active' : ''}`}
+              className={`side-nav-item${isActive(key) ? ' active' : ''}`}
               onClick={() => onTabClick(key)}
             >
               <Icon size={15} strokeWidth={1.8} className="side-nav-icon" />
@@ -31,16 +32,25 @@ export default function SideNav({ activeTab, onTabClick, divisions, selectedDivi
         ))}
       </ul>
 
-      {onFeedback && (
-        <ul className="side-nav-list" style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: 4 }}>
+      <ul className="side-nav-list side-nav-bottom">
+        <li>
+          <button
+            className={`side-nav-item${isActive('chat') ? ' active' : ''}`}
+            onClick={() => onTabClick('chat')}
+          >
+            <Bot size={15} strokeWidth={1.8} className="side-nav-icon" />
+            <span className="side-nav-label">Ask AI</span>
+          </button>
+        </li>
+        {onFeedback && (
           <li>
             <button className="side-nav-item" onClick={onFeedback}>
               <MessageSquare size={15} strokeWidth={1.8} className="side-nav-icon" />
               <span className="side-nav-label">Feedback</span>
             </button>
           </li>
-        </ul>
-      )}
+        )}
+      </ul>
 
       {showDivision && (
         <div className="side-nav-divs">

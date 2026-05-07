@@ -211,7 +211,7 @@ export default function SYCLDashboard({ onFeedback }) {
               onFeedback={onFeedback} />
 
       {/* Mobile-only: division selector bar (sidebar handles this on desktop) */}
-      {data && activeTab !== 'overview' && (
+      {data && activeTab !== 'overview' && activeTab !== 'chat' && (
         <div className="division-select-bar mobile-only">
           <label className="division-select-label">Division</label>
           <select
@@ -242,7 +242,9 @@ export default function SYCLDashboard({ onFeedback }) {
         )}
 
         <main className="app-main">
-          {!data ? (
+          {activeTab === 'chat' ? (
+            <AiChat slug={slug} />
+          ) : !data ? (
             <div className="content-wrap" style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:320}}>
               {loading
                 ? <div className="loading-text" style={{fontSize:13,color:"var(--text-muted)"}}>Loading…</div>
@@ -270,7 +272,6 @@ export default function SYCLDashboard({ onFeedback }) {
       </div>
 
       {data && <DrilldownPanel drilldown={drilldown} data={data} slug={slug} onClose={closeDrilldown} onDrilldown={handleDrilldown}/>}
-      <AiChat slug={slug} />
     </div>
   );
 }

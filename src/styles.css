@@ -2142,7 +2142,7 @@
   max-height: 620px;
   display: flex;
   flex-direction: column;
-  background: #ffffff;
+  background: var(--bg-100);
   border: 1px solid var(--border);
   border-radius: 16px;
   box-shadow: 0 8px 40px rgba(0,0,0,0.18);
@@ -2164,7 +2164,7 @@
   justify-content: space-between;
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
-  background: #ffffff;
+  background: var(--bg-100);
   flex-shrink: 0;
 }
 .chat-header-info { display: flex; flex-direction: column; gap: 1px; }
@@ -2185,7 +2185,7 @@
   padding: 18px 16px;
   overflow-y: auto;
   flex: 1;
-  background: #ffffff;
+  background: var(--bg-100);
 }
 .chat-intro-icon { font-size: 28px; text-align: center; }
 .chat-intro-text  { font-size: 13px; color: var(--text-muted); text-align: center; line-height: 1.5; margin: 0; }
@@ -2227,7 +2227,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background: #ffffff;
+  background: var(--bg-page);
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
@@ -2312,7 +2312,7 @@
   gap: 8px;
   padding: 10px 12px;
   border-top: 1px solid var(--border);
-  background: #ffffff;
+  background: var(--bg-100);
   flex-shrink: 0;
 }
 .chat-textarea {
@@ -2377,3 +2377,126 @@
 }
 .chat-msg-ai .chat-msg-bubble tr:nth-child(even) td { background: var(--bg-page); }
 .chat-msg-ai .chat-msg-bubble hr { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+
+/* ── Chat full-page layout ──────────────────────────────────── */
+.chat-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 50px);
+  overflow: hidden;
+  background: var(--bg-page);
+}
+
+.chat-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-100);
+  flex-shrink: 0;
+  gap: 12px;
+}
+.chat-page-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.chat-page-bot-icon { color: var(--accent); flex-shrink: 0; }
+.chat-page-title { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.chat-page-user  { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-page-quota {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-200);
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.chat-new-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--text-secondary);
+  background: var(--bg-200);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s;
+}
+.chat-new-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+/* Intro form centered in the page */
+.chat-page-intro-wrap {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+.chat-intro-page {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-100);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+}
+
+/* Scrollable messages area */
+.chat-page-messages {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.chat-page-messages-inner {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 20px 20px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Input area pinned at bottom */
+.chat-page-input-area {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--bg-100);
+  padding: 10px 20px 16px;
+}
+.chat-page-input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+/* Wider bubbles on the full page */
+.chat-page .chat-msg-bubble { max-width: 85%; }
+
+/* Side-nav bottom section */
+.side-nav-bottom {
+  margin-top: auto !important;
+  border-top: 1px solid var(--border);
+  padding-top: 4px;
+}
+
+@media (max-width: 767px) {
+  .chat-page { height: calc(100dvh - 50px); }
+  .chat-page-header { padding: 8px 12px; }
+  .chat-page-input-area { padding: 8px 12px 12px; }
+  .chat-page-messages-inner { padding: 12px 12px 4px; gap: 10px; }
+}

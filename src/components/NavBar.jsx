@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Home, Calendar, Trophy, BarChart2, Activity, Wind, Star, Scale, Menu, X } from 'lucide-react';
+import { Home, Calendar, Trophy, BarChart2, Activity, Wind, Star, Scale, Menu, X, Bot } from 'lucide-react';
 
 const TABS = [
   ["overview",  Home,      "Home"],
@@ -10,6 +10,7 @@ const TABS = [
   ["bowling",   Wind,      "Bowling"],
   ["rankings",  Star,      "Rankings"],
   ["balance",   Scale,     "Balance"],
+  ["chat",      Bot,       "Ask AI"],
 ];
 
 export default function NavBar({ slug, leagueName, season, activeTab, onTabClick, playerName, onClosePlayer, teamName, onCloseTeam, loading, onRefresh, onFeedback }) {

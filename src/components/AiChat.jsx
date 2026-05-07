@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, ChevronDown } from 'lucide-react';
+import { Send, Bot, Plus } from 'lucide-react';
 import { marked } from 'marked';
 
 marked.setOptions({ breaks: true, gfm: true });
@@ -15,18 +15,37 @@ function renderMessage(text) {
   return <span dangerouslySetInnerHTML={{ __html: marked.parse(text) }} />;
 }
 
+function storageKey(slug) {
+  return `sycl_chat_v1_${slug}`;
+}
+
+function loadSession(slug) {
+  try {
+    const raw = localStorage.getItem(storageKey(slug));
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function saveSession(slug, data) {
+  try {
+    localStorage.setItem(storageKey(slug), JSON.stringify(data));
+  } catch {}
+}
+
 export default function AiChat({ slug }) {
-  const [open,         setOpen]         = useState(false);
-  const [phase,        setPhase]        = useState('intro'); // 'intro' | 'chat'
-  const [name,         setName]         = useState('');
-  const [role,         setRole]         = useState('parent');
-  const [accessCode,   setAccessCode]   = useState('');
-  const [sessionId]                     = useState(() => Math.random().toString(36).slice(2));
-  const [messages,     setMessages]     = useState([]);
+  const [saved] = useState(() => loadSession(slug));
+
+  const [phase,        setPhase]        = useState(() => saved ? 'chat' : 'intro');
+  const [name,         setName]         = useState(() => saved?.name || '');
+  const [role,         setRole]         = useState(() => saved?.role || 'parent');
+  const [accessCode,   setAccessCode]   = useState(() => saved?.accessCode || '');
+  const [sessionId,    setSessionId]    = useState(() => saved?.sessionId || Math.random().toString(36).slice(2));
+  const [messages,     setMessages]     = useState(() => saved?.messages || []);
   const [input,        setInput]        = useState('');
   const [loading,      setLoading]      = useState(false);
   const [questionsLeft,setQuestionsLeft]= useState(20);
   const [error,        setError]        = useState('');
+
   const bottomRef = useRef(null);
   const inputRef  = useRef(null);
 
@@ -38,25 +57,45 @@ export default function AiChat({ slug }) {
     if (phase === 'chat') setTimeout(() => inputRef.current?.focus(), 100);
   }, [phase]);
 
+  // Persist conversation to localStorage whenever messages change
+  useEffect(() => {
+    if (phase !== 'chat' || !name) return;
+    saveSession(slug, { name, role, accessCode, sessionId, messages });
+  }, [messages, slug, name, role, accessCode, sessionId, phase]);
+
   const startChat = (e) => {
     e.preventDefault();
     if (!name.trim()) return;
-    setPhase('chat');
-    setMessages([{
+    const welcome = {
       role: 'ai',
       content: `Hi ${name.trim()}! 🏏 I'm your SYCL Season Insight assistant. Ask me anything about the season — player stats, standings, upcoming matches, or how to improve your game!`,
-    }]);
+    };
+    setMessages([welcome]);
+    setPhase('chat');
+  };
+
+  const newChat = () => {
+    const newId = Math.random().toString(36).slice(2);
+    setSessionId(newId);
+    const welcome = {
+      role: 'ai',
+      content: `Hi ${name}! Starting a fresh conversation. What would you like to know? 🏏`,
+    };
+    setMessages([welcome]);
+    setError('');
+    setQuestionsLeft(20);
+    setTimeout(() => inputRef.current?.focus(), 100);
   };
 
   const send = async (text) => {
     const q = (text || input).trim();
-    if (!q || loading) return;
+    if (!q || loading || questionsLeft === 0) return;
     setInput('');
     setError('');
-
     const userMsg = { role: 'user', content: q };
-    const newHistory = [...messages, userMsg];
-    setMessages(newHistory);
+    // Capture history before state update (slice sends previous exchanges as context)
+    const historySnap = messages.slice(-10);
+    setMessages(prev => [...prev, userMsg]);
     setLoading(true);
 
     try {
@@ -68,7 +107,7 @@ export default function AiChat({ slug }) {
           question:    q,
           sessionId,
           sessionInfo: { name: name.trim(), role, accessCode: accessCode.trim() },
-          history:     messages.slice(-4), // last 2 exchanges
+          history:     historySnap,
         }),
       });
 
@@ -98,134 +137,132 @@ export default function AiChat({ slug }) {
   if (!slug) return null;
 
   return (
-    <>
-      {/* Floating button */}
-      <button
-        className={`chat-fab${open ? ' chat-fab-open' : ''}`}
-        onClick={() => setOpen(o => !o)}
-        title="Ask AI"
-        aria-label="Open AI chat"
-      >
-        {open ? <X size={20} strokeWidth={2} /> : <MessageCircle size={20} strokeWidth={2} />}
-        {!open && <span className="chat-fab-label">Ask AI</span>}
-      </button>
-
-      {/* Panel */}
-      {open && (
-        <div className="chat-panel">
-          {/* Header */}
-          <div className="chat-header">
-            <div className="chat-header-info">
-              <span className="chat-header-title">✦ SYCL AI Assistant</span>
-              {phase === 'chat' && (
-                <span className="chat-header-sub">
-                  {questionsLeft === 999 ? 'Unlimited' : `${questionsLeft} questions left today`}
-                </span>
-              )}
-            </div>
-            <button className="chat-close" onClick={() => setOpen(false)}><ChevronDown size={18} /></button>
-          </div>
-
-          {/* Intro form */}
-          {phase === 'intro' && (
-            <form className="chat-intro" onSubmit={startChat}>
-              <div className="chat-intro-icon">🏏</div>
-              <p className="chat-intro-text">
-                Ask about player stats, standings, upcoming matches, or cricket improvement tips!
-              </p>
-              <div className="chat-field">
-                <label className="chat-label">Your name</label>
-                <input
-                  className="chat-input-field"
-                  placeholder="e.g. Aditya or Parent of Aditya"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  required
-                  autoFocus
-                />
-              </div>
-              <div className="chat-field">
-                <label className="chat-label">You are a…</label>
-                <select className="chat-input-field" value={role} onChange={e => setRole(e.target.value)}>
-                  <option value="parent">Parent</option>
-                  <option value="player">Player</option>
-                  <option value="coach">Coach</option>
-                  <option value="manager">Team Manager</option>
-                </select>
-              </div>
-              <div className="chat-field">
-                <label className="chat-label" style={{opacity:0.5}}>Access code <span style={{fontWeight:400}}>(optional)</span></label>
-                <input
-                  className="chat-input-field"
-                  type="password"
-                  placeholder="Leave blank if not applicable"
-                  value={accessCode}
-                  onChange={e => setAccessCode(e.target.value)}
-                />
-              </div>
-              <button className="chat-start-btn" type="submit" disabled={!name.trim()}>
-                Start Chat →
-              </button>
-            </form>
+    <div className="chat-page">
+      {/* Header */}
+      <div className="chat-page-header">
+        <div className="chat-page-header-left">
+          <Bot size={17} strokeWidth={1.8} className="chat-page-bot-icon" />
+          <span className="chat-page-title">SYCL AI Assistant</span>
+          {phase === 'chat' && name && (
+            <span className="chat-page-user">· {name}</span>
           )}
-
-          {/* Chat */}
           {phase === 'chat' && (
-            <>
-              <div className="chat-messages">
-                {messages.map((m, i) => (
-                  <div key={i} className={`chat-msg chat-msg-${m.role}`}>
-                    {m.role === 'ai' && <span className="chat-msg-avatar">🏏</span>}
-                    <div className="chat-msg-bubble">{renderMessage(m.content)}</div>
-                  </div>
-                ))}
-
-                {/* Suggested questions (show after first AI message only) */}
-                {messages.length === 1 && (
-                  <div className="chat-suggestions">
-                    {SUGGESTED.map((s, i) => (
-                      <button key={i} className="chat-suggestion" onClick={() => send(s)}>{s}</button>
-                    ))}
-                  </div>
-                )}
-
-                {loading && (
-                  <div className="chat-msg chat-msg-ai">
-                    <span className="chat-msg-avatar">🏏</span>
-                    <div className="chat-msg-bubble chat-typing">
-                      <span/><span/><span/>
-                    </div>
-                  </div>
-                )}
-
-                {error && <div className="chat-error">{error}</div>}
-                <div ref={bottomRef} />
-              </div>
-
-              <div className="chat-input-row">
-                <textarea
-                  ref={inputRef}
-                  className="chat-textarea"
-                  rows={1}
-                  placeholder="Ask about a player, team or match…"
-                  value={input}
-                  onChange={e => setInput(e.target.value)}
-                  onKeyDown={handleKey}
-                  disabled={loading || questionsLeft === 0}
-                  maxLength={300}
-                />
-                <button
-                  className="chat-send"
-                  onClick={() => send()}
-                  disabled={!input.trim() || loading || questionsLeft === 0}
-                >
-                  <Send size={16} strokeWidth={2} />
-                </button>
-              </div>
-            </>
+            <span className="chat-page-quota">
+              {questionsLeft === 999 ? 'Unlimited' : `${questionsLeft} left today`}
+            </span>
           )}
         </div>
+        {phase === 'chat' && (
+          <button className="chat-new-btn" onClick={newChat} title="Start a new conversation">
+            <Plus size={14} strokeWidth={2.5} />
+            New chat
+          </button>
+        )}
+      </div>
+
+      {/* Intro form */}
+      {phase === 'intro' && (
+        <div className="chat-page-intro-wrap">
+          <form className="chat-intro chat-intro-page" onSubmit={startChat}>
+            <div className="chat-intro-icon">🏏</div>
+            <p className="chat-intro-text">
+              Ask about player stats, standings, upcoming matches, or cricket improvement tips!
+            </p>
+            <div className="chat-field">
+              <label className="chat-label">Your name</label>
+              <input
+                className="chat-input-field"
+                placeholder="e.g. Aditya or Parent of Aditya"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                required
+                autoFocus
+              />
+            </div>
+            <div className="chat-field">
+              <label className="chat-label">You are a…</label>
+              <select className="chat-input-field" value={role} onChange={e => setRole(e.target.value)}>
+                <option value="parent">Parent</option>
+                <option value="player">Player</option>
+                <option value="coach">Coach</option>
+                <option value="manager">Team Manager</option>
+              </select>
+            </div>
+            <div className="chat-field">
+              <label className="chat-label" style={{opacity:0.5}}>Access code <span style={{fontWeight:400}}>(optional)</span></label>
+              <input
+                className="chat-input-field"
+                type="password"
+                placeholder="Leave blank if not applicable"
+                value={accessCode}
+                onChange={e => setAccessCode(e.target.value)}
+              />
+            </div>
+            <button className="chat-start-btn" type="submit" disabled={!name.trim()}>
+              Start Chat →
+            </button>
+          </form>
+        </div>
       )}
-    </>
+
+      {/* Chat messages */}
+      {phase === 'chat' && (
+        <>
+          <div className="chat-page-messages">
+            <div className="chat-page-messages-inner">
+              {messages.map((m, i) => (
+                <div key={i} className={`chat-msg chat-msg-${m.role}`}>
+                  {m.role === 'ai' && <span className="chat-msg-avatar">🏏</span>}
+                  <div className="chat-msg-bubble">{renderMessage(m.content)}</div>
+                </div>
+              ))}
+
+              {messages.length === 1 && (
+                <div className="chat-suggestions">
+                  {SUGGESTED.map((s, i) => (
+                    <button key={i} className="chat-suggestion" onClick={() => send(s)}>{s}</button>
+                  ))}
+                </div>
+              )}
+
+              {loading && (
+                <div className="chat-msg chat-msg-ai">
+                  <span className="chat-msg-avatar">🏏</span>
+                  <div className="chat-msg-bubble chat-typing">
+                    <span/><span/><span/>
+                  </div>
+                </div>
+              )}
+
+              {error && <div className="chat-error">{error}</div>}
+              <div ref={bottomRef} />
+            </div>
+          </div>
+
+          <div className="chat-page-input-area">
+            <div className="chat-page-input-row">
+              <textarea
+                ref={inputRef}
+                className="chat-textarea"
+                rows={1}
+                placeholder="Ask about a player, team or match…"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKey}
+                disabled={loading || questionsLeft === 0}
+                maxLength={300}
+              />
+              <button
+                className="chat-send"
+                onClick={() => send()}
+                disabled={!input.trim() || loading || questionsLeft === 0}
+              >
+                <Send size={16} strokeWidth={2} />
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
