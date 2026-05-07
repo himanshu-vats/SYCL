@@ -411,6 +411,10 @@
         <span class="nav-icon">✦</span> AI Summaries
       </button>
 
+      <button class="nav-item" onclick="showSection('chat-logs',this)" id="chatLogsNavBtn">
+        <span class="nav-icon">💬</span> Chat Logs
+      </button>
+
       <div class="nav-section" style="margin-top:8px">Analytics</div>
       <button class="nav-item" onclick="showSection('analytics',this)" id="analyticsNavBtn">
         <span class="nav-icon">📊</span> Analytics
@@ -680,6 +684,27 @@
       </div>
     </div>
 
+    <div id="section-chat-logs" class="section">
+      <div class="section-title">Chat Logs</div>
+      <div class="section-desc">All AI chat sessions from parents, players and coaches. Click a session to expand the full conversation.</div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="card-header">
+          <span class="card-icon">💬</span>
+          <span class="card-title">Sessions</span>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+            <select id="chatLogsLeagueFilter" class="btn btn-ghost" style="height:32px;font-size:12px" onchange="loadChatLogs()">
+              <option value="">All leagues</option>
+            </select>
+            <button class="btn btn-primary" onclick="loadChatLogs()" style="height:32px;font-size:12px">↻ Refresh</button>
+          </div>
+        </div>
+        <div id="chatLogsTable" style="padding:8px 0;font-size:13px;color:var(--text-muted);text-align:center">
+          Select a league and click Refresh to load chat sessions.
+        </div>
+      </div>
+    </div>
+
     <div id="section-analytics" class="section">
       <div class="section-title">Analytics</div>
       <div class="section-desc">Schedule health, balance analysis, matchup coverage, and automated issue detection.</div>
@@ -866,6 +891,85 @@ function logout() {
   document.getElementById('adminShell').style.display = 'none';
   document.getElementById('loginScreen').style.display = 'flex';
   document.getElementById('pwdInput').value = '';
+}
+
+// ── Chat Logs ──────────────────────────────────────────────────────
+async function loadChatLogs() {
+  const leagueFilter = document.getElementById('chatLogsLeagueFilter')?.value || '';
+  const el = document.getElementById('chatLogsTable');
+  if (!el) return;
+  el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted)">Loading…</div>';
+
+  try {
+    // Populate league filter from URL slug
+    const leagueSelect = document.getElementById('chatLogsLeagueFilter');
+    const urlSlug = getLeagueSlug();
+    if (leagueSelect && leagueSelect.options.length <= 1 && urlSlug) {
+      const opt = document.createElement('option');
+      opt.value = urlSlug;
+      opt.textContent = urlSlug;
+      opt.selected = true;
+      leagueSelect.appendChild(opt);
+    }
+
+    const slug = leagueFilter || urlSlug || '';
+    if (!slug) { el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted)">No league selected.</div>'; return; }
+
+    const resp = await fetch(`/api/chat-logs?league=${encodeURIComponent(slug)}&limit=50`, {
+      headers: { 'X-Admin-Password': getPassword() },
+    });
+    if (!resp.ok) throw new Error(`API ${resp.status}: ${(await resp.json()).error || resp.statusText}`);
+    const { sessions } = await resp.json();
+
+    if (!sessions.length) { el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted)">No chat sessions found.</div>'; return; }
+
+    el.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border);color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em">
+            <th style="padding:8px 12px;text-align:left;font-weight:600">Name</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:600">Role</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:600">Qs</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:600">First Question</th>
+            <th style="padding:8px 12px;text-align:left;font-weight:600">Date</th>
+            <th style="padding:8px 4px;font-weight:600"></th>
+          </tr>
+        </thead>
+        <tbody id="chatLogsTbody">
+          ${sessions.map((s, i) => `
+            <tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="toggleChatSession('cl_${i}')">
+              <td style="padding:10px 12px;font-weight:600;color:var(--text-primary)">${s.name || '—'}${s.isUnlimited ? ' <span title="Admin/unlimited" style="color:var(--accent);font-size:10px">★</span>' : ''}</td>
+              <td style="padding:10px 12px;color:var(--text-muted);text-transform:capitalize">${s.role || '—'}</td>
+              <td style="padding:10px 12px">${s.questionCount}</td>
+              <td style="padding:10px 12px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted)">${s.firstQuestion || '—'}</td>
+              <td style="padding:10px 12px;white-space:nowrap;color:var(--text-muted);font-size:12px">${s.updatedAt ? s.updatedAt.slice(0,10) : '—'}</td>
+              <td style="padding:10px 4px;font-size:12px;color:var(--accent)">▾</td>
+            </tr>
+            <tr id="cl_${i}" style="display:none;background:var(--hover-bg,rgba(0,0,0,0.03))">
+              <td colspan="6" style="padding:12px 16px">
+                <div style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto">
+                  ${s.messages.map(m => `
+                    <div style="display:flex;gap:8px;align-items:flex-start">
+                      <span style="flex-shrink:0;font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px;background:${m.role==='user'?'var(--accent)':'var(--border)'};color:${m.role==='user'?'#fff':'var(--text-primary)'}">${m.role==='user'?'Q':'A'}</span>
+                      <div style="font-size:13px;line-height:1.5;color:var(--text-primary);white-space:pre-wrap">${(m.content||'').replace(/</g,'&lt;')}</div>
+                    </div>
+                  `).join('')}
+                </div>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      <div style="padding:8px 12px;font-size:12px;color:var(--text-muted)">${sessions.length} session${sessions.length!==1?'s':''} shown (latest 50)</div>
+    `;
+  } catch(e) {
+    el.innerHTML = `<div style="padding:16px;color:var(--clr-bad)">Error: ${e.message}</div>`;
+  }
+}
+
+function toggleChatSession(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = el.style.display === 'none' ? 'table-row' : 'none';
 }
 
 // ── AI Summary bulk generation ────────────────────────────────────

@@ -6,7 +6,8 @@
   "functions": {
     "api/pre-match.js":   { "maxDuration": 45 },
     "api/ai-summary.js":  { "maxDuration": 45 },
-    "api/player-photo.js":{ "maxDuration": 45 }
+    "api/player-photo.js":{ "maxDuration": 45 },
+    "api/chat.js":        { "maxDuration": 45 }
   },
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/:path*" },

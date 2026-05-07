@@ -14,6 +14,7 @@ import RankingsView from './RankingsView.jsx';
 import BalanceView from './BalanceView.jsx';
 import DrilldownPanel from './DrilldownPanel.jsx';
 import SideNav from './SideNav.jsx';
+import AiChat from './AiChat.jsx';
 
 function getHashParams() {
   try {
@@ -268,6 +269,7 @@ export default function SYCLDashboard({ onFeedback }) {
       </div>
 
       {data && <DrilldownPanel drilldown={drilldown} data={data} slug={slug} onClose={closeDrilldown} onDrilldown={handleDrilldown}/>}
+      <AiChat slug={slug} />
     </div>
   );
 }
