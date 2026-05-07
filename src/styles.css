@@ -1204,6 +1204,24 @@
     padding: 12px 14px;
     margin-bottom: 14px;
   }
+  .ai-summary-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .ai-summary-more-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .ai-summary-more-btn:hover { opacity: 0.75; }
   .ai-summary-gen-btn {
     display: inline-flex;
     align-items: center;

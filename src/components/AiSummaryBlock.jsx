@@ -4,10 +4,19 @@ function getLeagueSlug() {
   return window.location.pathname.split('/').filter(Boolean)[0] || '';
 }
 
+// Split text into sentences, return [preview (first 3), rest]
+function splitSentences(text) {
+  const sentences = text.match(/[^.!?]+[.!?]+[\s]*/g) || [text];
+  const preview = sentences.slice(0, 3).join('').trim();
+  const rest    = sentences.slice(3).join('').trim();
+  return [preview, rest];
+}
+
 export default function AiSummaryBlock({ type, summaryKey }) {
   const [state,       setState]       = useState('checking');
   const [insight,     setInsight]     = useState('');
   const [generatedAt, setGeneratedAt] = useState('');
+  const [expanded,    setExpanded]    = useState(false);
   const league = getLeagueSlug();
 
   useEffect(() => {
@@ -49,17 +58,38 @@ export default function AiSummaryBlock({ type, summaryKey }) {
     <div className="prematch-error">Could not generate summary.</div>
   );
 
-  if (state === 'done') return (
-    <div className="ai-summary-block">
-      <div className="prematch-insight-badge">✦ AI Summary</div>
-      <p className="prematch-insight-text">{insight}</p>
-      {generatedAt && (
-        <div className="prematch-insight-footer">
-          Generated {new Date(generatedAt).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})}
+  if (state === 'done') {
+    const [preview, rest] = splitSentences(insight);
+    const hasMore = rest.length > 0;
+
+    return (
+      <div className="ai-summary-block">
+        <div className="ai-summary-header">
+          <span className="prematch-insight-badge">✦ AI Analysis</span>
+          {generatedAt && (
+            <span className="prematch-insight-footer" style={{margin:0}}>
+              {new Date(generatedAt).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})}
+            </span>
+          )}
         </div>
-      )}
-    </div>
-  );
+        <p className="prematch-insight-text">
+          {preview}
+          {!expanded && hasMore && (
+            <button className="ai-summary-more-btn" onClick={() => setExpanded(true)}>
+              {' '}Read more →
+            </button>
+          )}
+          {expanded && hasMore && (
+            <>{' '}{rest}{' '}
+              <button className="ai-summary-more-btn" onClick={() => setExpanded(false)}>
+                ← Less
+              </button>
+            </>
+          )}
+        </p>
+      </div>
+    );
+  }
 
   return null;
 }

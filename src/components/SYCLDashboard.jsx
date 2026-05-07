@@ -147,7 +147,8 @@ export default function SYCLDashboard({ onFeedback }) {
 
   const handleTabClick = useCallback((tab) => {
     setActiveTab(tab);
-    if (tab === 'balance' && (!selectedDivision || selectedDivision === 'combined') && sortedDivs.length > 0) {
+    // Standings and Balance don't support "All Divisions" — auto-select first division
+    if ((tab === 'standings' || tab === 'balance') && (!selectedDivision || selectedDivision === 'combined') && sortedDivs.length > 0) {
       setSelectedDivision(sortedDivs[0]);
     }
   }, [selectedDivision, sortedDivs]);
