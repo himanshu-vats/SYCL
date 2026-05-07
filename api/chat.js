@@ -64,6 +64,16 @@ module.exports = async function (req, res) {
       );
     }
 
+    // ── Off-topic guard (free — doesn't count against limit) ─────
+    const CRICKET_RE = /cricket|player|batter|bowler|batsman|wicket|run|over|inning|match|team|division|standing|score|season|league|fixture|schedule|stat|average|century|fifty|economy|spell|sycl|u11|u13|u15|emerging|improve|drill|tip|who|how many|top|best|lead/i;
+    const OFF_TOPIC_RE = /\b(stock|crypto|bitcoin|politic|news|weather|recipe|movie|film|music|song|footbal|soccer|basketball|baseball|tennis|golf|swimming|histor|geography|science|math|hack|password|invest|financ|bank|hotel|restaur|travel|flight|visa|joke|poem|essay|write me|code for|program)\b/i;
+    if (!CRICKET_RE.test(question) && OFF_TOPIC_RE.test(question)) {
+      return res.json({
+        answer: "I can only help with SYCL cricket season questions — player stats, standings, upcoming matches, or how to improve your cricket. Try asking about a player, team, or division! 🏏",
+        questionsLeft: isUnlimited ? 999 : DAILY_LIMIT - questionsUsed,
+      });
+    }
+
     // ── Load league data ─────────────────────────────────────────
     const snap = await db.collection('leagues').doc(league).get();
     if (!snap.exists) return res.status(404).json({ error: 'League not found' });
@@ -74,10 +84,11 @@ module.exports = async function (req, res) {
 
     // ── System prompt ─────────────────────────────────────────────
     const SYSTEM = `You are the SYCL Season Insight AI for ${data.leagueName || 'Seattle Youth Cricket League'} ${data.season || ''}.
-Answer ONLY from the league data provided. Be warm, encouraging, and concise (under 150 words).
+Answer ONLY questions about this cricket league and cricket improvement. Politely decline anything unrelated to cricket or this league.
+Use ONLY the league data provided — never invent or estimate stats. If a stat isn't in the data, say so honestly.
+Be warm, encouraging, and concise (under 150 words).
 When a player is discussed, encourage viewing their full profile in the Season Insight app.
-When a child/player asks about improving their game, suggest relevant drills or resources such as https://play.cricket.com.au (Cricket Australia skills hub) or suggest searching YouTube for specific technique videos.
-Never make up stats. If data isn't available, say so honestly and suggest what section of the app to check.`;
+When asked about improving cricket skills, suggest https://play.cricket.com.au or YouTube technique videos.`;
 
     // ── Messages (keep last 2 exchanges = 4 messages for context) ─
     const chatMessages = [
@@ -148,9 +159,13 @@ function buildContext(question, data) {
   const q     = question.toLowerCase();
   const lines = [];
 
-  // All player rows for entity matching
+  // Per-division rows for player lookup and individual stats
   const allBat  = flattenStats(data.batting);
   const allBowl = flattenStats(data.bowling);
+
+  // Combined/aggregated rows for leaderboards (combined key = pre-summed across divisions)
+  const leaderBat  = combinedStats(data.batting);
+  const leaderBowl = combinedStats(data.bowling);
 
   // Find mentioned player (first-name fuzzy match)
   const mentionedPlayers = [];
@@ -210,17 +225,17 @@ function buildContext(question, data) {
 
   // Batting leaderboard
   if (/batting|run|scorer|centur|fift|averag|batsman|boundary|six|four/.test(q)) {
-    lines.push('TOP BATTERS (all divisions):');
-    allBat.sort((a, b) => (parseInt(b.runs) || 0) - (parseInt(a.runs) || 0)).slice(0, 8)
-      .forEach((p, i) => lines.push(`  ${i + 1}. ${p.player} (${p.team} · ${p._div}): ${p.runs}R avg:${p.avg} SR:${p.sr} HS:${p.hs}`));
+    lines.push('TOP BATTERS (combined across all divisions):');
+    leaderBat.sort((a, b) => (parseInt(b.runs) || 0) - (parseInt(a.runs) || 0)).slice(0, 8)
+      .forEach((p, i) => lines.push(`  ${i + 1}. ${p.player} (${p.team}): ${p.runs}R avg:${p.avg} SR:${p.sr} HS:${p.hs}`));
     return lines.join('\n');
   }
 
   // Bowling leaderboard
   if (/bowl|wicket|econ|spell|over/.test(q)) {
-    lines.push('TOP BOWLERS (all divisions):');
-    allBowl.sort((a, b) => (parseInt(b.wickets) || 0) - (parseInt(a.wickets) || 0)).slice(0, 8)
-      .forEach((p, i) => lines.push(`  ${i + 1}. ${p.player} (${p.team} · ${p._div}): ${p.wickets}W econ:${p.econ} avg:${p.avg}`));
+    lines.push('TOP BOWLERS (combined across all divisions):');
+    leaderBowl.sort((a, b) => (parseInt(b.wickets) || 0) - (parseInt(a.wickets) || 0)).slice(0, 8)
+      .forEach((p, i) => lines.push(`  ${i + 1}. ${p.player} (${p.team}): ${p.wickets}W econ:${p.econ} avg:${p.avg}`));
     return lines.join('\n');
   }
 
@@ -247,8 +262,8 @@ function buildContext(question, data) {
     if (rows[0]) lines.push(`  ${div}: ${rows[0].team} (${rows[0].pts} pts, ${rows[0].won}W)`);
   });
   lines.push('');
-  const topBat  = allBat.sort((a, b)  => (parseInt(b.runs)    || 0) - (parseInt(a.runs)    || 0)).slice(0, 3);
-  const topBowl = allBowl.sort((a, b) => (parseInt(b.wickets) || 0) - (parseInt(a.wickets) || 0)).slice(0, 3);
+  const topBat  = leaderBat.sort((a, b)  => (parseInt(b.runs)    || 0) - (parseInt(a.runs)    || 0)).slice(0, 3);
+  const topBowl = leaderBowl.sort((a, b) => (parseInt(b.wickets) || 0) - (parseInt(a.wickets) || 0)).slice(0, 3);
   if (topBat.length)  lines.push(`TOP SCORERS: ${topBat.map(p  => `${p.player} ${p.runs}R`).join(' | ')}`);
   if (topBowl.length) lines.push(`TOP BOWLERS: ${topBowl.map(p => `${p.player} ${p.wickets}W`).join(' | ')}`);
   return lines.join('\n');
@@ -259,4 +274,21 @@ function flattenStats(obj) {
   return Object.entries(obj)
     .filter(([k]) => k !== 'updatedAt' && k !== 'combined')
     .flatMap(([div, rows]) => Array.isArray(rows) ? rows.map(r => ({ ...r, _div: div })) : []);
+}
+
+// Returns pre-aggregated combined rows (or aggregates inline if combined key missing)
+function combinedStats(obj) {
+  if (!obj) return [];
+  if (Array.isArray(obj.combined)) return obj.combined;
+  // Fallback: aggregate per-division rows by player name
+  const map = {};
+  flattenStats(obj).forEach(r => {
+    const key = (r.player || '').trim().toLowerCase();
+    if (!key) return;
+    if (!map[key]) { map[key] = { ...r }; return; }
+    map[key].runs    = (parseInt(map[key].runs)    || 0) + (parseInt(r.runs)    || 0);
+    map[key].wickets = (parseInt(map[key].wickets) || 0) + (parseInt(r.wickets) || 0);
+    map[key].mat     = (parseInt(map[key].mat)     || 0) + (parseInt(r.mat)     || 0);
+  });
+  return Object.values(map);
 }
