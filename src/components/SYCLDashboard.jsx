@@ -11,7 +11,6 @@ import ResultsView from './ResultsView.jsx';
 import BattingView from './BattingView.jsx';
 import BowlingView from './BowlingView.jsx';
 import RankingsView from './RankingsView.jsx';
-import BalanceView from './BalanceView.jsx';
 import DrilldownPanel from './DrilldownPanel.jsx';
 import SideNav from './SideNav.jsx';
 import AiChat from './AiChat.jsx';
@@ -148,8 +147,8 @@ export default function SYCLDashboard({ onFeedback }) {
 
   const handleTabClick = useCallback((tab) => {
     setActiveTab(tab);
-    // Standings and Balance don't support "All Divisions" — auto-select first division
-    if ((tab === 'standings' || tab === 'balance') && (!selectedDivision || selectedDivision === 'combined') && sortedDivs.length > 0) {
+    // Standings doesn't support "All Divisions" — auto-select first division
+    if (tab === 'standings' && (!selectedDivision || selectedDivision === 'combined') && sortedDivs.length > 0) {
       setSelectedDivision(sortedDivs[0]);
     }
   }, [selectedDivision, sortedDivs]);
@@ -219,7 +218,7 @@ export default function SYCLDashboard({ onFeedback }) {
             value={selectedDivision || ''}
             onChange={(e) => setSelectedDivision(e.target.value)}
           >
-            {activeTab !== 'standings' && activeTab !== 'balance' && (
+            {activeTab !== 'standings' && (
               <option value="combined">All Divisions</option>
             )}
             {sortedDivs.map(d => (
@@ -265,7 +264,6 @@ export default function SYCLDashboard({ onFeedback }) {
               {activeTab==="batting"   && <BattingView  batting={data.batting}   division={selectedDivision} onDrilldown={handleDrilldown}/>}
               {activeTab==="bowling"   && <BowlingView  bowling={data.bowling}   division={selectedDivision} onDrilldown={handleDrilldown}/>}
               {activeTab==="rankings"  && <RankingsView rankings={data.rankings} division={selectedDivision} onDrilldown={handleDrilldown}/>}
-              {activeTab==="balance"   && <BalanceView   matches={data.matches || []} division={selectedDivision} />}
             </div>
           )}
         </main>

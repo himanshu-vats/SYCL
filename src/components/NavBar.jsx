@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Home, Calendar, Trophy, BarChart2, Activity, Wind, Star, Scale, Menu, X, Bot } from 'lucide-react';
+import { Home, Calendar, Trophy, BarChart2, Activity, Wind, Star, Menu, X, Bot } from 'lucide-react';
 
 const TABS = [
   ["overview",  Home,      "Home"],
@@ -9,7 +9,6 @@ const TABS = [
   ["batting",   Activity,  "Batting"],
   ["bowling",   Wind,      "Bowling"],
   ["rankings",  Star,      "Rankings"],
-  ["balance",   Scale,     "Balance"],
   ["chat",      Bot,       "Ask AI"],
 ];
 

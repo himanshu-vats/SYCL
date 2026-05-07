@@ -2487,12 +2487,6 @@
 /* Wider bubbles on the full page */
 .chat-page .chat-msg-bubble { max-width: 85%; }
 
-/* Side-nav bottom section */
-.side-nav-bottom {
-  margin-top: auto !important;
-  border-top: 1px solid var(--border);
-  padding-top: 4px;
-}
 
 @media (max-width: 767px) {
   .chat-page { height: calc(100dvh - 50px); }
