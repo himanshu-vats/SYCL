@@ -1,4 +1,4 @@
-import { Home, Calendar, Trophy, BarChart2, Activity, Wind, Star, Scale } from 'lucide-react';
+import { Home, Calendar, Trophy, BarChart2, Activity, Wind, Star, Scale, MessageSquare } from 'lucide-react';
 
 const TABS = [
   ["overview",  Home,      "Home"],
@@ -11,7 +11,7 @@ const TABS = [
   ["balance",   Scale,     "Balance"],
 ];
 
-export default function SideNav({ activeTab, onTabClick, divisions, selectedDivision, onDivisionChange, playerName, teamName }) {
+export default function SideNav({ activeTab, onTabClick, divisions, selectedDivision, onDivisionChange, playerName, teamName, onFeedback }) {
   const showDivision = divisions?.length > 0 && activeTab !== 'overview';
   const showCombined = activeTab !== 'standings' && activeTab !== 'balance';
 
@@ -30,6 +30,17 @@ export default function SideNav({ activeTab, onTabClick, divisions, selectedDivi
           </li>
         ))}
       </ul>
+
+      {onFeedback && (
+        <ul className="side-nav-list" style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: 4 }}>
+          <li>
+            <button className="side-nav-item" onClick={onFeedback}>
+              <MessageSquare size={15} strokeWidth={1.8} className="side-nav-icon" />
+              <span className="side-nav-label">Feedback</span>
+            </button>
+          </li>
+        </ul>
+      )}
 
       {showDivision && (
         <div className="side-nav-divs">

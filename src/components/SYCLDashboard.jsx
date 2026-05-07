@@ -172,7 +172,7 @@ export default function SYCLDashboard({ onFeedback }) {
               
               onFeedback={onFeedback} />
       <div className="app-body">
-        <SideNav activeTab={activeTab} onTabClick={(t) => { closePlayerPage(); handleTabClick(t); }} divisions={[]} />
+        <SideNav activeTab={activeTab} onTabClick={(t) => { closePlayerPage(); handleTabClick(t); }} divisions={[]} onFeedback={onFeedback} />
         <main className="app-main">
           <PlayerProfilePage name={playerPage} batting={data?.batting} bowling={data?.bowling}
                   rankings={data?.rankings} playerInnings={data?.playerInnings}
@@ -191,7 +191,7 @@ export default function SYCLDashboard({ onFeedback }) {
               
               onFeedback={onFeedback} />
       <div className="app-body">
-        <SideNav activeTab={activeTab} onTabClick={(t) => { closeTeamPage(); handleTabClick(t); }} divisions={[]} />
+        <SideNav activeTab={activeTab} onTabClick={(t) => { closeTeamPage(); handleTabClick(t); }} divisions={[]} onFeedback={onFeedback} />
         <main className="app-main">
           {data
             ? <TeamProfilePage name={teamPage} data={data} onClose={closeTeamPage} onDrilldown={handleDrilldown} />
@@ -237,6 +237,7 @@ export default function SYCLDashboard({ onFeedback }) {
             divisions={sortedDivs}
             selectedDivision={selectedDivision}
             onDivisionChange={setSelectedDivision}
+            onFeedback={onFeedback}
           />
         )}
 

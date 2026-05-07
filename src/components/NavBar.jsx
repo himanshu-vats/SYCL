@@ -60,8 +60,6 @@ export default function NavBar({ slug, leagueName, season, activeTab, onTabClick
                 {loading ? '…' : '↻'}
               </button>
             )}
-            {slug && <a href={`/${slug}/admin`} className="nav-btn nav-btn-admin">Admin</a>}
-            {onFeedback && <button className="nav-btn nav-btn-feedback" onClick={onFeedback} title="Send feedback">💬</button>}
           </div>
         </div>
 

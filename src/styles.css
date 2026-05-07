@@ -1048,18 +1048,21 @@
     width: 176px;
     flex-shrink: 0;
     position: sticky;
-    top: 50px; /* height of nav-row-1 */
-    max-height: calc(100vh - 50px);
+    top: 50px;
+    height: calc(100vh - 50px);
     overflow-y: auto;
     scrollbar-width: none;
     background: var(--bg-100);
     border-right: 1px solid var(--border);
-    padding: 8px 0 20px;
+    padding: 8px 0 0;
     align-self: flex-start;
+    display: flex;
+    flex-direction: column;
   }
   .side-nav::-webkit-scrollbar { display: none; }
 
-  .side-nav-list { list-style: none; padding: 0; margin: 0 0 4px; }
+  .side-nav-list { list-style: none; padding: 0; margin: 0 0 4px; flex-shrink: 0; }
+  .side-nav-list:first-child { flex: 1; }
 
   .side-nav-item {
     display: flex;
