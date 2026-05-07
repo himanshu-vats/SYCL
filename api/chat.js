@@ -7,10 +7,29 @@ const ADMIN_CODE      = process.env.CHAT_ADMIN_CODE || 'SYCL_INSIDER';
 
 module.exports = async function (req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Admin-Password');
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
-  if (req.method !== 'POST')    { res.status(405).end(); return; }
+
+  // GET /api/chat?league=xxx  → admin chat logs (password gated)
+  if (req.method === 'GET') {
+    const pwd = req.headers['x-admin-password'];
+    if (!pwd || pwd !== process.env.ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
+    const { league, limit = '50' } = req.query;
+    if (!league) return res.status(400).json({ error: 'league required' });
+    try {
+      const snap = await db.collection('chatLogs').doc(league)
+        .collection('sessions')
+        .orderBy('updatedAt', 'desc')
+        .limit(parseInt(limit) || 50)
+        .get();
+      return res.json({ sessions: snap.docs.map(d => ({ id: d.id, ...d.data() })) });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  if (req.method !== 'POST') { res.status(405).end(); return; }
 
   const { league, question, sessionId, sessionInfo = {}, history = [] } = req.body || {};
 

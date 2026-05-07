@@ -915,7 +915,7 @@ async function loadChatLogs() {
     const slug = leagueFilter || urlSlug || '';
     if (!slug) { el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted)">No league selected.</div>'; return; }
 
-    const resp = await fetch(`/api/chat-logs?league=${encodeURIComponent(slug)}&limit=50`, {
+    const resp = await fetch(`/api/chat?league=${encodeURIComponent(slug)}&limit=50`, {
       headers: { 'X-Admin-Password': getPassword() },
     });
     if (!resp.ok) throw new Error(`API ${resp.status}: ${(await resp.json()).error || resp.statusText}`);
