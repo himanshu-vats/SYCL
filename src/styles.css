@@ -2376,6 +2376,24 @@
 .chat-msg-ai .chat-msg-bubble tr:nth-child(even) td { background: var(--bg-page); }
 .chat-msg-ai .chat-msg-bubble hr { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
 
+/* ── Responsive page grid: Leaders sidebar + Data table ─────── */
+.view-page-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.view-main, .view-aside { min-width: 0; }
+
+@media (min-width: 960px) {
+  .view-page-grid {
+    grid-template-columns: 1fr 290px;
+    grid-template-areas: "main aside";
+  }
+  .view-main  { grid-area: main; }
+  .view-aside { grid-area: aside; }
+}
+
 /* ── Chat full-page layout ──────────────────────────────────── */
 .chat-page {
   display: flex;
