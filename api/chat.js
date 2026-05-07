@@ -81,9 +81,11 @@ module.exports = async function (req, res) {
 
     // ── Build targeted context ───────────────────────────────────
     const context = buildContext(question, data);
+    const divisionList = Object.keys(data.standings || {}).filter(k => k !== 'updatedAt').join(', ') || 'various divisions';
 
     // ── System prompt ─────────────────────────────────────────────
-    const SYSTEM = `You are the SYCL Season Insight AI for ${data.leagueName || 'Seattle Youth Cricket League'} ${data.season || ''}.
+    const SYSTEM = `You are the SYCL Season Insight AI for ${data.leagueName || 'Seattle Youth Cricket League'} — ${data.season || 'current season'}.
+This league has the following divisions: ${divisionList}.
 Answer ONLY questions about this cricket league and cricket improvement. Politely decline anything unrelated to cricket or this league.
 Use ONLY the league data provided — never invent or estimate stats. If a stat isn't in the data, say so honestly.
 Be warm, encouraging, and concise (under 150 words).
@@ -197,9 +199,14 @@ function buildContext(question, data) {
     return lines.join('\n');
   }
 
-  // Division lookup
-  const divMap = { u11a: 'U11A', u11b: 'U11B', u13a: 'U13A', u13b: 'U13B', u15a: 'U15A', u15b: 'U15B', emerging: 'Emerging Stars' };
-  const matchedDiv = Object.entries(divMap).find(([k]) => q.includes(k) || q.includes(k.replace(/u(\d)/i, 'under $1')))?.[1];
+  // Division lookup — built dynamically from actual data keys (works for any league structure)
+  const divKeys = Object.keys(data.standings || {}).filter(k => k !== 'updatedAt');
+  const matchedDiv = divKeys.find(div => {
+    const d = div.toLowerCase().replace(/\s+/g, '');
+    return q.includes(d) || q.includes(div.toLowerCase()) ||
+      q.includes(d.replace(/u(\d)/i, 'under$1')) ||
+      q.includes(div.toLowerCase().replace(/u(\d)/i, 'under $1'));
+  });
 
   if (matchedDiv) {
     const raw  = data.standings?.[matchedDiv];
@@ -256,7 +263,7 @@ function buildContext(question, data) {
   lines.push(`Progress: ${allResults.length}/${(data.matches || []).length} matches played`);
   lines.push('');
   lines.push('DIVISION LEADERS:');
-  ['U11A', 'U11B', 'U13A', 'U13B', 'U15A', 'U15B', 'Emerging Stars'].forEach(div => {
+  divKeys.forEach(div => {
     const raw  = data.standings?.[div];
     const rows = Array.isArray(raw) ? raw : (raw?.rows || []);
     if (rows[0]) lines.push(`  ${div}: ${rows[0].team} (${rows[0].pts} pts, ${rows[0].won}W)`);
