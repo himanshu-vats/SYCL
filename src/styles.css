@@ -965,7 +965,12 @@
   .podium-name { font-size:13px; font-weight:700; color:var(--accent); margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .podium-team { font-size:11px; color:var(--text-muted); margin-bottom:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .podium-pts { font-size:18px; font-weight:800; color:var(--text-primary); }
-  @media(max-width:480px) { .podium-card { padding:10px 8px; } .podium-pts { font-size:15px; } }
+  @media(max-width:480px) {
+    .podium-row { display:flex; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; max-width:none; }
+    .podium-row::-webkit-scrollbar { display:none; }
+    .podium-card { flex:0 0 auto; min-width:130px; padding:10px 8px; }
+    .podium-pts { font-size:15px; }
+  }
 
   /* ── Player search input ── */
   .player-search { height:34px; padding:0 10px; border:1px solid var(--border); border-radius:6px; font-size:13px; background:var(--bg-100); color:var(--text-primary); outline:none; width:160px; }
@@ -1912,10 +1917,24 @@
   color: var(--text-muted);
 }
 @media (max-width: 640px) {
-  .season-hero-stats { grid-template-columns: repeat(3, 1fr); gap: 6px; }
-  .season-hero-stat { padding: 10px 6px 8px; }
+  .season-hero { padding: 12px 12px 14px; }
+  .season-hero-stats {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 8px;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .season-hero-stats::-webkit-scrollbar { display: none; }
+  .season-hero-stat {
+    flex: 0 0 auto;
+    min-width: 90px;
+    padding: 10px 8px 8px;
+  }
   .season-hero-stat-icon { font-size: 18px; }
-  .season-hero-stat-val { font-size: 17px; }
+  .season-hero-stat-val { font-size: 18px; }
 }
 
 .home-section-hd {
@@ -1977,14 +1996,25 @@
   .home-page { padding: 10px 10px 24px; }
   .home-div-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .home-activity-row { grid-template-columns: 1fr; gap: 10px; }
-  .home-stars-row { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  /* Season stars: horizontal scroll on mobile so all 3 fit neatly */
+  .home-stars-row {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 8px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+  .home-stars-row::-webkit-scrollbar { display: none; }
+  .home-star-card { flex: 0 0 auto; min-width: 160px; }
   .hdc { padding: 9px 10px; }
   .hdc-name { font-size: 13px; }
   .hdc-leader-name { font-size: 11px; }
   .hdc-next-teams { font-size: 10px; }
-  .hsc-emoji { font-size: 18px; }
-  .hsc-name { font-size: 11px; }
-  .hsc-stat { font-size: 10px; }
+  .hsc-emoji { font-size: 20px; }
+  .hsc-name { font-size: 12px; }
+  .hsc-stat { font-size: 11px; }
 }
 @media(max-width: 380px) {
   /* Very small phones: single column divisions */
