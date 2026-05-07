@@ -30,9 +30,10 @@ export default function AiSummaryBlock({ type, summaryKey }) {
       .catch(() => setState('idle'));
   }, [league, type, summaryKey]);
 
-  const generate = () => {
+  const generate = (bust = false) => {
     setState('loading');
-    fetch(`/api/ai-summary?league=${encodeURIComponent(league)}&type=${type}&key=${encodeURIComponent(summaryKey)}&generate=true`)
+    const url = `/api/ai-summary?league=${encodeURIComponent(league)}&type=${type}&key=${encodeURIComponent(summaryKey)}&generate=true${bust ? '&bust=true' : ''}`;
+    fetch(url)
       .then(r => r.json())
       .then(d => {
         if (d.error) throw new Error(d.error);
@@ -44,7 +45,7 @@ export default function AiSummaryBlock({ type, summaryKey }) {
   if (state === 'checking') return null;
 
   if (state === 'idle') return (
-    <button className="ai-summary-gen-btn" onClick={generate}>✦ Generate AI Summary</button>
+    <button className="ai-summary-gen-btn" onClick={() => generate(false)}>✦ Generate AI Summary</button>
   );
 
   if (state === 'loading') return (
@@ -66,11 +67,14 @@ export default function AiSummaryBlock({ type, summaryKey }) {
       <div className="ai-summary-block">
         <div className="ai-summary-header">
           <span className="prematch-insight-badge">✦ AI Analysis</span>
-          {generatedAt && (
-            <span className="prematch-insight-footer" style={{margin:0}}>
-              {new Date(generatedAt).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})}
-            </span>
-          )}
+          <div style={{display:'flex', alignItems:'center', gap:8}}>
+            {generatedAt && (
+              <span className="prematch-insight-footer" style={{margin:0}}>
+                {new Date(generatedAt).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})}
+              </span>
+            )}
+            <button className="ai-summary-regen-btn" onClick={() => generate(true)} title="Regenerate">↻</button>
+          </div>
         </div>
         <p className="prematch-insight-text">
           {preview}
