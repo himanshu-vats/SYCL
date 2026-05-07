@@ -40,7 +40,7 @@ export default function NavBar({ slug, leagueName, season, activeTab, onTabClick
             </button>
           )}
 
-          <div className="nav-brand" onClick={goHome} title="CricClubs home">
+          <div className="nav-brand" onClick={goHome} title="CricSeason home">
             <span className="nav-brand-icon">
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
                 <circle cx="11" cy="11" r="10.5" fill="#dc2626"/>
@@ -51,7 +51,7 @@ export default function NavBar({ slug, leagueName, season, activeTab, onTabClick
               </svg>
             </span>
             <span className="nav-brand-name">
-              <span className="nav-brand-cric">Cric</span><span className="nav-brand-clubs">Clubs</span>
+              <span className="nav-brand-cric">Cric</span><span className="nav-brand-season">Season</span>
             </span>
           </div>
 
