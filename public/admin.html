@@ -404,6 +404,11 @@
         <span id="propagateNavBadge" style="display:none;margin-left:auto;background:var(--clr-warn-bg);color:var(--clr-warn);font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px"></span>
       </button>
 
+      <div class="nav-section" style="margin-top:8px">AI</div>
+      <button class="nav-item" onclick="showSection('ai-summaries',this)" id="aiSummariesNavBtn">
+        <span class="nav-icon">✦</span> AI Summaries
+      </button>
+
       <div class="nav-section" style="margin-top:8px">Analytics</div>
       <button class="nav-item" onclick="showSection('analytics',this)" id="analyticsNavBtn">
         <span class="nav-icon">📊</span> Analytics
@@ -645,6 +650,34 @@
     </div>
 
     <!-- Analytics section (combined: H/A Balance, Pairings, Issues) -->
+    <!-- AI Summaries section -->
+    <div id="section-ai-summaries" class="section">
+      <div class="section-title">AI Summaries</div>
+      <div class="section-desc">Generate and cache AI analysis for all pages so every visitor sees insights instantly — no generate buttons needed.</div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <span class="card-icon">✦</span>
+          <span class="card-title">Bulk Generate</span>
+        </div>
+        <div style="padding:16px">
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">
+            Generates summaries for: <strong>Season Overview · Each Division · Standings · Results · Batting · Bowling</strong> (per division + combined). Skips any already cached. Player summaries are excluded — those generate on-demand per player.
+          </p>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+            <button class="btn btn-primary" onclick="generateAllSummaries(false)" id="genAllBtn">
+              ✦ Generate Missing
+            </button>
+            <button class="btn btn-ghost" onclick="generateAllSummaries(true)" id="genAllBustBtn">
+              ↻ Regenerate All (bust cache)
+            </button>
+          </div>
+          <div id="ai-gen-status" style="font-size:12px;color:var(--text-muted)"></div>
+          <div id="ai-gen-log" style="font-family:monospace;font-size:11px;color:var(--text-secondary);max-height:320px;overflow-y:auto;margin-top:10px;background:var(--bg-100);border:1px solid var(--border);border-radius:6px;padding:10px;display:none"></div>
+        </div>
+      </div>
+    </div>
+
     <div id="section-analytics" class="section">
       <div class="section-title">Analytics</div>
       <div class="section-desc">Schedule health, balance analysis, matchup coverage, and automated issue detection.</div>
@@ -831,6 +864,85 @@ function logout() {
   document.getElementById('adminShell').style.display = 'none';
   document.getElementById('loginScreen').style.display = 'flex';
   document.getElementById('pwdInput').value = '';
+}
+
+// ── AI Summary bulk generation ────────────────────────────────────
+async function generateAllSummaries(bust = false) {
+  const statusEl = document.getElementById('ai-gen-status');
+  const logEl    = document.getElementById('ai-gen-log');
+  const btn      = document.getElementById('genAllBtn');
+  const bustBtn  = document.getElementById('genAllBustBtn');
+  if (!slug) { statusEl.textContent = 'No league slug found.'; return; }
+
+  btn.disabled = true; bustBtn.disabled = true;
+  logEl.style.display = 'block';
+  logEl.textContent = '';
+  statusEl.textContent = 'Loading league data…';
+
+  const log = msg => { logEl.textContent += msg + '\n'; logEl.scrollTop = logEl.scrollHeight; };
+
+  try {
+    // Fetch league data to get divisions
+    const resp = await fetch(`/api/schedule?league=${encodeURIComponent(slug)}`);
+    const data = await resp.json();
+    const divs = [...new Set((data.matches || []).map(m => m.division).filter(Boolean))];
+    const DIV_ORDER = ["U11A","U11B","U13A","U13B","U15A","U15B","Emerging Stars"];
+    divs.sort((a, b) => {
+      const ai = DIV_ORDER.indexOf(a), bi = DIV_ORDER.indexOf(b);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+
+    // Build full list of {type, key} to generate
+    const tasks = [
+      { type: 'overview',  key: 'season' },
+      ...divs.map(d => ({ type: 'division',  key: d })),
+      ...divs.map(d => ({ type: 'standings', key: d })),
+      { type: 'results',  key: 'combined' },
+      ...divs.map(d => ({ type: 'results',  key: d })),
+      { type: 'batting',  key: 'combined' },
+      ...divs.map(d => ({ type: 'batting',  key: d })),
+      { type: 'bowling',  key: 'combined' },
+      ...divs.map(d => ({ type: 'bowling',  key: d })),
+    ];
+
+    log(`Found ${divs.length} divisions: ${divs.join(', ')}`);
+    log(`Total tasks: ${tasks.length}\n`);
+    statusEl.textContent = `Generating 0 / ${tasks.length}…`;
+
+    let done = 0, generated = 0, skipped = 0, errors = 0;
+
+    for (const { type, key } of tasks) {
+      const label = `${type} / ${key}`;
+      try {
+        const url = `/api/ai-summary?league=${encodeURIComponent(slug)}&type=${type}&key=${encodeURIComponent(key)}&generate=true${bust ? '&bust=true' : ''}`;
+        const r = await fetch(url);
+        const d = await r.json();
+        if (d.error) throw new Error(d.error);
+        if (d.cached && !bust) {
+          log(`  ⊙ skip   ${label} (already cached)`);
+          skipped++;
+        } else {
+          log(`  ✓ done   ${label}`);
+          generated++;
+        }
+      } catch (e) {
+        log(`  ✗ error  ${label}: ${e.message}`);
+        errors++;
+      }
+      done++;
+      statusEl.textContent = `Generating ${done} / ${tasks.length}… (${generated} new, ${skipped} cached, ${errors} errors)`;
+      // Small pause between calls to avoid hammering DeepSeek
+      await new Promise(r => setTimeout(r, 400));
+    }
+
+    statusEl.textContent = `✅ Done! ${generated} generated, ${skipped} already cached, ${errors} errors.`;
+    log(`\n✅ Complete — ${generated} summaries generated, ${skipped} skipped, ${errors} errors.`);
+  } catch (e) {
+    statusEl.textContent = `Error: ${e.message}`;
+    log(`Fatal error: ${e.message}`);
+  }
+
+  btn.disabled = false; bustBtn.disabled = false;
 }
 
 function showAdminShell() {
