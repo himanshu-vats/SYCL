@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { aggregateBatting, aggregateBowling } from '../utils/aggregation.js';
 import AiSummaryBlock from './AiSummaryBlock.jsx';
 
@@ -14,8 +14,6 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
     return dt ? dt.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) : d;
   };
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [teamFilter,  setTeamFilter]  = useState('');
 
   const allDivisions = useMemo(() => {
     const divs = [...new Set(matches.map(m => m.division).filter(Boolean))];
@@ -56,40 +54,7 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
   const topBowler = useMemo(() => [...allBowlers].sort((a,b) => (parseInt(b.wickets)||0)-(parseInt(a.wickets)||0))[0]||null, [allBowlers]);
   const topEcon   = useMemo(() => [...allBowlers].filter(b=>(parseInt(b.mat)||0)>=3).sort((a,b)=>(parseFloat(a.econ)||99)-(parseFloat(b.econ)||99))[0]||null, [allBowlers]);
 
-  const allTeams = useMemo(() => {
-    const t = new Set();
-    matches.forEach(m => { if (m.team1) t.add(m.team1); if (m.team2) t.add(m.team2); });
-    return [...t].sort();
-  }, [matches]);
-
-  const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase().trim();
-    const seen = new Set();
-    const out = [];
-    allBatters.forEach(r => {
-      if (r.player?.toLowerCase().includes(q) && !seen.has(r.player)) {
-        seen.add(r.player);
-        out.push({ name: r.player, team: r.team, stat: `${r.runs} runs` });
-      }
-    });
-    allBowlers.forEach(r => {
-      if (r.player?.toLowerCase().includes(q) && !seen.has(r.player)) {
-        seen.add(r.player);
-        out.push({ name: r.player, team: r.team, stat: `${r.wickets} wkts` });
-      }
-    });
-    return out.slice(0, 8);
-  }, [searchQuery, allBatters, allBowlers]);
-
-  const filteredDivisions = useMemo(() => {
-    if (!teamFilter) return allDivisions;
-    return allDivisions.filter(div => {
-      const dm = matches.filter(m => m.division === div);
-      const teams = [...new Set(dm.flatMap(m => [m.team1, m.team2]).filter(Boolean))];
-      return teams.includes(teamFilter);
-    });
-  }, [allDivisions, teamFilter, matches]);
+  const filteredDivisions = allDivisions;
 
   // Recent results (last 6, all divs)
   const recentResults = useMemo(() =>
@@ -126,33 +91,6 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
 
       {/* ── AI Summary ── */}
       <AiSummaryBlock type="overview" summaryKey="season" />
-
-      {/* ── Search ── */}
-      <div className="home-search-row">
-        <div className="home-search-wrap">
-          <span className="ov-search-icon">🔍</span>
-          <input className="ov-search-input" type="text" placeholder="Find a player…"
-            value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-          {searchQuery && <button className="ov-search-clear" onClick={() => setSearchQuery('')}>✕</button>}
-          {searchResults.length > 0 && (
-            <div className="ov-search-dropdown">
-              {searchResults.map((r,i) => (
-                <div key={i} className="ov-search-result"
-                  onClick={() => { onDrilldown({type:'player',name:r.name}); setSearchQuery(''); }}>
-                  <span className="ov-search-result-name">{r.name}</span>
-                  <span className="ov-search-result-team">{r.team}</span>
-                  <span className="ov-search-result-stat">{r.stat}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <select className="ov-team-select" value={teamFilter} onChange={e => setTeamFilter(e.target.value)}>
-          <option value="">All Teams</option>
-          {allTeams.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
-        {teamFilter && <button className="ov-filter-clear" onClick={() => setTeamFilter('')}>✕</button>}
-      </div>
 
       {/* ── Season stats strip ── */}
       <div className="home-stats-strip">
