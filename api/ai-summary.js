@@ -74,22 +74,25 @@ function getStats(obj, division, role) {
       map.set(k, {
         player: name,
         team: p.team || p.Team || '',
-        mat:   0, inns: 0, no: 0, runs: 0,
-        wkts:  0, fours: 0, sixes: 0, fifties: 0, hundreds: 0,
+        mat: 0, inns: 0, no: 0, runs: 0,
+        // bowling fields (actual Firestore field names)
+        wickets: 0, fiveW: 0,
+        // batting fields
+        fours: 0, sixes: 0, fifties: 0, hundreds: 0,
         _balls: 0, _runsBowled: 0,
       });
     }
     const e = map.get(k);
-    e.mat   += parseInt(p.mat)   || 0;
-    e.inns  += parseInt(p.inns)  || 0;
-    e.no    += parseInt(p.no)    || 0;
-    e.runs  += parseInt(p.runs)  || 0;
-    e.wkts  += parseInt(p.wkts)  || 0;
-    e.fours += parseInt(p.fours ?? p['4s']) || 0;
-    e.sixes += parseInt(p.sixes ?? p['6s']) || 0;
-    e.fifties  += parseInt(p.fifties  ?? p['50s']) || 0;
-    e.hundreds += parseInt(p.hundreds ?? p['100s']) || 0;
-    // For economy: accumulate runs and balls to recalculate
+    e.mat     += parseInt(p.mat)     || 0;
+    e.inns    += parseInt(p.inns)    || 0;
+    e.no      += parseInt(p.no)      || 0;
+    e.runs    += parseInt(p.runs)    || 0;
+    e.wickets += parseInt(p.wickets) || 0;   // bowling: actual field name
+    e.fiveW   += parseInt(p.fiveW)   || 0;
+    e.fours   += parseInt(p.fours)   || 0;
+    e.sixes   += parseInt(p.sixes)   || 0;
+    e.fifties  += parseInt(p.fifties)  || 0;
+    e.hundreds += parseInt(p.hundreds) || 0;
     if (p.econ && p.overs) {
       const ov = parseFloat(p.overs) || 0;
       const balls = Math.floor(ov) * 6 + Math.round((ov % 1) * 10);
@@ -211,10 +214,10 @@ function standingsContext(division, data) {
   }
 
   const bowlers = getStats(data.bowling, division, 'bowl')
-    .sort((a, b) => (parseInt(b.wkts) || 0) - (parseInt(a.wkts) || 0)).slice(0, 5);
+    .sort((a, b) => (parseInt(b.wickets) || 0) - (parseInt(a.wickets) || 0)).slice(0, 5);
   if (bowlers.length) {
     lines.push('Top bowlers:');
-    bowlers.forEach(p => lines.push(`  ${p.player ?? p.Player} (${p.team ?? p.Team}): ${p.wkts} wkts, econ ${p.econ}`));
+    bowlers.forEach(p => lines.push(`  ${p.player ?? p.Player} (${p.team ?? p.Team}): ${p.wickets} wkts, econ ${p.econ}`));
     lines.push('');
   }
 
@@ -238,7 +241,8 @@ function battingContext(division, data) {
 
   const lines = [`BATTING LEADERBOARD SUMMARY — ${label}\n`, 'Top batters:'];
   rows.forEach((p, i) => {
-    lines.push(`  ${i + 1}. ${p.player ?? p.Player} (${p.team ?? p.Team}): ${p.mat} matches, ${p.runs} runs, avg ${p.avg}, SR ${p.sr}, HS ${p.hs ?? p.HS}`);
+    const hs = p.hs || p.HS || '—';
+    lines.push(`  ${i + 1}. ${p.player ?? p.Player} (${p.team ?? p.Team}): ${p.mat} matches, ${p.runs} runs, avg ${p.avg}${p.sr ? `, SR ${p.sr}` : ''}${hs !== '—' ? `, HS ${hs}` : ''}`);
   });
   lines.push('\nWrite the batting summary now.');
   return lines.join('\n');
@@ -248,11 +252,11 @@ function bowlingContext(division, data) {
   const isCombined = !division || division === 'combined';
   const label = isCombined ? 'All Divisions' : division;
   const rows = getStats(data.bowling, division, 'bowl')
-    .sort((a, b) => (parseInt(b.wkts) || 0) - (parseInt(a.wkts) || 0)).slice(0, 12);
+    .sort((a, b) => (parseInt(b.wickets) || 0) - (parseInt(a.wickets) || 0)).slice(0, 12);
 
   const lines = [`BOWLING LEADERBOARD SUMMARY — ${label}\n`, 'Top bowlers:'];
   rows.forEach((p, i) => {
-    lines.push(`  ${i + 1}. ${p.player ?? p.Player} (${p.team ?? p.Team}): ${p.mat} matches, ${p.wkts} wkts, econ ${p.econ}, avg ${p.avg}, best ${p.bbf ?? p.BBF}`);
+    lines.push(`  ${i + 1}. ${p.player ?? p.Player} (${p.team ?? p.Team}): ${p.mat} matches, ${p.wickets} wkts, econ ${p.econ}, avg ${p.avg}, best ${p.bbf}`);
   });
   lines.push('\nWrite the bowling summary now.');
   return lines.join('\n');
@@ -298,7 +302,7 @@ function playerContext(name, data) {
   if (bowlRows.length) {
     lines.push('Bowling stats (per division this season):');
     bowlRows.forEach(p => {
-      lines.push(`  ${p._div}: ${p.mat} matches, ${p.wkts} wkts, econ ${p.econ}, avg ${p.avg}, best ${p.bbf ?? p.BBF}`);
+      lines.push(`  ${p._div}: ${p.mat} matches, ${p.wickets} wkts, econ ${p.econ}, avg ${p.avg}, best ${p.bbf}`);
     });
     lines.push('');
   }
