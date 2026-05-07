@@ -1,5 +1,4 @@
 const { db } = require('../lib/firebase');
-const Anthropic = require('@anthropic-ai/sdk');
 
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -42,17 +41,33 @@ module.exports = async function (req, res) {
     // ── Build context ────────────────────────────────────────────
     const context = buildContext({ data, match, team1, team2, date, division });
 
-    // ── Call Claude ──────────────────────────────────────────────
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-    const message = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 512,
-      system: 'You write punchy, engaging pre-match previews for youth cricket. Your audience is parents and coaches. Use a warm sports-journalism tone. Be specific with names and numbers. Keep it under 180 words.',
-      messages: [{ role: 'user', content: context }],
+    // ── Call DeepSeek ────────────────────────────────────────────
+    const resp = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        max_tokens: 512,
+        messages: [
+          {
+            role: 'system',
+            content: 'You write punchy, engaging pre-match previews for youth cricket. Your audience is parents and coaches. Use a warm sports-journalism tone. Be specific with names and numbers. Keep it under 180 words.',
+          },
+          { role: 'user', content: context },
+        ],
+      }),
     });
 
-    const insight = message.content[0]?.text || '';
+    if (!resp.ok) {
+      const err = await resp.text();
+      throw new Error(`DeepSeek API error ${resp.status}: ${err}`);
+    }
+
+    const json = await resp.json();
+    const insight = json.choices?.[0]?.message?.content || '';
     const generatedAt = new Date().toISOString();
 
     // ── Cache result ─────────────────────────────────────────────
