@@ -1,6 +1,7 @@
 import { parseDate } from '../utils/schedule.js';
 import { computeFormGuide, computeStreak } from '../utils/form.js';
 import { aggregateBatting, aggregateBowling } from '../utils/aggregation.js';
+import AiSummaryBlock from './AiSummaryBlock.jsx';
 
 export default function TeamProfilePage({ name, data, onClose, onDrilldown }) {
   const { matches = [], results, batting, bowling } = data;
@@ -48,7 +49,6 @@ export default function TeamProfilePage({ name, data, onClose, onDrilldown }) {
   return (
     <div className="team-profile-page">
       <div className="tp-header">
-        <button className="tp-back" onClick={onClose}>← Back</button>
         <div className="tp-name">{name}</div>
         {divs.length > 0 && <div className="tp-divs">{divs.join(' · ')}</div>}
         {form.length > 0 && (
@@ -67,6 +67,10 @@ export default function TeamProfilePage({ name, data, onClose, onDrilldown }) {
         <div className="tp-stat"><div className="tp-stat-val" style={{color:'#e0245e'}}>{losses}</div><div className="tp-stat-lbl">Lost</div></div>
         {abds > 0 && <div className="tp-stat"><div className="tp-stat-val" style={{color:'#f0a500'}}>{abds}</div><div className="tp-stat-lbl">Abd</div></div>}
         <div className="tp-stat"><div className="tp-stat-val">{winPct}%</div><div className="tp-stat-lbl">Win %</div></div>
+      </div>
+
+      <div style={{padding:'12px 16px 4px'}}>
+        <AiSummaryBlock type="team" summaryKey={name} />
       </div>
 
       <div className="tp-body">

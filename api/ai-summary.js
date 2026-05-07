@@ -36,6 +36,23 @@ Use specific numbers throughout. No markdown headers or bullet points — flowin
 6. Draws a conclusion about what these results tell us about the season's direction
 Use match specifics and team names. No markdown headers or bullet points — flowing prose only.`,
 
+  team: `You are a cricket analyst writing a team profile summary for youth cricket. Analyze the team's data and write an insightful 5–7 sentence analysis that:
+1. Summarizes the team's season form — wins, losses, momentum, and where they sit in the division
+2. Identifies the batting backbone — who scores the runs and what makes them effective
+3. Identifies the bowling attack — who takes wickets and who keeps it tight
+4. Notes any standout individual contributions or team patterns (strong chasing? good at defending?)
+5. Assesses their prospects — can they challenge for top spot, or what do they need to improve?
+Use specific names and numbers. Write for parents of players on this team. No markdown headers or bullet points — flowing prose only.`,
+
+  division: `You are a cricket analyst writing a division summary for youth cricket parents and coaches. Analyze all the division data provided and write an insightful 5–7 sentence analysis that:
+1. Opens with the defining story of this division — is it a runaway leader, a tight race, or total chaos?
+2. Describes the title race with specific points, games in hand, and what each contender needs
+3. Names the division's standout individual performers (batter and bowler) with their key numbers
+4. Notes any team on a hot streak or a worrying slide, and what's driving it
+5. Highlights the most important upcoming fixture in this division and why it matters
+6. Closes with a prediction or storyline to watch for the rest of the division season
+Be specific. Write with the energy of a local sports journalist who watched every game. No markdown headers or bullet points — flowing prose only.`,
+
   overview: `You are a cricket analyst writing the season homepage summary for a youth cricket league. Analyze all the data provided and write an insightful 6–8 sentence summary that:
 1. Opens with a compelling one-sentence state-of-the-season hook — what is the defining story of this season so far?
 2. Covers the title races across divisions — who leads, how tight is it, any dominant team or shock leader?
@@ -192,6 +209,8 @@ module.exports = async function (req, res) {
 function buildContext(type, key, data) {
   switch (type) {
     case 'overview':  return overviewContext(data);
+    case 'team':      return teamContext(key, data);
+    case 'division':  return divisionContext(key, data);
     case 'standings': return standingsContext(key, data);
     case 'batting':   return battingContext(key, data);
     case 'bowling':   return bowlingContext(key, data);
@@ -199,6 +218,120 @@ function buildContext(type, key, data) {
     case 'player':    return playerContext(key, data);
     default: return '';
   }
+}
+
+function teamContext(teamName, data) {
+  const lines = [`TEAM PROFILE SUMMARY — ${teamName}\n`];
+
+  // Recent results
+  const allResults = data.results?.matches || [];
+  const teamResults = allResults
+    .filter(r => r.team1 === teamName || r.team2 === teamName)
+    .slice(-6);
+  if (teamResults.length) {
+    const wins = teamResults.filter(r => r.result?.toLowerCase().startsWith(teamName.toLowerCase())).length;
+    lines.push(`Record (last ${teamResults.length} games): ${wins}W ${teamResults.length - wins}L`);
+    lines.push('Recent results:');
+    teamResults.forEach(r => lines.push(`  ${r.result || `${r.team1} vs ${r.team2}`}`));
+    lines.push('');
+  }
+
+  // Standing in division
+  const divMatches = (data.matches || []).filter(m => m.team1 === teamName || m.team2 === teamName);
+  const division = divMatches[0]?.division;
+  if (division) {
+    const raw = data.standings?.[division];
+    const rows = Array.isArray(raw) ? raw : (raw?.rows || []);
+    const pos = rows.findIndex(r => r.team === teamName);
+    if (pos >= 0) {
+      const t = rows[pos];
+      lines.push(`Division: ${division} — Position ${pos + 1} of ${rows.length} (${t.pts} pts, ${t.won}W ${t.lost}L)\n`);
+    }
+  }
+
+  // Top batters
+  const allBat = Object.entries(data.batting || {})
+    .filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+    .flatMap(([, rows]) => Array.isArray(rows) ? rows : []);
+  const batters = allBat.filter(p => p.team === teamName)
+    .sort((a, b) => (parseInt(b.runs) || 0) - (parseInt(a.runs) || 0)).slice(0, 4);
+  if (batters.length) {
+    lines.push('Top batters:');
+    batters.forEach(p => lines.push(`  ${p.player}: ${p.runs} runs, avg ${p.avg}, SR ${p.sr}, HS ${p.hs}`));
+    lines.push('');
+  }
+
+  // Top bowlers
+  const allBowl = Object.entries(data.bowling || {})
+    .filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+    .flatMap(([, rows]) => Array.isArray(rows) ? rows : []);
+  const bowlers = allBowl.filter(p => p.team === teamName)
+    .sort((a, b) => (parseInt(b.wickets) || 0) - (parseInt(a.wickets) || 0)).slice(0, 4);
+  if (bowlers.length) {
+    lines.push('Top bowlers:');
+    bowlers.forEach(p => lines.push(`  ${p.player}: ${p.wickets} wkts, econ ${p.econ}, avg ${p.avg}, best ${p.bbf}`));
+    lines.push('');
+  }
+
+  lines.push('Write the team profile summary now.');
+  return lines.join('\n');
+}
+
+function divisionContext(division, data) {
+  const lines = [`DIVISION SUMMARY — ${division}\n`];
+
+  // Standings
+  const raw = data.standings?.[division];
+  const rows = Array.isArray(raw) ? raw : (raw?.rows || []);
+  if (rows.length) {
+    lines.push('Current standings:');
+    rows.forEach((t, i) => {
+      lines.push(`  ${i + 1}. ${t.team} — P${t.played ?? '?'} W${t.won ?? '?'} L${t.lost ?? '?'} Pts${t.pts ?? '?'}${t.nrr ? ` NRR${t.nrr}` : ''}`);
+    });
+    lines.push('');
+  }
+
+  // Top 4 batters in this division
+  const batters = getStats(data.batting, division, 'bat')
+    .sort((a, b) => (parseInt(b.runs) || 0) - (parseInt(a.runs) || 0)).slice(0, 4);
+  if (batters.length) {
+    lines.push('Top batters:');
+    batters.forEach(p => lines.push(`  ${p.player} (${p.team}): ${p.runs} runs, avg ${p.avg}`));
+    lines.push('');
+  }
+
+  // Top 4 bowlers
+  const bowlers = getStats(data.bowling, division, 'bowl')
+    .sort((a, b) => (parseInt(b.wickets) || 0) - (parseInt(a.wickets) || 0)).slice(0, 4);
+  if (bowlers.length) {
+    lines.push('Top bowlers:');
+    bowlers.forEach(p => lines.push(`  ${p.player} (${p.team}): ${p.wickets} wkts, econ ${p.econ}`));
+    lines.push('');
+  }
+
+  // Recent results
+  const recent = (data.results?.matches || []).filter(r => r.division === division).slice(-6);
+  if (recent.length) {
+    lines.push('Recent results:');
+    recent.forEach(r => lines.push(`  ${r.result || `${r.team1} vs ${r.team2}`}`));
+    lines.push('');
+  }
+
+  // Upcoming fixtures
+  const today = new Date(); today.setHours(0,0,0,0);
+  const upcoming = (data.matches || [])
+    .filter(m => m.division === division && !m.result && !m.winner)
+    .filter(m => { const d = new Date(m.date); return !isNaN(d) && d >= today; })
+    .sort((a, b) => new Date(a.date) - new Date(b.date))
+    .slice(0, 3);
+  if (upcoming.length) {
+    lines.push('Upcoming fixtures:');
+    upcoming.forEach(m => lines.push(`  ${m.team1} vs ${m.team2} — ${m.date}`));
+    lines.push('');
+  }
+
+  lines.push('Write the division summary now.');
+  return lines.join('\n');
 }
 
 function overviewContext(data) {

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { parseDate, isAM } from '../utils/schedule.js';
 import FormGuide from './shared/FormGuide.jsx';
+import AiSummaryBlock from './AiSummaryBlock.jsx';
 
 export default function DivisionOverview({ data, division, onTabClick, onDrilldown, onAllDivisions }) {
   // ── Filter data for this division ──
@@ -192,6 +193,8 @@ export default function DivisionOverview({ data, division, onTabClick, onDrilldo
           )}
         </div>
       </div>
+
+      <AiSummaryBlock type="division" summaryKey={division} />
 
       {/* ── Standings Snapshot ── */}
       {top4.length > 0 && (

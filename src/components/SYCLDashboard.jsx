@@ -163,32 +163,42 @@ export default function SYCLDashboard({ onFeedback }) {
   );
 
   if (playerPage) return (
-    <>
+    <div className="app">
       <NavBar slug={slug} leagueName={data?.leagueName} season={data?.season}
               activeTab={activeTab} onTabClick={handleTabClick}
               playerName={playerPage} onClosePlayer={closePlayerPage}
               loading={loading} onRefresh={() => loadData(true, slug)}
               theme={theme} onThemeToggle={() => setTheme(t => t==='light'?'dark':'light')}
               onFeedback={onFeedback} />
-      <PlayerProfilePage name={playerPage} batting={data?.batting} bowling={data?.bowling}
-              rankings={data?.rankings} playerInnings={data?.playerInnings}
-              onClose={closePlayerPage} onTeamDrilldown={handleDrilldown} />
-    </>
+      <div className="app-body">
+        <SideNav activeTab={activeTab} onTabClick={(t) => { closePlayerPage(); handleTabClick(t); }} divisions={[]} />
+        <main className="app-main">
+          <PlayerProfilePage name={playerPage} batting={data?.batting} bowling={data?.bowling}
+                  rankings={data?.rankings} playerInnings={data?.playerInnings}
+                  onClose={closePlayerPage} onTeamDrilldown={handleDrilldown} />
+        </main>
+      </div>
+    </div>
   );
 
   if (teamPage) return (
-    <>
+    <div className="app">
       <NavBar slug={slug} leagueName={data?.leagueName} season={data?.season}
               activeTab={activeTab} onTabClick={handleTabClick}
               teamName={teamPage} onCloseTeam={closeTeamPage}
               loading={loading} onRefresh={() => loadData(true, slug)}
               theme={theme} onThemeToggle={() => setTheme(t => t==='light'?'dark':'light')}
               onFeedback={onFeedback} />
-      {data
-        ? <TeamProfilePage name={teamPage} data={data} onClose={closeTeamPage} onDrilldown={handleDrilldown} />
-        : <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:320}}><div style={{fontSize:13,color:'var(--text-muted)'}}>Loading…</div></div>
-      }
-    </>
+      <div className="app-body">
+        <SideNav activeTab={activeTab} onTabClick={(t) => { closeTeamPage(); handleTabClick(t); }} divisions={[]} />
+        <main className="app-main">
+          {data
+            ? <TeamProfilePage name={teamPage} data={data} onClose={closeTeamPage} onDrilldown={handleDrilldown} />
+            : <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:320}}><div style={{fontSize:13,color:'var(--text-muted)'}}>Loading…</div></div>
+          }
+        </main>
+      </div>
+    </div>
   );
 
   return (
