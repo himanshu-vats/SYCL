@@ -92,22 +92,32 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
       {/* ── AI Summary ── */}
       <AiSummaryBlock type="overview" summaryKey="season" />
 
-      {/* ── Season stats strip ── */}
-      <div className="home-stats-strip">
-        {[
-          { val: `${completed}/${total}`, lbl: 'Played', accent: true },
-          { val: `${pct}%`,               lbl: 'Done' },
-          { val: seasonTotals.runs.toLocaleString(), lbl: 'Runs' },
-          { val: seasonTotals.wickets,     lbl: 'Wkts' },
-          { val: seasonTotals.sixes,       lbl: '6s' },
-          seasonTotals.hundreds > 0 && { val: seasonTotals.hundreds, lbl: '100s' },
-          seasonTotals.fiveW    > 0 && { val: seasonTotals.fiveW,    lbl: '5-fers' },
-        ].filter(Boolean).map((s,i) => (
-          <div key={i} className={`hss-item${s.accent?' hss-item-accent':''}`}>
-            <span className="hss-val">{s.val}</span>
-            <span className="hss-lbl">{s.lbl}</span>
+      {/* ── Season Hero ── */}
+      <div className="season-hero">
+        <div className="season-hero-progress">
+          <div className="season-hero-progress-row">
+            <span className="season-hero-progress-label">Season Progress</span>
+            <span className="season-hero-progress-pct">{completed} / {total} matches · {pct}% complete</span>
           </div>
-        ))}
+          <div className="season-hero-track">
+            <div className="season-hero-fill" style={{width:`${pct}%`}} />
+          </div>
+        </div>
+        <div className="season-hero-stats">
+          {[
+            { icon:'🏏', val: seasonTotals.runs.toLocaleString(),    lbl: 'Total Runs',      color:'#16a34a' },
+            { icon:'⚡', val: seasonTotals.wickets.toLocaleString(), lbl: 'Wickets Taken',   color:'#dc2626' },
+            { icon:'💥', val: seasonTotals.sixes.toLocaleString(),   lbl: 'Sixes Hit',       color:'#d97706' },
+            seasonTotals.hundreds > 0 && { icon:'💯', val: seasonTotals.hundreds, lbl: 'Centuries',       color:'#7c3aed' },
+            seasonTotals.fiveW    > 0 && { icon:'🔥', val: seasonTotals.fiveW,    lbl: '5-Wicket Hauls', color:'#0891b2' },
+          ].filter(Boolean).map((s,i) => (
+            <div key={i} className="season-hero-stat">
+              <span className="season-hero-stat-icon">{s.icon}</span>
+              <span className="season-hero-stat-val" style={{color:s.color}}>{s.val}</span>
+              <span className="season-hero-stat-lbl">{s.lbl}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ── Season Stars ── */}
