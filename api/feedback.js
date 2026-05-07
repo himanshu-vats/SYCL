@@ -1,6 +1,6 @@
 const { db } = require('../lib/firebase');
 
-const NOTIFY_EMAIL = process.env.FEEDBACK_NOTIFY_EMAIL || 'himanshu.vats@gmail.com';
+const NOTIFY_EMAIL = process.env.FEEDBACK_NOTIFY_EMAIL || 'himanshu.vats@outlook.com';
 const RESEND_KEY   = process.env.RESEND_API_KEY;
 
 module.exports = async function(req, res) {
