@@ -39,16 +39,12 @@ export default function NavBar({ slug, leagueName, season, activeTab, onTabClick
           ))}
         </div>
       )}
-      {playerName && (
+      {(playerName || teamName) && (
         <div className="nav-player-crumb">
-          <button className="nav-back-btn" onClick={onClosePlayer}>←</button>
-          <span className="nav-player-name">{playerName}</span>
-        </div>
-      )}
-      {teamName && !playerName && (
-        <div className="nav-player-crumb">
-          <button className="nav-back-btn" onClick={onCloseTeam}>←</button>
-          <span className="nav-player-name">🏏 {teamName}</span>
+          <button className="nav-back-btn" onClick={playerName ? onClosePlayer : onCloseTeam}>←</button>
+          <span className="nav-player-name" style={{color:'var(--text-muted)',fontWeight:500}}>
+            {playerName ? 'Player Profile' : 'Team Profile'}
+          </span>
         </div>
       )}
     </div>
