@@ -209,33 +209,11 @@ export default function SYCLDashboard({ onFeedback }) {
               
               onFeedback={onFeedback} />
 
-      {/* Mobile-only: division selector bar (sidebar handles this on desktop) */}
-      {data && activeTab !== 'overview' && activeTab !== 'chat' && (
-        <div className="division-select-bar mobile-only">
-          <label className="division-select-label">Division</label>
-          <select
-            className="division-select"
-            value={selectedDivision || ''}
-            onChange={(e) => setSelectedDivision(e.target.value)}
-          >
-            {activeTab !== 'standings' && (
-              <option value="combined">All Divisions</option>
-            )}
-            {sortedDivs.map(d => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
-        </div>
-      )}
-
       <div className="app-body">
         {data && (
           <SideNav
             activeTab={activeTab}
             onTabClick={handleTabClick}
-            divisions={sortedDivs}
-            selectedDivision={selectedDivision}
-            onDivisionChange={setSelectedDivision}
             onFeedback={onFeedback}
           />
         )}
@@ -256,6 +234,25 @@ export default function SYCLDashboard({ onFeedback }) {
             </div>
           ) : (
             <div className="content-wrap">
+              {/* Division filter pills — shown on all tabs except Home and Chat */}
+              {activeTab !== 'overview' && sortedDivs.length > 0 && (
+                <div className="div-pills">
+                  {activeTab !== 'standings' && (
+                    <button
+                      className={`div-pill${!selectedDivision || selectedDivision === 'combined' ? ' active' : ''}`}
+                      onClick={() => setSelectedDivision('combined')}
+                    >All</button>
+                  )}
+                  {sortedDivs.map(d => (
+                    <button
+                      key={d}
+                      className={`div-pill${selectedDivision === d ? ' active' : ''}`}
+                      onClick={() => setSelectedDivision(d)}
+                    >{d}</button>
+                  ))}
+                </div>
+              )}
+
               {activeTab==="overview" && selectedDivision && selectedDivision !== 'combined' && <DivisionOverview data={data} division={selectedDivision} onTabClick={handleTabClick} onDrilldown={handleDrilldown} onAllDivisions={() => setSelectedDivision('combined')} />}
               {activeTab==="overview" && (!selectedDivision || selectedDivision === 'combined') && <SeasonOverview  data={data} lastRefresh={lastRefresh} onDrilldown={handleDrilldown} onGoToDivision={handleGoToDivision} />}
               {selectedDivision && activeTab==="schedule"  && <ScheduleView  matches={data.matches} division={selectedDivision} onDrilldown={handleDrilldown}/>}

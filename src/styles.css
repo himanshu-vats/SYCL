@@ -2373,6 +2373,36 @@
 .chat-msg-ai .chat-msg-bubble tr:nth-child(even) td { background: var(--bg-page); }
 .chat-msg-ai .chat-msg-bubble hr { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
 
+/* ── Division filter pills (top of every tab page) ──────────── */
+.div-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 0 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
+}
+.div-pill {
+  padding: 4px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-200);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.div-pill:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+.div-pill.active { border-color: var(--accent); color: var(--accent); background: var(--accent-light); font-weight: 700; }
+
+@media (max-width: 640px) {
+  .div-pills { flex-wrap: nowrap; overflow-x: auto; padding: 8px 0 8px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .div-pills::-webkit-scrollbar { display: none; }
+}
+
 /* ── Responsive page grid: Leaders sidebar + Data table ─────── */
 .view-page-grid {
   display: grid;
