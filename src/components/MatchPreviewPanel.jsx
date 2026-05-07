@@ -1,23 +1,42 @@
 import { useState, useEffect } from 'react';
 
 export default function MatchPreviewPanel({ matchId, team1, team2, date, division, league, onClose, onDrilldown }) {
-  const [state, setState] = useState('loading'); // loading | done | error
-  const [insight, setInsight] = useState('');
+  const [state,       setState]       = useState('loading');
+  const [insight,     setInsight]     = useState('');
   const [generatedAt, setGeneratedAt] = useState('');
 
   useEffect(() => {
     if (!league || !matchId) { setState('error'); return; }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 42000); // 42s client timeout
+
     const url = `/api/pre-match?league=${encodeURIComponent(league)}&matchId=${encodeURIComponent(matchId)}`;
-    fetch(url)
+    fetch(url, { signal: controller.signal })
       .then(r => r.json())
       .then(d => {
+        clearTimeout(timeout);
         if (d.error) throw new Error(d.error);
         setInsight(d.insight);
         setGeneratedAt(d.generatedAt);
         setState('done');
       })
-      .catch(() => setState('error'));
+      .catch(e => {
+        clearTimeout(timeout);
+        setState(e.name === 'AbortError' ? 'timeout' : 'error');
+      });
+
+    return () => { clearTimeout(timeout); controller.abort(); };
   }, [league, matchId]);
+
+  const retry = () => {
+    setState('loading');
+    const url = `/api/pre-match?league=${encodeURIComponent(league)}&matchId=${encodeURIComponent(matchId)}`;
+    fetch(url)
+      .then(r => r.json())
+      .then(d => { if (d.error) throw new Error(d.error); setInsight(d.insight); setGeneratedAt(d.generatedAt); setState('done'); })
+      .catch(() => setState('error'));
+  };
 
   return (
     <div className="panel-content">
@@ -37,13 +56,16 @@ export default function MatchPreviewPanel({ matchId, team1, team2, date, divisio
       {state === 'loading' && (
         <div className="prematch-loading">
           <div className="prematch-spinner"/>
-          <span>Generating AI preview…</span>
+          <span>Generating AI preview… (may take 10–20s)</span>
         </div>
       )}
 
-      {state === 'error' && (
+      {(state === 'error' || state === 'timeout') && (
         <div className="prematch-error">
-          Could not generate preview. Make sure the league is synced and the API key is configured.
+          {state === 'timeout'
+            ? 'Timed out — DeepSeek is slow right now.'
+            : 'Could not generate preview.'}
+          {' '}<button className="ai-summary-more-btn" onClick={retry}>Try again →</button>
         </div>
       )}
 
