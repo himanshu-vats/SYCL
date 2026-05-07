@@ -30,28 +30,36 @@ module.exports = async function(req, res) {
   try {
     await db.collection('feedback').add(entry);
 
-    // Send email notification (fire-and-forget — don't block the response)
+    // Send email notification — must be awaited before responding or Vercel kills the function
     if (RESEND_KEY) {
       const typeLabel = { suggestion: '💡 Suggestion', 'data-wrong': '📊 Data looks wrong', broken: '🔧 Something broken', general: '💬 Feedback' }[entry.type] || '💬 Feedback';
-      fetch('https://api.resend.com/emails', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${RESEND_KEY}` },
-        body: JSON.stringify({
-          from:    'SYCL Feedback <onboarding@resend.dev>',
-          to:      [NOTIFY_EMAIL],
-          subject: `${typeLabel} on SYCL Season Insight — ${entry.league || 'unknown league'}`,
-          html: `
-            <p><strong>Type:</strong> ${entry.type}</p>
-            <p><strong>From:</strong> ${entry.name || 'Anonymous'}</p>
-            <p><strong>League:</strong> ${entry.league || '—'}</p>
-            <p><strong>Page:</strong> ${entry.page}</p>
-            <hr/>
-            <p style="font-size:16px">${entry.message.replace(/\n/g, '<br>')}</p>
-            <hr/>
-            <p style="color:#888;font-size:12px">Submitted at ${entry.submittedAt}</p>
-          `,
-        }),
-      }).catch(e => console.error('email notify error:', e));
+      try {
+        const emailResp = await fetch('https://api.resend.com/emails', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${RESEND_KEY}` },
+          body: JSON.stringify({
+            from:    'SYCL Feedback <onboarding@resend.dev>',
+            to:      [NOTIFY_EMAIL],
+            subject: `${typeLabel} — ${entry.league || 'SYCL'} Season Insight`,
+            html: `
+              <p><strong>Type:</strong> ${entry.type}</p>
+              <p><strong>From:</strong> ${entry.name || 'Anonymous'}</p>
+              <p><strong>League:</strong> ${entry.league || '—'}</p>
+              <p><strong>Page:</strong> ${entry.page}</p>
+              <hr/>
+              <p style="font-size:16px">${entry.message.replace(/\n/g, '<br>')}</p>
+              <hr/>
+              <p style="color:#888;font-size:12px">Submitted at ${entry.submittedAt}</p>
+            `,
+          }),
+        });
+        if (!emailResp.ok) {
+          const errBody = await emailResp.text();
+          console.error('resend error:', emailResp.status, errBody);
+        }
+      } catch (emailErr) {
+        console.error('email notify error:', emailErr);
+      }
     }
 
     res.json({ ok: true });
