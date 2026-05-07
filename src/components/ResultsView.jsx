@@ -2,6 +2,7 @@ import { useState } from 'react';
 import SortableTh from './shared/SortableTh.jsx';
 import ResultStrip from './shared/ResultStrip.jsx';
 import { sortRows } from '../utils/form.js';
+import AiSummaryBlock from './AiSummaryBlock.jsx';
 
 export default function ResultsView({ results, division, onDrilldown }) {
   const [sortCol, setSortCol] = useState('date');
@@ -25,6 +26,7 @@ export default function ResultsView({ results, division, onDrilldown }) {
   const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
   return (
     <div>
+      <AiSummaryBlock type="results" summaryKey={division || 'combined'} />
       <ResultStrip results={results}/>
       <div className="section-label">Match Results</div>
       {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}

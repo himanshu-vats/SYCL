@@ -3,6 +3,7 @@ import SortableTh from './shared/SortableTh.jsx';
 import FormGuide from './shared/FormGuide.jsx';
 import StreakBadge from './shared/StreakBadge.jsx';
 import { RANK_CLASS, RANK_MEDAL } from '../constants.js';
+import AiSummaryBlock from './AiSummaryBlock.jsx';
 import { computeStandings } from '../utils/standings.js';
 import { sortRows } from '../utils/form.js';
 
@@ -25,6 +26,7 @@ export default function StandingsView({ matches, division, standings, results, o
     const leader = rows[0];
     return (
       <div>
+        <AiSummaryBlock type="standings" summaryKey={division} />
         {leader && (
           <div className="leader-row">
             <div className="leader-card gold">

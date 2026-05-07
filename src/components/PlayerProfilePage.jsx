@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import AiSummaryBlock from './AiSummaryBlock.jsx';
 import { aggregateBatting, aggregateBowling } from '../utils/aggregation.js';
 import { computeBattingBenchmark, computeBowlingBenchmark, getBattingArchetype, getBowlingArchetype } from '../utils/insights.js';
 import { getPlayerInningsHistory, computeBestBattingInnings, computeBestBowlingSpell, detectCurrentStreak, computeOpponentBattingStats, computeOpponentBowlingStats, formatMatchDate, computeMatchChartData, computePlayerRadar, computeImpactRating, computeRollingAverage } from '../utils/innings.js';
@@ -176,6 +177,10 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
           {teams.length > 0 && <span>{teams.map((t, i) => <span key={t}>{i > 0 ? ', ' : ''}<span className="clickable" onClick={() => { onClose(); onTeamDrilldown({type:'team',name:t}); }}>{t}</span></span>)}</span>}
         </div>
         {spotlight && <div className="player-spotlight">{spotlight}</div>}
+      </div>
+
+      <div style={{padding:'0 16px 8px'}}>
+        <AiSummaryBlock type="player" summaryKey={name} />
       </div>
 
       <div className="headline-pills">

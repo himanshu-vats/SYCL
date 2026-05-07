@@ -1,6 +1,5 @@
 const { db } = require('../lib/firebase');
 
-const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 module.exports = async function (req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -20,9 +19,7 @@ module.exports = async function (req, res) {
     const cached = await cacheRef.get();
     if (cached.exists) {
       const { insight, generatedAt } = cached.data();
-      if (Date.now() - new Date(generatedAt).getTime() < CACHE_TTL_MS) {
-        return res.json({ insight, generatedAt, cached: true });
-      }
+      return res.json({ insight, generatedAt, cached: true });
     }
 
     // ── Load league data ─────────────────────────────────────────

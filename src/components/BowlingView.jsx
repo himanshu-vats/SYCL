@@ -3,6 +3,7 @@ import SortableTh from './shared/SortableTh.jsx';
 import LeaderSection from './shared/LeaderSection.jsx';
 import { aggregateBowling } from '../utils/aggregation.js';
 import { sortRows } from '../utils/form.js';
+import AiSummaryBlock from './AiSummaryBlock.jsx';
 
 export default function BowlingView({ bowling, division, onDrilldown }) {
   const [sortCol, setSortCol] = useState('wickets');
@@ -30,6 +31,7 @@ export default function BowlingView({ bowling, division, onDrilldown }) {
   const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
   return (
     <div>
+      <AiSummaryBlock type="bowling" summaryKey={division || 'combined'} />
       <div className="insight-callout"><span className="insight-callout-icon">💡</span><span>Click any <strong>player name</strong> to see full stats, milestones &amp; insights · Click any <strong>team name</strong> to see team profile</span></div>
       <div className="section-label">Bowling Leaders</div>
       <LeaderSection rows={raw} statKey="wickets" label="Most Wickets" onDrilldown={onDrilldown}/>
