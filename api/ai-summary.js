@@ -12,12 +12,60 @@ function slugify(s) {
   return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
-function flattenStats(obj, division) {
+// For a single division: return that division's array.
+// For 'combined': flatten all divisions and aggregate per-player totals
+// so the numbers match what the frontend's aggregateBatting/aggregateBowling shows.
+function getStats(obj, division, role) {
   if (!obj) return [];
   if (Array.isArray(obj)) return obj;
-  if (division && division !== 'combined' && obj[division]) return obj[division];
-  if (obj['combined']) return obj['combined'];
-  return Object.values(obj).flat();
+  const isCombined = !division || division === 'combined';
+
+  if (!isCombined) return obj[division] || [];
+
+  // Flatten all real divisions (skip meta keys)
+  const all = Object.entries(obj)
+    .filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+    .flatMap(([, rows]) => Array.isArray(rows) ? rows : []);
+
+  // Aggregate by player name
+  const map = new Map();
+  for (const p of all) {
+    const name = (p.player || p.Player || '').trim();
+    if (!name) continue;
+    const k = name.toLowerCase();
+    if (!map.has(k)) {
+      map.set(k, {
+        player: name,
+        team: p.team || p.Team || '',
+        mat:   0, inns: 0, no: 0, runs: 0,
+        wkts:  0, fours: 0, sixes: 0, fifties: 0, hundreds: 0,
+        _balls: 0, _runsBowled: 0,
+      });
+    }
+    const e = map.get(k);
+    e.mat   += parseInt(p.mat)   || 0;
+    e.inns  += parseInt(p.inns)  || 0;
+    e.no    += parseInt(p.no)    || 0;
+    e.runs  += parseInt(p.runs)  || 0;
+    e.wkts  += parseInt(p.wkts)  || 0;
+    e.fours += parseInt(p.fours ?? p['4s']) || 0;
+    e.sixes += parseInt(p.sixes ?? p['6s']) || 0;
+    e.fifties  += parseInt(p.fifties  ?? p['50s']) || 0;
+    e.hundreds += parseInt(p.hundreds ?? p['100s']) || 0;
+    // For economy: accumulate runs and balls to recalculate
+    if (p.econ && p.overs) {
+      const ov = parseFloat(p.overs) || 0;
+      const balls = Math.floor(ov) * 6 + Math.round((ov % 1) * 10);
+      e._balls += balls;
+      e._runsBowled += parseInt(p.runs) || 0;
+    }
+  }
+
+  return [...map.values()].map(e => ({
+    ...e,
+    avg:  e.inns - e.no > 0 ? (e.runs / (e.inns - e.no)).toFixed(1) : (e.runs > 0 ? 'N/O' : '0'),
+    econ: e._balls > 0 ? (e._runsBowled / e._balls * 6).toFixed(2) : '—',
+  }));
 }
 
 module.exports = async function (req, res) {
@@ -25,7 +73,7 @@ module.exports = async function (req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
 
-  const { league, type, key, generate } = req.query;
+  const { league, type, key, generate, bust } = req.query;
   if (!league || !type || !key) {
     return res.status(400).json({ error: 'league, type, key required' });
   }
@@ -38,9 +86,9 @@ module.exports = async function (req, res) {
   const cacheRef  = leagueRef.collection('aiSummary').doc(docId);
 
   try {
-    // Always return cached version if it exists
+    // Return cached version unless bust=true forces regeneration
     const cached = await cacheRef.get();
-    if (cached.exists) {
+    if (cached.exists && bust !== 'true') {
       const { insight, generatedAt } = cached.data();
       return res.json({ insight, generatedAt, cached: true });
     }
@@ -104,7 +152,9 @@ function buildContext(type, key, data) {
 }
 
 function standingsContext(division, data) {
-  const rows = data.standings?.[division]?.rows || data.standings?.[division] || [];
+  // Standings can be stored as { rows: [...], updatedAt } or as a plain array
+  const raw = data.standings?.[division];
+  const rows = Array.isArray(raw) ? raw : (raw?.rows || []);
   const lines = [`STANDINGS SUMMARY — Division: ${division}\n`];
 
   if (rows.length) {
@@ -115,7 +165,7 @@ function standingsContext(division, data) {
     lines.push('');
   }
 
-  const batters = flattenStats(data.batting, division)
+  const batters = getStats(data.batting, division, 'bat')
     .sort((a, b) => (parseInt(b.runs) || 0) - (parseInt(a.runs) || 0)).slice(0, 5);
   if (batters.length) {
     lines.push('Top batters:');
@@ -123,7 +173,7 @@ function standingsContext(division, data) {
     lines.push('');
   }
 
-  const bowlers = flattenStats(data.bowling, division)
+  const bowlers = getStats(data.bowling, division, 'bowl')
     .sort((a, b) => (parseInt(b.wkts) || 0) - (parseInt(a.wkts) || 0)).slice(0, 5);
   if (bowlers.length) {
     lines.push('Top bowlers:');
@@ -146,7 +196,7 @@ function standingsContext(division, data) {
 function battingContext(division, data) {
   const isCombined = !division || division === 'combined';
   const label = isCombined ? 'All Divisions' : division;
-  const rows = flattenStats(data.batting, division)
+  const rows = getStats(data.batting, division, 'bat')
     .sort((a, b) => (parseInt(b.runs) || 0) - (parseInt(a.runs) || 0)).slice(0, 12);
 
   const lines = [`BATTING LEADERBOARD SUMMARY — ${label}\n`, 'Top batters:'];
@@ -160,7 +210,7 @@ function battingContext(division, data) {
 function bowlingContext(division, data) {
   const isCombined = !division || division === 'combined';
   const label = isCombined ? 'All Divisions' : division;
-  const rows = flattenStats(data.bowling, division)
+  const rows = getStats(data.bowling, division, 'bowl')
     .sort((a, b) => (parseInt(b.wkts) || 0) - (parseInt(a.wkts) || 0)).slice(0, 12);
 
   const lines = [`BOWLING LEADERBOARD SUMMARY — ${label}\n`, 'Top bowlers:'];
@@ -186,26 +236,32 @@ function resultsContext(division, data) {
 
 function playerContext(name, data) {
   const lower = name.toLowerCase().trim();
-  const allBat = Object.values(data.batting || {}).flat();
-  const allBowl = Object.values(data.bowling || {}).flat();
 
-  const batRows = allBat.filter(p => (p.player ?? p.Player ?? '').toLowerCase().trim() === lower);
+  // Filter out non-array values (updatedAt, combined) before flattening
+  const allBat = Object.entries(data.batting || {})
+    .filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+    .flatMap(([div, rows]) => Array.isArray(rows) ? rows.map(r => ({ ...r, _div: div })) : []);
+  const allBowl = Object.entries(data.bowling || {})
+    .filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+    .flatMap(([div, rows]) => Array.isArray(rows) ? rows.map(r => ({ ...r, _div: div })) : []);
+
+  const batRows  = allBat.filter(p  => (p.player ?? p.Player ?? '').toLowerCase().trim() === lower);
   const bowlRows = allBowl.filter(p => (p.player ?? p.Player ?? '').toLowerCase().trim() === lower);
 
   const lines = [`PLAYER PROFILE SUMMARY — ${name}\n`];
 
   if (batRows.length) {
-    lines.push('Batting (this season, per division):');
+    lines.push('Batting stats (per division this season):');
     batRows.forEach(p => {
-      lines.push(`  ${p.division || 'Division unknown'}: ${p.mat} matches, ${p.inns} innings, ${p.runs} runs, avg ${p.avg}, SR ${p.sr}, HS ${p.hs ?? p.HS}, 50s ${p.fifties ?? 0}, 100s ${p.hundreds ?? 0}`);
+      lines.push(`  ${p._div}: ${p.mat} matches, ${p.inns} innings, ${p.runs} runs, avg ${p.avg}, SR ${p.sr}, HS ${p.hs ?? p.HS}, 50s ${p.fifties ?? 0}, 100s ${p.hundreds ?? 0}`);
     });
     lines.push('');
   }
 
   if (bowlRows.length) {
-    lines.push('Bowling (this season, per division):');
+    lines.push('Bowling stats (per division this season):');
     bowlRows.forEach(p => {
-      lines.push(`  ${p.division || 'Division unknown'}: ${p.mat} matches, ${p.wkts} wkts, econ ${p.econ}, avg ${p.avg}, best ${p.bbf ?? p.BBF}`);
+      lines.push(`  ${p._div}: ${p.mat} matches, ${p.wkts} wkts, econ ${p.econ}, avg ${p.avg}, best ${p.bbf ?? p.BBF}`);
     });
     lines.push('');
   }
