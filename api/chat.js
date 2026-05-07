@@ -86,11 +86,21 @@ module.exports = async function (req, res) {
     // ── System prompt ─────────────────────────────────────────────
     const SYSTEM = `You are the SYCL Season Insight AI for ${data.leagueName || 'Seattle Youth Cricket League'} — ${data.season || 'current season'}.
 This league has the following divisions: ${divisionList}.
-Answer ONLY questions about this cricket league and cricket improvement. Politely decline anything unrelated to cricket or this league.
+
+Answer ONLY questions about this cricket league and cricket improvement. Politely decline anything unrelated.
 Use ONLY the league data provided — never invent or estimate stats. If a stat isn't in the data, say so honestly.
-Be warm, encouraging, and concise (under 150 words).
-When a player is discussed, encourage viewing their full profile in the Season Insight app.
-When asked about improving cricket skills, suggest https://play.cricket.com.au or YouTube technique videos.`;
+
+RESPONSE STYLE — be thorough, detailed, and visually structured:
+- Use markdown tables wherever stats are listed (standings, leaderboards, player stats). Example: | # | Player | Runs | Avg | SR | HS |
+- Use bold (**text**) for player names, team names, and standout numbers.
+- Use headers (### Title) to section your response when covering multiple topics.
+- For player questions: full profile with a stats table (batting + bowling), division-by-division breakdown, milestones (50s, 100s, 5-fers), team's standing, recent team results, and a genuine qualitative assessment of their season. Be comprehensive.
+- For leaderboard/standings questions: a ranked table of ALL players/teams with all key columns, plus analysis of the race, streaks, and what the numbers mean.
+- For division questions: a standings table (all teams with P/W/L/Pts/NRR), top batters table, top bowlers table, recent results, and what's at stake.
+- For season overview: all divisions with leaders, overall stat leaders, key storylines and milestones.
+- For improvement/coaching questions: structured tips with bullet points, drills, and examples. Suggest https://play.cricket.com.au or specific YouTube search terms.
+- Always end with a sharp insight or observation that goes beyond the numbers.
+- When a player is discussed, remind them to check the full Season Insight profile for match-by-match breakdown.`;
 
     // ── Messages (keep last 2 exchanges = 4 messages for context) ─
     const chatMessages = [
@@ -110,7 +120,7 @@ When asked about improving cricket skills, suggest https://play.cricket.com.au o
       },
       body: JSON.stringify({
         model:      'deepseek-chat',
-        max_tokens: 280,
+        max_tokens: 1000,
         messages:   [{ role: 'system', content: SYSTEM }, ...chatMessages],
       }),
     });
@@ -183,17 +193,56 @@ function buildContext(question, data) {
 
   // Player stats context
   if (mentionedPlayers.length > 0) {
-    lines.push('PLAYER STATS:');
     for (const playerName of mentionedPlayers.slice(0, 2)) {
       const bRows = allBat.filter(p  => (p.player || '').toLowerCase() === playerName.toLowerCase());
       const wRows = allBowl.filter(p => (p.player || '').toLowerCase() === playerName.toLowerCase());
+
+      lines.push(`=== PLAYER PROFILE: ${playerName} ===`);
+
       if (bRows.length) {
-        lines.push(`${playerName} — Batting:`);
-        bRows.forEach(r => lines.push(`  [${r._div}] ${r.mat}M ${r.inns}I ${r.runs}R avg:${r.avg} SR:${r.sr} HS:${r.hs} 50s:${r.fifties ?? 0} 100s:${r.hundreds ?? 0}`));
+        const totalRuns = bRows.reduce((s, r) => s + (parseInt(r.runs) || 0), 0);
+        const totalMat  = bRows.reduce((s, r) => s + (parseInt(r.mat)  || 0), 0);
+        const totalInns = bRows.reduce((s, r) => s + (parseInt(r.inns) || 0), 0);
+        const total50s  = bRows.reduce((s, r) => s + (parseInt(r.fifties)  || 0), 0);
+        const total100s = bRows.reduce((s, r) => s + (parseInt(r.hundreds) || 0), 0);
+        const bestHS    = bRows.reduce((best, r) => Math.max(best, parseInt(r.hs) || 0), 0);
+        const overallAvg = totalInns > 0 ? (totalRuns / totalInns).toFixed(1) : 'N/A';
+        lines.push(`BATTING SUMMARY: ${totalRuns} runs in ${totalMat} matches (${totalInns} innings) | Overall avg: ${overallAvg} | Best: ${bestHS} | 50s: ${total50s} | 100s: ${total100s}`);
+        lines.push('Per-division breakdown:');
+        bRows.forEach(r => lines.push(`  [${r._div}] Team: ${r.team} | ${r.mat}M ${r.inns}I ${r.no ?? 0}NO | ${r.runs}R | Avg: ${r.avg} | SR: ${r.sr} | HS: ${r.hs} | 4s: ${r.fours ?? '?'} | 6s: ${r.sixes ?? '?'} | 50s: ${r.fifties ?? 0} | 100s: ${r.hundreds ?? 0}`));
+      } else {
+        lines.push('BATTING: No batting data recorded.');
       }
+
       if (wRows.length) {
-        lines.push(`${playerName} — Bowling:`);
-        wRows.forEach(r => lines.push(`  [${r._div}] ${r.mat}M ${r.wickets}W econ:${r.econ} avg:${r.avg} best:${r.bbf}`));
+        const totalWkts = wRows.reduce((s, r) => s + (parseInt(r.wickets) || 0), 0);
+        const totalOvrs = wRows.reduce((s, r) => s + (parseFloat(r.overs) || 0), 0);
+        const total5w   = wRows.reduce((s, r) => s + (parseInt(r.fiveW) || 0), 0);
+        lines.push(`BOWLING SUMMARY: ${totalWkts} wickets in ${totalOvrs.toFixed(1)} overs | 5-fers: ${total5w}`);
+        lines.push('Per-division breakdown:');
+        wRows.forEach(r => lines.push(`  [${r._div}] Team: ${r.team} | ${r.mat}M ${r.wickets}W | Econ: ${r.econ} | Avg: ${r.avg} | Best: ${r.bbf} | Overs: ${r.overs ?? '?'} | 5-fers: ${r.fiveW ?? 0}`));
+      } else {
+        lines.push('BOWLING: No bowling data recorded.');
+      }
+
+      // Recent results involving this player's team
+      const playerTeams = [...new Set([...bRows.map(r => r.team), ...wRows.map(r => r.team)])].filter(Boolean);
+      const recentTeamResults = (data.results?.matches || [])
+        .filter(m => playerTeams.some(t => m.team1 === t || m.team2 === t))
+        .slice(-5);
+      if (recentTeamResults.length) {
+        lines.push(`RECENT TEAM RESULTS (${playerTeams.join('/')}):`)
+        recentTeamResults.forEach(r => lines.push(`  ${r.result || `${r.team1} vs ${r.team2}`} [${r.division}]`));
+      }
+
+      // Division standing for this player's team
+      for (const team of playerTeams) {
+        for (const div of Object.keys(data.standings || {}).filter(k => k !== 'updatedAt')) {
+          const raw  = data.standings[div];
+          const rows = Array.isArray(raw) ? raw : (raw?.rows || []);
+          const pos  = rows.findIndex(t => t.team === team);
+          if (pos !== -1) lines.push(`STANDING: ${team} is ${pos + 1}/${rows.length} in ${div} with ${rows[pos].pts} pts (${rows[pos].won}W ${rows[pos].lost}L)`);
+        }
       }
     }
     return lines.join('\n');
@@ -211,14 +260,32 @@ function buildContext(question, data) {
   if (matchedDiv) {
     const raw  = data.standings?.[matchedDiv];
     const rows = Array.isArray(raw) ? raw : (raw?.rows || []);
-    lines.push(`${matchedDiv} STANDINGS:`);
-    rows.forEach((t, i) => lines.push(`  ${i + 1}. ${t.team} — P${t.played ?? '?'} W${t.won ?? '?'} L${t.lost ?? '?'} Pts${t.pts ?? '?'}`));
+    lines.push(`=== ${matchedDiv} DIVISION ===`);
+    lines.push('STANDINGS:');
+    rows.forEach((t, i) => lines.push(`  ${i + 1}. ${t.team} | P:${t.played ?? '?'} W:${t.won ?? '?'} L:${t.lost ?? '?'} | Pts:${t.pts ?? '?'} | NRR:${t.nrr ?? '?'} | Form:${t.form ?? '?'}`));
     const divBat = (Array.isArray(data.batting?.[matchedDiv]) ? data.batting[matchedDiv] : [])
-      .sort((a, b) => (parseInt(b.runs) || 0) - (parseInt(a.runs) || 0)).slice(0, 4);
-    if (divBat.length) { lines.push(`Top Batters:`); divBat.forEach(p => lines.push(`  ${p.player} (${p.team}): ${p.runs}R avg:${p.avg} SR:${p.sr}`)); }
+      .sort((a, b) => (parseInt(b.runs) || 0) - (parseInt(a.runs) || 0)).slice(0, 8);
+    if (divBat.length) {
+      lines.push('\nTOP BATTERS:');
+      divBat.forEach((p, i) => lines.push(`  ${i + 1}. ${p.player} (${p.team}): ${p.runs}R | avg:${p.avg} | SR:${p.sr} | HS:${p.hs} | 50s:${p.fifties ?? 0} | 100s:${p.hundreds ?? 0}`));
+    }
     const divBowl = (Array.isArray(data.bowling?.[matchedDiv]) ? data.bowling[matchedDiv] : [])
-      .sort((a, b) => (parseInt(b.wickets) || 0) - (parseInt(a.wickets) || 0)).slice(0, 4);
-    if (divBowl.length) { lines.push(`Top Bowlers:`); divBowl.forEach(p => lines.push(`  ${p.player} (${p.team}): ${p.wickets}W econ:${p.econ}`)); }
+      .sort((a, b) => (parseInt(b.wickets) || 0) - (parseInt(a.wickets) || 0)).slice(0, 8);
+    if (divBowl.length) {
+      lines.push('\nTOP BOWLERS:');
+      divBowl.forEach((p, i) => lines.push(`  ${i + 1}. ${p.player} (${p.team}): ${p.wickets}W | econ:${p.econ} | avg:${p.avg} | best:${p.bbf} | 5-fers:${p.fiveW ?? 0}`));
+    }
+    const divResults = (data.results?.matches || []).filter(m => m.division === matchedDiv).slice(-6);
+    if (divResults.length) {
+      lines.push('\nRECENT RESULTS:');
+      divResults.forEach(r => lines.push(`  ${r.result || `${r.team1} vs ${r.team2}`}`));
+    }
+    const divUpcoming = (data.matches || []).filter(m => m.division === matchedDiv && !m.result && !m.winner)
+      .sort((a, b) => new Date(a.date) - new Date(b.date)).slice(0, 4);
+    if (divUpcoming.length) {
+      lines.push('\nUPCOMING FIXTURES:');
+      divUpcoming.forEach(m => lines.push(`  ${m.team1} vs ${m.team2} — ${m.date}${m.time ? ` ${m.time}` : ''}`));
+    }
     return lines.join('\n');
   }
 
@@ -233,16 +300,30 @@ function buildContext(question, data) {
   // Batting leaderboard
   if (/batting|run|scorer|centur|fift|averag|batsman|boundary|six|four/.test(q)) {
     lines.push('TOP BATTERS (combined across all divisions):');
-    leaderBat.sort((a, b) => (parseInt(b.runs) || 0) - (parseInt(a.runs) || 0)).slice(0, 8)
-      .forEach((p, i) => lines.push(`  ${i + 1}. ${p.player} (${p.team}): ${p.runs}R avg:${p.avg} SR:${p.sr} HS:${p.hs}`));
+    leaderBat.sort((a, b) => (parseInt(b.runs) || 0) - (parseInt(a.runs) || 0)).slice(0, 15)
+      .forEach((p, i) => lines.push(`  ${i + 1}. ${p.player} (${p.team}): ${p.runs}R | avg:${p.avg} | SR:${p.sr} | HS:${p.hs} | 50s:${p.fifties ?? 0} | 100s:${p.hundreds ?? 0} | mat:${p.mat}`));
+    // Also show top by average (min 3 innings)
+    const topAvg = leaderBat.filter(p => (parseInt(p.inns) || 0) >= 3)
+      .sort((a, b) => (parseFloat(b.avg) || 0) - (parseFloat(a.avg) || 0)).slice(0, 5);
+    if (topAvg.length) {
+      lines.push('\nTOP AVERAGES (min 3 innings):');
+      topAvg.forEach((p, i) => lines.push(`  ${i + 1}. ${p.player} (${p.team}): avg ${p.avg} in ${p.inns} innings (${p.runs}R)`));
+    }
     return lines.join('\n');
   }
 
   // Bowling leaderboard
   if (/bowl|wicket|econ|spell|over/.test(q)) {
     lines.push('TOP BOWLERS (combined across all divisions):');
-    leaderBowl.sort((a, b) => (parseInt(b.wickets) || 0) - (parseInt(a.wickets) || 0)).slice(0, 8)
-      .forEach((p, i) => lines.push(`  ${i + 1}. ${p.player} (${p.team}): ${p.wickets}W econ:${p.econ} avg:${p.avg}`));
+    leaderBowl.sort((a, b) => (parseInt(b.wickets) || 0) - (parseInt(a.wickets) || 0)).slice(0, 15)
+      .forEach((p, i) => lines.push(`  ${i + 1}. ${p.player} (${p.team}): ${p.wickets}W | econ:${p.econ} | avg:${p.avg} | best:${p.bbf} | mat:${p.mat} | 5-fers:${p.fiveW ?? 0}`));
+    // Also top by economy (min 3 matches)
+    const topEcon = leaderBowl.filter(p => (parseInt(p.mat) || 0) >= 3)
+      .sort((a, b) => (parseFloat(a.econ) || 99) - (parseFloat(b.econ) || 99)).slice(0, 5);
+    if (topEcon.length) {
+      lines.push('\nBEST ECONOMY (min 3 matches):');
+      topEcon.forEach((p, i) => lines.push(`  ${i + 1}. ${p.player} (${p.team}): econ ${p.econ} (${p.wickets}W in ${p.mat} matches)`));
+    }
     return lines.join('\n');
   }
 

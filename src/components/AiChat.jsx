@@ -1,5 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, ChevronDown } from 'lucide-react';
+import { marked } from 'marked';
+
+marked.setOptions({ breaks: true, gfm: true });
 
 const SUGGESTED = [
   "Who leads each division right now?",
@@ -8,14 +11,8 @@ const SUGGESTED = [
   "What matches are coming up this weekend?",
 ];
 
-// Make URLs and profile suggestions clickable
 function renderMessage(text) {
-  const parts = text.split(/(https?:\/\/[^\s)]+)/g);
-  return parts.map((part, i) =>
-    /^https?:\/\//.test(part)
-      ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="chat-link">{part}</a>
-      : part
-  );
+  return <span dangerouslySetInnerHTML={{ __html: marked.parse(text) }} />;
 }
 
 export default function AiChat({ slug }) {
