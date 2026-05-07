@@ -7,8 +7,8 @@ function getLeagueSlug() {
 // Split text into sentences, return [preview (first 3), rest]
 function splitSentences(text) {
   const sentences = text.match(/[^.!?]+[.!?]+[\s]*/g) || [text];
-  const preview = sentences.slice(0, 3).join('').trim();
-  const rest    = sentences.slice(3).join('').trim();
+  const preview = sentences.slice(0, 5).join('').trim();
+  const rest    = sentences.slice(5).join('').trim();
   return [preview, rest];
 }
 

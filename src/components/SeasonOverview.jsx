@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { aggregateBatting, aggregateBowling } from '../utils/aggregation.js';
+import AiSummaryBlock from './AiSummaryBlock.jsx';
 
 export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToDivision }) {
   const { matches = [], results, batting, bowling, rankings, standings } = data;
@@ -277,6 +278,8 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
             <div className="ov-season-updated">🕐 Updated {new Date(lastRefresh).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
           )}
         </div>
+
+        <AiSummaryBlock type="overview" summaryKey="season" />
 
         {/* Search + Filter bar */}
         <div className="ov-search-bar">

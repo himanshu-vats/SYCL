@@ -36,6 +36,15 @@ Use specific numbers throughout. No markdown headers or bullet points — flowin
 6. Draws a conclusion about what these results tell us about the season's direction
 Use match specifics and team names. No markdown headers or bullet points — flowing prose only.`,
 
+  overview: `You are a cricket analyst writing the season homepage summary for a youth cricket league. Analyze all the data provided and write an insightful 6–8 sentence summary that:
+1. Opens with a compelling one-sentence state-of-the-season hook — what is the defining story of this season so far?
+2. Covers the title races across divisions — who leads, how tight is it, any dominant team or shock leader?
+3. Highlights 2–3 standout individual performers (batter and bowler) with specific numbers that tell their story
+4. Notes any interesting team narratives — a team on a hot streak, a surprise package, or a defending champion under pressure
+5. Comments on the style of cricket being played — high-scoring, tight bowling contests, or a mix?
+6. Closes with what to watch for in the coming weeks — key fixtures, milestone chasers, title deciders
+Write for parents and coaches who love this league. Be specific with names, numbers, and division context. Make it feel like an editorial, not a report card. No markdown headers or bullet points — flowing prose only.`,
+
   player: `You are a cricket analyst writing a detailed player profile for youth cricket. Analyze the player's stats and write an insightful 5–7 sentence analysis that:
 1. Characterizes their batting or bowling style from the numbers (aggressive striker? anchor? wicket-taking vs economy bowler?)
 2. Compares their key metrics to what is considered strong for this level (avg 30+ is excellent, econ under 6 is tight etc.)
@@ -182,6 +191,7 @@ module.exports = async function (req, res) {
 
 function buildContext(type, key, data) {
   switch (type) {
+    case 'overview':  return overviewContext(data);
     case 'standings': return standingsContext(key, data);
     case 'batting':   return battingContext(key, data);
     case 'bowling':   return bowlingContext(key, data);
@@ -189,6 +199,74 @@ function buildContext(type, key, data) {
     case 'player':    return playerContext(key, data);
     default: return '';
   }
+}
+
+function overviewContext(data) {
+  const lines = [`LEAGUE SEASON OVERVIEW — ${data.leagueName || 'League'}${data.season ? ` · ${data.season}` : ''}\n`];
+
+  // Season progress
+  const allMatches = data.matches || [];
+  const allResults = data.results?.matches || [];
+  const total = allMatches.length;
+  const done  = allResults.length;
+  lines.push(`Season progress: ${done} of ${total} matches played (${total > 0 ? Math.round(done/total*100) : 0}%)\n`);
+
+  // Standings per division — leader + closest rival
+  const divs = Object.keys(data.standings || {});
+  if (divs.length) {
+    lines.push('DIVISION STANDINGS SNAPSHOT:');
+    for (const div of divs) {
+      const raw = data.standings[div];
+      const rows = Array.isArray(raw) ? raw : (raw?.rows || []);
+      if (!rows.length) continue;
+      const leader = rows[0];
+      const second = rows[1];
+      const gap = second ? `, ${(parseInt(leader.pts) - parseInt(second.pts)) || 0} pts ahead of ${second.team}` : '';
+      lines.push(`  ${div}: ${leader.team} leads (${leader.pts} pts, ${leader.won}W${gap})`);
+    }
+    lines.push('');
+  }
+
+  // Top 3 run-scorers across all divisions
+  const allBat = getStats(data.batting, 'combined', 'bat')
+    .sort((a, b) => (parseInt(b.runs) || 0) - (parseInt(a.runs) || 0)).slice(0, 3);
+  if (allBat.length) {
+    lines.push('TOP RUN-SCORERS (all divisions):');
+    allBat.forEach(p => lines.push(`  ${p.player} (${p.team}): ${p.runs} runs, avg ${p.avg}`));
+    lines.push('');
+  }
+
+  // Top 3 wicket-takers across all divisions
+  const allBowl = getStats(data.bowling, 'combined', 'bowl')
+    .sort((a, b) => (parseInt(b.wickets) || 0) - (parseInt(a.wickets) || 0)).slice(0, 3);
+  if (allBowl.length) {
+    lines.push('TOP WICKET-TAKERS (all divisions):');
+    allBowl.forEach(p => lines.push(`  ${p.player} (${p.team}): ${p.wickets} wkts, econ ${p.econ}`));
+    lines.push('');
+  }
+
+  // Recent results (last 8)
+  const recent = allResults.slice(-8);
+  if (recent.length) {
+    lines.push('RECENT RESULTS:');
+    recent.forEach(r => lines.push(`  ${r.division ? `[${r.division}]` : ''} ${r.result || `${r.team1} vs ${r.team2}`}`));
+    lines.push('');
+  }
+
+  // Next 5 upcoming fixtures
+  const today = new Date(); today.setHours(0,0,0,0);
+  const upcoming = allMatches
+    .filter(m => { const d = new Date(m.date); return !isNaN(d) && d >= today && !m.result && !m.winner; })
+    .sort((a, b) => new Date(a.date) - new Date(b.date))
+    .slice(0, 5);
+  if (upcoming.length) {
+    lines.push('UPCOMING FIXTURES:');
+    upcoming.forEach(m => lines.push(`  [${m.division}] ${m.team1} vs ${m.team2} — ${m.date}`));
+    lines.push('');
+  }
+
+  lines.push('Write the season overview summary now.');
+  return lines.join('\n');
 }
 
 function standingsContext(division, data) {
