@@ -42,8 +42,8 @@ export default function ScheduleView({ matches, division, onDrilldown }) {
           <button
             className="prematch-btn"
             onClick={() => onDrilldown({type:'match', matchId:m.id, team1:m.team1, team2:m.team2, date:m.date, division:m.division})}
-            title="AI pre-match preview"
-          >⚡ Preview</button>
+            title="AI Match Preview & Prediction"
+          >⚡ Predict</button>
         )}
       </td>
     </tr>
@@ -68,7 +68,7 @@ export default function ScheduleView({ matches, division, onDrilldown }) {
     const list = subTab === "upcoming" ? upcoming : past;
     if (!list.length) return;
     const label = subTab === "upcoming" ? "Upcoming Fixtures" : "Past Fixtures";
-    let text = `🏏 SYCL — ${division}\n${label}\n\n`;
+    let text = `🏏 CricSeason — ${division}\n${label}\n\n`;
     const grouped = groupByDate(list);
     grouped.forEach(([date, grp]) => {
       const d = parseDate(date);

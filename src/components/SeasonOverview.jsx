@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { aggregateBatting, aggregateBowling } from '../utils/aggregation.js';
 import AiSummaryBlock from './AiSummaryBlock.jsx';
 
@@ -14,8 +14,6 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
     return dt ? dt.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) : d;
   };
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [teamFilter,  setTeamFilter]  = useState('');
 
   const allDivisions = useMemo(() => {
     const divs = [...new Set(matches.map(m => m.division).filter(Boolean))];
@@ -56,40 +54,7 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
   const topBowler = useMemo(() => [...allBowlers].sort((a,b) => (parseInt(b.wickets)||0)-(parseInt(a.wickets)||0))[0]||null, [allBowlers]);
   const topEcon   = useMemo(() => [...allBowlers].filter(b=>(parseInt(b.mat)||0)>=3).sort((a,b)=>(parseFloat(a.econ)||99)-(parseFloat(b.econ)||99))[0]||null, [allBowlers]);
 
-  const allTeams = useMemo(() => {
-    const t = new Set();
-    matches.forEach(m => { if (m.team1) t.add(m.team1); if (m.team2) t.add(m.team2); });
-    return [...t].sort();
-  }, [matches]);
-
-  const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase().trim();
-    const seen = new Set();
-    const out = [];
-    allBatters.forEach(r => {
-      if (r.player?.toLowerCase().includes(q) && !seen.has(r.player)) {
-        seen.add(r.player);
-        out.push({ name: r.player, team: r.team, stat: `${r.runs} runs` });
-      }
-    });
-    allBowlers.forEach(r => {
-      if (r.player?.toLowerCase().includes(q) && !seen.has(r.player)) {
-        seen.add(r.player);
-        out.push({ name: r.player, team: r.team, stat: `${r.wickets} wkts` });
-      }
-    });
-    return out.slice(0, 8);
-  }, [searchQuery, allBatters, allBowlers]);
-
-  const filteredDivisions = useMemo(() => {
-    if (!teamFilter) return allDivisions;
-    return allDivisions.filter(div => {
-      const dm = matches.filter(m => m.division === div);
-      const teams = [...new Set(dm.flatMap(m => [m.team1, m.team2]).filter(Boolean))];
-      return teams.includes(teamFilter);
-    });
-  }, [allDivisions, teamFilter, matches]);
+  const filteredDivisions = allDivisions;
 
   // Recent results (last 6, all divs)
   const recentResults = useMemo(() =>
@@ -127,50 +92,67 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
       {/* ── AI Summary ── */}
       <AiSummaryBlock type="overview" summaryKey="season" />
 
-      {/* ── Search ── */}
-      <div className="home-search-row">
-        <div className="home-search-wrap">
-          <span className="ov-search-icon">🔍</span>
-          <input className="ov-search-input" type="text" placeholder="Find a player…"
-            value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-          {searchQuery && <button className="ov-search-clear" onClick={() => setSearchQuery('')}>✕</button>}
-          {searchResults.length > 0 && (
-            <div className="ov-search-dropdown">
-              {searchResults.map((r,i) => (
-                <div key={i} className="ov-search-result"
-                  onClick={() => { onDrilldown({type:'player',name:r.name}); setSearchQuery(''); }}>
-                  <span className="ov-search-result-name">{r.name}</span>
-                  <span className="ov-search-result-team">{r.team}</span>
-                  <span className="ov-search-result-stat">{r.stat}</span>
-                </div>
-              ))}
+      {/* ── Season Hero ── */}
+      <div className="season-hero">
+        <div className="season-hero-progress">
+          <div className="season-hero-progress-row">
+            <span className="season-hero-progress-label">Season Progress</span>
+            <span className="season-hero-progress-pct">{completed} / {total} matches · {pct}% complete</span>
+          </div>
+          <div className="season-hero-track">
+            <div className="season-hero-fill" style={{width:`${pct}%`}} />
+          </div>
+        </div>
+        <div className="season-hero-stats">
+          {[
+            { icon:'🏏', val: seasonTotals.runs.toLocaleString(),    lbl: 'Total Runs',      color:'#16a34a' },
+            { icon:'⚡', val: seasonTotals.wickets.toLocaleString(), lbl: 'Wickets Taken',   color:'#dc2626' },
+            { icon:'💥', val: seasonTotals.sixes.toLocaleString(),   lbl: 'Sixes Hit',       color:'#d97706' },
+            seasonTotals.hundreds > 0 && { icon:'💯', val: seasonTotals.hundreds, lbl: 'Centuries',       color:'#7c3aed' },
+            seasonTotals.fiveW    > 0 && { icon:'🔥', val: seasonTotals.fiveW,    lbl: '5-Wicket Hauls', color:'#0891b2' },
+          ].filter(Boolean).map((s,i) => (
+            <div key={i} className="season-hero-stat">
+              <span className="season-hero-stat-icon">{s.icon}</span>
+              <span className="season-hero-stat-val" style={{color:s.color}}>{s.val}</span>
+              <span className="season-hero-stat-lbl">{s.lbl}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Season Stars ── */}
+      {(topBatter || topBowler || topEcon) && <>
+        <div className="home-section-hd">Season Stars</div>
+        <div className="home-stars-row">
+          {topBatter && (
+            <div className="home-star-card" onClick={() => onDrilldown({type:'player',name:topBatter.player})}>
+              <div className="hsc-emoji">🏏</div>
+              <div className="hsc-label">Top Scorer</div>
+              <div className="hsc-name">{topBatter.player}</div>
+              <div className="hsc-team">{topBatter.team}</div>
+              <div className="hsc-stat">{topBatter.runs} runs · avg {topBatter.avg}</div>
+            </div>
+          )}
+          {topBowler && (
+            <div className="home-star-card" onClick={() => onDrilldown({type:'player',name:topBowler.player})}>
+              <div className="hsc-emoji">🎯</div>
+              <div className="hsc-label">Top Wicket-Taker</div>
+              <div className="hsc-name">{topBowler.player}</div>
+              <div className="hsc-team">{topBowler.team}</div>
+              <div className="hsc-stat">{topBowler.wickets} wkts · econ {topBowler.econ}</div>
+            </div>
+          )}
+          {topEcon && topEcon.player !== topBowler?.player && (
+            <div className="home-star-card" onClick={() => onDrilldown({type:'player',name:topEcon.player})}>
+              <div className="hsc-emoji">🔒</div>
+              <div className="hsc-label">Best Economy</div>
+              <div className="hsc-name">{topEcon.player}</div>
+              <div className="hsc-team">{topEcon.team}</div>
+              <div className="hsc-stat">econ {topEcon.econ} · {topEcon.wickets} wkts</div>
             </div>
           )}
         </div>
-        <select className="ov-team-select" value={teamFilter} onChange={e => setTeamFilter(e.target.value)}>
-          <option value="">All Teams</option>
-          {allTeams.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
-        {teamFilter && <button className="ov-filter-clear" onClick={() => setTeamFilter('')}>✕</button>}
-      </div>
-
-      {/* ── Season stats strip ── */}
-      <div className="home-stats-strip">
-        {[
-          { val: `${completed}/${total}`, lbl: 'Played', accent: true },
-          { val: `${pct}%`,               lbl: 'Done' },
-          { val: seasonTotals.runs.toLocaleString(), lbl: 'Runs' },
-          { val: seasonTotals.wickets,     lbl: 'Wkts' },
-          { val: seasonTotals.sixes,       lbl: '6s' },
-          seasonTotals.hundreds > 0 && { val: seasonTotals.hundreds, lbl: '100s' },
-          seasonTotals.fiveW    > 0 && { val: seasonTotals.fiveW,    lbl: '5-fers' },
-        ].filter(Boolean).map((s,i) => (
-          <div key={i} className={`hss-item${s.accent?' hss-item-accent':''}`}>
-            <span className="hss-val">{s.val}</span>
-            <span className="hss-lbl">{s.lbl}</span>
-          </div>
-        ))}
-      </div>
+      </>}
 
       {/* ── Division Grid ── */}
       <div className="home-section-hd">Divisions</div>
@@ -220,47 +202,18 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
           <div className="home-section-hd">Upcoming</div>
           {upcoming.length === 0 && <div className="home-empty">No upcoming matches</div>}
           {upcoming.map((m,i) => (
-            <div key={i} className="home-result-row">
+            <div key={i} className="home-result-row" style={{flexWrap:'wrap',gap:4}}>
               <span className="home-result-div">{m.division}</span>
               <span className="home-result-text">{m.team1} vs {m.team2} · {fmtDate(m.date)}{m.time ? ` ${m.time}` : ''}</span>
+              <button
+                className="prematch-btn"
+                onClick={() => onDrilldown({type:'match', matchId:m.id, team1:m.team1, team2:m.team2, date:m.date, division:m.division})}
+                title="AI Match Preview & Prediction"
+              >⚡ Predict</button>
             </div>
           ))}
         </div>
       </div>
-
-      {/* ── Season Stars ── */}
-      {(topBatter || topBowler || topEcon) && <>
-        <div className="home-section-hd">Season Stars</div>
-        <div className="home-stars-row">
-          {topBatter && (
-            <div className="home-star-card" onClick={() => onDrilldown({type:'player',name:topBatter.player})}>
-              <div className="hsc-emoji">🏏</div>
-              <div className="hsc-label">Top Scorer</div>
-              <div className="hsc-name">{topBatter.player}</div>
-              <div className="hsc-team">{topBatter.team}</div>
-              <div className="hsc-stat">{topBatter.runs} runs · avg {topBatter.avg}</div>
-            </div>
-          )}
-          {topBowler && (
-            <div className="home-star-card" onClick={() => onDrilldown({type:'player',name:topBowler.player})}>
-              <div className="hsc-emoji">🎯</div>
-              <div className="hsc-label">Top Wicket-Taker</div>
-              <div className="hsc-name">{topBowler.player}</div>
-              <div className="hsc-team">{topBowler.team}</div>
-              <div className="hsc-stat">{topBowler.wickets} wkts · econ {topBowler.econ}</div>
-            </div>
-          )}
-          {topEcon && topEcon.player !== topBowler?.player && (
-            <div className="home-star-card" onClick={() => onDrilldown({type:'player',name:topEcon.player})}>
-              <div className="hsc-emoji">🔒</div>
-              <div className="hsc-label">Best Economy</div>
-              <div className="hsc-name">{topEcon.player}</div>
-              <div className="hsc-team">{topEcon.team}</div>
-              <div className="hsc-stat">econ {topEcon.econ} · {topEcon.wickets} wkts</div>
-            </div>
-          )}
-        </div>
-      </>}
 
     </div>
   );

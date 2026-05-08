@@ -1,16 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import SYCLDashboard from './components/SYCLDashboard.jsx';
-import FeedbackModal from './components/FeedbackModal.jsx';
 
 export default function App() {
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const path = window.location.pathname;
   const isRoot = path === '/' || path === '';
 
   useEffect(() => {
     if (!isRoot) return;
-    // Auto-redirect root to most recently updated league
     fetch('/api/leagues')
       .then(r => r.ok ? r.json() : {})
       .then(leagues => {
@@ -30,8 +27,7 @@ export default function App() {
 
   return (
     <>
-      <SYCLDashboard onFeedback={() => setFeedbackOpen(true)} />
-      <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
+      <SYCLDashboard />
       <Analytics />
     </>
   );

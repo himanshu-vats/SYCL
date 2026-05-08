@@ -14,6 +14,7 @@ import RankingsView from './RankingsView.jsx';
 import DrilldownPanel from './DrilldownPanel.jsx';
 import SideNav from './SideNav.jsx';
 import AiChat from './AiChat.jsx';
+import FeedbackPage from './FeedbackPage.jsx';
 
 function getHashParams() {
   try {
@@ -28,7 +29,7 @@ function getHashParams() {
   } catch { return {}; }
 }
 
-export default function SYCLDashboard({ onFeedback }) {
+export default function SYCLDashboard() {
   const [data, setData] = useState(null);
   const [selectedDivision, setSelectedDivision] = useState(() => getHashParams().division || null);
   const [activeTab, setActiveTab] = useState(() => getHashParams().tab || "overview");
@@ -159,7 +160,7 @@ export default function SYCLDashboard({ onFeedback }) {
   }, []);
 
   if (!slug) return (
-    <NavBar slug={null} onFeedback={onFeedback} />
+    <NavBar slug={null} />
   );
 
   if (playerPage) return (
@@ -169,9 +170,9 @@ export default function SYCLDashboard({ onFeedback }) {
               playerName={playerPage} onClosePlayer={closePlayerPage}
               loading={loading} onRefresh={() => loadData(true, slug)}
               
-              onFeedback={onFeedback} />
+              />
       <div className="app-body">
-        <SideNav activeTab={activeTab} onTabClick={(t) => { closePlayerPage(); handleTabClick(t); }} divisions={[]} onFeedback={onFeedback} />
+        <SideNav activeTab={activeTab} onTabClick={(t) => { closePlayerPage(); handleTabClick(t); }} />
         <main className="app-main">
           <PlayerProfilePage name={playerPage} batting={data?.batting} bowling={data?.bowling}
                   rankings={data?.rankings} playerInnings={data?.playerInnings}
@@ -188,9 +189,9 @@ export default function SYCLDashboard({ onFeedback }) {
               teamName={teamPage} onCloseTeam={closeTeamPage}
               loading={loading} onRefresh={() => loadData(true, slug)}
               
-              onFeedback={onFeedback} />
+              />
       <div className="app-body">
-        <SideNav activeTab={activeTab} onTabClick={(t) => { closeTeamPage(); handleTabClick(t); }} divisions={[]} onFeedback={onFeedback} />
+        <SideNav activeTab={activeTab} onTabClick={(t) => { closeTeamPage(); handleTabClick(t); }} />
         <main className="app-main">
           {data
             ? <TeamProfilePage name={teamPage} data={data} onClose={closeTeamPage} onDrilldown={handleDrilldown} />
@@ -207,42 +208,22 @@ export default function SYCLDashboard({ onFeedback }) {
               activeTab={activeTab} onTabClick={handleTabClick}
               loading={loading} onRefresh={() => loadData(true, slug)}
               
-              onFeedback={onFeedback} />
-
-      {/* Mobile-only: division selector bar (sidebar handles this on desktop) */}
-      {data && activeTab !== 'overview' && activeTab !== 'chat' && (
-        <div className="division-select-bar mobile-only">
-          <label className="division-select-label">Division</label>
-          <select
-            className="division-select"
-            value={selectedDivision || ''}
-            onChange={(e) => setSelectedDivision(e.target.value)}
-          >
-            {activeTab !== 'standings' && (
-              <option value="combined">All Divisions</option>
-            )}
-            {sortedDivs.map(d => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
-        </div>
-      )}
+              />
 
       <div className="app-body">
         {data && (
           <SideNav
             activeTab={activeTab}
             onTabClick={handleTabClick}
-            divisions={sortedDivs}
-            selectedDivision={selectedDivision}
-            onDivisionChange={setSelectedDivision}
-            onFeedback={onFeedback}
+           
           />
         )}
 
         <main className="app-main">
           {activeTab === 'chat' ? (
             <AiChat slug={slug} />
+          ) : activeTab === 'feedback' ? (
+            <FeedbackPage slug={slug} />
           ) : !data ? (
             <div className="content-wrap" style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:320}}>
               {loading
@@ -256,6 +237,25 @@ export default function SYCLDashboard({ onFeedback }) {
             </div>
           ) : (
             <div className="content-wrap">
+              {/* Division filter pills — shown on all tabs except Home and Chat */}
+              {activeTab !== 'overview' && sortedDivs.length > 0 && (
+                <div className="div-pills">
+                  {activeTab !== 'standings' && (
+                    <button
+                      className={`div-pill${!selectedDivision || selectedDivision === 'combined' ? ' active' : ''}`}
+                      onClick={() => setSelectedDivision('combined')}
+                    >All</button>
+                  )}
+                  {sortedDivs.map(d => (
+                    <button
+                      key={d}
+                      className={`div-pill${selectedDivision === d ? ' active' : ''}`}
+                      onClick={() => setSelectedDivision(d)}
+                    >{d}</button>
+                  ))}
+                </div>
+              )}
+
               {activeTab==="overview" && selectedDivision && selectedDivision !== 'combined' && <DivisionOverview data={data} division={selectedDivision} onTabClick={handleTabClick} onDrilldown={handleDrilldown} onAllDivisions={() => setSelectedDivision('combined')} />}
               {activeTab==="overview" && (!selectedDivision || selectedDivision === 'combined') && <SeasonOverview  data={data} lastRefresh={lastRefresh} onDrilldown={handleDrilldown} onGoToDivision={handleGoToDivision} />}
               {selectedDivision && activeTab==="schedule"  && <ScheduleView  matches={data.matches} division={selectedDivision} onDrilldown={handleDrilldown}/>}
