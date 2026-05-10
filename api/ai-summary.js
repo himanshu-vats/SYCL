@@ -285,24 +285,50 @@ module.exports = async function (req, res) {
   const docId = `${type}-${slugify(key)}`;
   const leagueRef = db.collection('leagues').doc(league);
   const cacheRef  = leagueRef.collection('aiSummary').doc(docId);
+  const isMatchType = type === 'match-strategy' || type === 'match-report';
+
+  let cached = null;
+  let data = null;
 
   try {
-    // Return cached version unless bust=true forces regeneration
-    const cached = await cacheRef.get();
-    if (cached.exists && bust !== 'true') {
-      const { insight, generatedAt } = cached.data();
-      return res.json({ insight, generatedAt, cached: true });
+    if (isMatchType) {
+      // Load league data + cache in parallel to validate cached teams
+      const [snap, cachedDoc] = await Promise.all([
+        leagueRef.get(),
+        bust === 'true' ? Promise.resolve(null) : cacheRef.get(),
+      ]);
+      if (!snap.exists) return res.status(404).json({ error: 'League not found' });
+      data = snap.data();
+      cached = cachedDoc;
+
+      // Validate cached summary against current match teams
+      const match = (data.matches || []).find(m => String(m.id) === String(key));
+      if (cached && cached.exists && match) {
+        const cd = cached.data();
+        if (cd.team1 === match.team1 && cd.team2 === match.team2) {
+          return res.json({ insight: cd.insight, generatedAt: cd.generatedAt, cached: true });
+        }
+      }
+    } else {
+      // Non-match types: return cached version unless bust=true
+      cached = await cacheRef.get();
+      if (cached.exists && bust !== 'true') {
+        const { insight, generatedAt } = cached.data();
+        return res.json({ insight, generatedAt, cached: true });
+      }
     }
 
-    // Not cached — return null unless caller wants generation
+    // Not cached (or stale for match types) — return null unless caller wants generation
     if (generate !== 'true') {
       return res.json({ insight: null });
     }
 
-    // Load league data
-    const snap = await leagueRef.get();
-    if (!snap.exists) return res.status(404).json({ error: 'League not found' });
-    const data = snap.data();
+    // Load league data if not already loaded (non-match types)
+    if (!data) {
+      const snap = await leagueRef.get();
+      if (!snap.exists) return res.status(404).json({ error: 'League not found' });
+      data = snap.data();
+    }
 
     const context = await buildContext(type, key, data, league);
 
@@ -331,7 +357,13 @@ module.exports = async function (req, res) {
     const insight = json.choices?.[0]?.message?.content || '';
     const generatedAt = new Date().toISOString();
 
-    await cacheRef.set({ insight, generatedAt, type, key });
+    // Include team1/team2 in cache for match types so stale entries can be detected
+    const cachePayload = { insight, generatedAt, type, key };
+    if (isMatchType) {
+      const match = (data.matches || []).find(m => String(m.id) === String(key));
+      if (match) { cachePayload.team1 = match.team1; cachePayload.team2 = match.team2; }
+    }
+    await cacheRef.set(cachePayload);
     return res.json({ insight, generatedAt, cached: false });
   } catch (e) {
     console.error('ai-summary error:', e);
