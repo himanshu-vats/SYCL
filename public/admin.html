@@ -1041,8 +1041,41 @@ async function generateAllSummaries(bust = false) {
       await new Promise(r => setTimeout(r, 400));
     }
 
-    statusEl.textContent = `✅ Done! ${generated} generated, ${skipped} already cached, ${errors} errors.`;
-    log(`\n✅ Complete — ${generated} summaries generated, ${skipped} skipped, ${errors} errors.`);
+    // ── Pre-match predictions ──
+    const upcomingMatches = (data.matches || []).filter(m => m.id && !m.result && m.team1 && m.team2);
+    log(`\nPre-match predictions: ${upcomingMatches.length} upcoming matches found.`);
+    statusEl.textContent = `Generating pre-match 0 / ${upcomingMatches.length}…`;
+
+    let pmDone = 0, pmGenerated = 0, pmSkipped = 0, pmErrors = 0;
+
+    for (const m of upcomingMatches) {
+      const label = `${m.team1} vs ${m.team2}${m.division ? ` (${m.division})` : ''}`;
+      try {
+        const url = `/api/pre-match?league=${encodeURIComponent(slug)}&matchId=${encodeURIComponent(m.id)}${bust ? '&bust=true' : ''}`;
+        const r = await fetch(url);
+        const d = await r.json();
+        if (d.error) throw new Error(d.error);
+        if (d.cached && !bust) {
+          log(`  ⊙ skip   pre-match #${m.id} ${label} (already cached)`);
+          pmSkipped++;
+        } else {
+          log(`  ✓ done   pre-match #${m.id} ${label}`);
+          pmGenerated++;
+        }
+      } catch (e) {
+        log(`  ✗ error  pre-match #${m.id} ${label}: ${e.message}`);
+        pmErrors++;
+      }
+      pmDone++;
+      statusEl.textContent = `Generating pre-match ${pmDone} / ${upcomingMatches.length}… (${pmGenerated} new, ${pmSkipped} cached, ${pmErrors} errors)`;
+      await new Promise(r => setTimeout(r, 400));
+    }
+
+    const totalGenerated = generated + pmGenerated;
+    const totalSkipped = skipped + pmSkipped;
+    const totalErrors = errors + pmErrors;
+    statusEl.textContent = `✅ Done! ${totalGenerated} generated (${generated} summaries + ${pmGenerated} pre-match), ${totalSkipped} already cached, ${totalErrors} errors.`;
+    log(`\n✅ Complete — ${generated} summaries + ${pmGenerated} pre-match generated, ${totalSkipped} skipped, ${totalErrors} errors.`);
   } catch (e) {
     statusEl.textContent = `Error: ${e.message}`;
     log(`Fatal error: ${e.message}`);

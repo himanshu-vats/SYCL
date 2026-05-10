@@ -13,19 +13,14 @@ module.exports = async function (req, res) {
 
   try {
     const leagueRef = db.collection('leagues').doc(league);
-
-    // ── Check cache ──────────────────────────────────────────────
     const cacheRef = leagueRef.collection('preMatch').doc(String(matchId));
-    if (!bust) {
-      const cached = await cacheRef.get();
-      if (cached.exists) {
-        const { insight, generatedAt } = cached.data();
-        return res.json({ insight, generatedAt, cached: true });
-      }
-    }
 
-    // ── Load league data ─────────────────────────────────────────
-    const snap = await leagueRef.get();
+    // Load league data + cache in parallel
+    const [snap, cached] = await Promise.all([
+      leagueRef.get(),
+      bust ? Promise.resolve(null) : cacheRef.get(),
+    ]);
+
     if (!snap.exists) return res.status(404).json({ error: 'League not found' });
     const data = snap.data();
 
@@ -37,10 +32,18 @@ module.exports = async function (req, res) {
 
     const { team1, team2, date, division } = match;
 
-    // ── Build context ────────────────────────────────────────────
+    // Return cached insight only if teams still match the current match
+    if (cached && cached.exists) {
+      const cachedData = cached.data();
+      if (cachedData.team1 === team1 && cachedData.team2 === team2) {
+        return res.json({ insight: cachedData.insight, generatedAt: cachedData.generatedAt, cached: true });
+      }
+    }
+
+    // Build context
     const context = buildContext({ data, match, team1, team2, date, division });
 
-    // ── Call DeepSeek ────────────────────────────────────────────
+    // Call DeepSeek
     const resp = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
       headers: {
@@ -69,7 +72,7 @@ module.exports = async function (req, res) {
     const insight = json.choices?.[0]?.message?.content || '';
     const generatedAt = new Date().toISOString();
 
-    // ── Cache result ─────────────────────────────────────────────
+    // Cache result
     await cacheRef.set({ insight, generatedAt, matchId: String(matchId), team1, team2 });
 
     return res.json({ insight, generatedAt, cached: false });
@@ -79,7 +82,7 @@ module.exports = async function (req, res) {
   }
 };
 
-// ── Context builder ──────────────────────────────────────────────
+// Context builder
 function buildContext({ data, match, team1, team2, date, division }) {
   const lines = [];
   lines.push(`PRE-MATCH PREVIEW REQUEST`);
