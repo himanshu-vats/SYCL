@@ -32,7 +32,7 @@ export default function MatchPreviewPanel({ matchId, team1, team2, date, divisio
 
   const retry = () => {
     setState('loading');
-    const url = `/api/pre-match?league=${encodeURIComponent(league)}&matchId=${encodeURIComponent(matchId)}`;
+    const url = `/api/pre-match?league=${encodeURIComponent(league)}&matchId=${encodeURIComponent(matchId)}&bust=true`;
     fetch(url)
       .then(r => r.json())
       .then(d => { if (d.error) throw new Error(d.error); setInsight(d.insight); setGeneratedAt(d.generatedAt); setState('done'); })
@@ -79,6 +79,7 @@ export default function MatchPreviewPanel({ matchId, team1, team2, date, divisio
               {generatedAt && (
                 <div className="prematch-insight-footer">
                   Generated {new Date(generatedAt).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})}
+                  {' · '}<button className="ai-summary-more-btn" onClick={retry}>Regenerate</button>
                 </div>
               )}
             </div>

@@ -6,7 +6,7 @@ module.exports = async function (req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
 
-  const { league, matchId } = req.query;
+  const { league, matchId, bust } = req.query;
   if (!league || !matchId) {
     return res.status(400).json({ error: 'league and matchId required' });
   }
@@ -16,10 +16,12 @@ module.exports = async function (req, res) {
 
     // ── Check cache ──────────────────────────────────────────────
     const cacheRef = leagueRef.collection('preMatch').doc(String(matchId));
-    const cached = await cacheRef.get();
-    if (cached.exists) {
-      const { insight, generatedAt } = cached.data();
-      return res.json({ insight, generatedAt, cached: true });
+    if (!bust) {
+      const cached = await cacheRef.get();
+      if (cached.exists) {
+        const { insight, generatedAt } = cached.data();
+        return res.json({ insight, generatedAt, cached: true });
+      }
     }
 
     // ── Load league data ─────────────────────────────────────────
