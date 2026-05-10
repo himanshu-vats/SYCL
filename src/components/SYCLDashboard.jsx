@@ -12,6 +12,8 @@ import BattingView from './BattingView.jsx';
 import BowlingView from './BowlingView.jsx';
 import RankingsView from './RankingsView.jsx';
 import DrilldownPanel from './DrilldownPanel.jsx';
+import MatchPage from './MatchPage.jsx';
+import MatchPreviewPanel from './MatchPreviewPanel.jsx';
 import SideNav from './SideNav.jsx';
 import AiChat from './AiChat.jsx';
 import FeedbackPage from './FeedbackPage.jsx';
@@ -39,6 +41,13 @@ export default function SYCLDashboard() {
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(null);
   const [drilldown, setDrilldown] = useState(null);
+  const [matchPage, setMatchPage] = useState(() => {
+    try {
+      const h = window.location.hash;
+      if (h.startsWith('#match=')) return decodeURIComponent(h.slice(7));
+    } catch {}
+    return null;
+  });
   const [playerPage, setPlayerPage] = useState(() => {
     try {
       const h = window.location.hash;
@@ -61,12 +70,20 @@ export default function SYCLDashboard() {
     } else if (d.type === 'team') {
       setTeamPage(d.name);
       try { window.location.hash = 'team=' + encodeURIComponent(d.name); } catch {}
+    } else if (d.type === 'match') {
+      setMatchPage(d.matchId);
+      try { window.location.hash = 'match=' + encodeURIComponent(d.matchId); } catch {}
     } else {
       setDrilldown(d);
     }
   }, []);
 
   const closeDrilldown = useCallback(() => setDrilldown(null), []);
+
+  const closeMatchPage = useCallback(() => {
+    setMatchPage(null);
+    try { window.location.hash = ''; history.replaceState(null, '', window.location.pathname + window.location.search); } catch {}
+  }, []);
 
   const closePlayerPage = useCallback(() => {
     setPlayerPage(null);
@@ -85,7 +102,7 @@ export default function SYCLDashboard() {
 
   // Sync selectedDivision + activeTab to URL hash (except when player/team page is showing)
   useEffect(() => {
-    if (playerPage || teamPage) return;
+    if (playerPage || teamPage || matchPage) return;
     const parts = [];
     if (activeTab && activeTab !== 'overview') parts.push(`tab=${encodeURIComponent(activeTab)}`);
     if (selectedDivision && selectedDivision !== 'combined') parts.push(`division=${encodeURIComponent(selectedDivision)}`);
@@ -188,7 +205,7 @@ export default function SYCLDashboard() {
               activeTab={activeTab} onTabClick={handleTabClick}
               teamName={teamPage} onCloseTeam={closeTeamPage}
               loading={loading} onRefresh={() => loadData(true, slug)}
-              
+
               />
       <div className="app-body">
         <SideNav activeTab={activeTab} onTabClick={(t) => { closeTeamPage(); handleTabClick(t); }} />
@@ -196,6 +213,24 @@ export default function SYCLDashboard() {
           {data
             ? <TeamProfilePage name={teamPage} data={data} onClose={closeTeamPage} onDrilldown={handleDrilldown} />
             : <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:320}}><div style={{fontSize:13,color:'var(--text-muted)'}}>Loading…</div></div>
+          }
+        </main>
+      </div>
+    </div>
+  );
+
+  if (matchPage) return (
+    <div className="app">
+      <NavBar slug={slug} leagueName={data?.leagueName} season={data?.season}
+              activeTab={activeTab} onTabClick={handleTabClick}
+              loading={loading} onRefresh={() => loadData(true, slug)}
+              />
+      <div className="app-body">
+        <SideNav activeTab={activeTab} onTabClick={(t) => { closeMatchPage(); handleTabClick(t); }} />
+        <main className="app-main">
+          {data
+            ? <MatchPage matchId={matchPage} data={data} league={slug} onClose={closeMatchPage} onDrilldown={handleDrilldown} />
+            : <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:320}}><div className="scout-report-loading"><div className="prematch-spinner" /><span>Loading…</span></div></div>
           }
         </main>
       </div>

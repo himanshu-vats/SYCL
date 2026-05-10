@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Home, Calendar, Trophy, BarChart2, Activity, Wind, Star, Menu, X, Bot, Send } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Home, Calendar, Trophy, BarChart2, Activity, Wind, Star, Menu, X, Bot, Send, ChevronDown } from 'lucide-react';
 
 const TABS = [
   ["overview",  Home,      "Home"],
@@ -15,6 +15,28 @@ const TABS = [
 
 export default function NavBar({ slug, leagueName, season, activeTab, onTabClick, playerName, onClosePlayer, teamName, onCloseTeam, loading, onRefresh, onFeedback }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [leagues, setLeagues] = useState([]);
+  const [seasonOpen, setSeasonOpen] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/leagues')
+      .then(r => r.json())
+      .then(data => {
+        const entries = Object.entries(data || {})
+          .sort((a, b) => (b[1].updatedAt || '').localeCompare(a[1].updatedAt || ''))
+          .map(([s, info]) => ({ slug: s, ...info }));
+        setLeagues(entries);
+      })
+      .catch(() => {});
+  }, []);
+
+  const switchSeason = (newSlug) => {
+    setSeasonOpen(false);
+    if (newSlug === slug) return;
+    try {
+      window.location.href = '/' + newSlug;
+    } catch {}
+  };
 
   const goHome   = () => { window.location.href = '/'; };
   const goLeague = () => {
@@ -62,6 +84,35 @@ export default function NavBar({ slug, leagueName, season, activeTab, onTabClick
               <div className="nav-league nav-league-link" onClick={goLeague} title="Season home">
                 {leagueName}{season ? ` · ${season}` : ''}
               </div>
+              {leagues.length > 1 && (
+                <div className="nav-season-switcher">
+                  <button
+                    className="nav-season-btn"
+                    onClick={() => setSeasonOpen(o => !o)}
+                    title="Switch season"
+                  >
+                    <ChevronDown size={14} strokeWidth={2} />
+                  </button>
+                  {seasonOpen && (
+                    <>
+                      <div className="nav-season-overlay" onClick={() => setSeasonOpen(false)} />
+                      <div className="nav-season-dropdown">
+                        {leagues.map(l => (
+                          <button
+                            key={l.slug}
+                            className={`nav-season-item${l.slug === slug ? ' active' : ''}${l.historical ? ' historical' : ''}`}
+                            onClick={() => switchSeason(l.slug)}
+                          >
+                            <span>{l.season || l.slug}</span>
+                            {l.historical && <span className="nav-season-badge">past</span>}
+                            {l.slug === slug && <span className="nav-season-current-dot" />}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </>
           )}
 

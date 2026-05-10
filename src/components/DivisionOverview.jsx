@@ -198,7 +198,7 @@ export default function DivisionOverview({ data, division, onTabClick, onDrilldo
         </div>
       </div>
 
-      <AiSummaryBlock type="division" summaryKey={division} />
+      <AiSummaryBlock type="division" summaryKey={division} shareUrl={`${window.location.origin}/${window.location.pathname.split('/').filter(Boolean)[0] || ''}#tab=overview&division=${encodeURIComponent(division)}`} />
 
       {/* ── Standings | Next Matches + Recent Results ── */}
       {top4.length > 0 ? (

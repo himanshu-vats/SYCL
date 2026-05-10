@@ -31,13 +31,14 @@ export default function BattingView({ batting, division, onDrilldown }) {
   const Th = (p) => <SortableTh sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} {...p}/>;
   return (
     <div>
-      <AiSummaryBlock type="batting" summaryKey={division || 'combined'} />
+      <AiSummaryBlock type="batting" summaryKey={division || 'combined'} shareUrl={`${window.location.origin}/${window.location.pathname.split('/').filter(Boolean)[0] || ''}#tab=batting&division=${encodeURIComponent(division || 'combined')}`} />
       <div className="insight-callout"><span className="insight-callout-icon">💡</span><span>Click any <strong>player name</strong> to see full stats, milestones &amp; insights · Click any <strong>team name</strong> to see team profile</span></div>
       <div className="section-label">Batting Leaders</div>
       <LeaderSection rows={raw} statKey="runs" label="Most Runs" onDrilldown={onDrilldown}/>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
         <LeaderSection rows={raw} statKey="fifties" label="Most 50s" onDrilldown={onDrilldown}/>
         <LeaderSection rows={raw} statKey="sixes" label="Most 6s" onDrilldown={onDrilldown}/>
+        <LeaderSection rows={raw} statKey="hundreds" label="Most 100s" onDrilldown={onDrilldown}/>
       </div>
       <div className="section-label">All Batters</div>
       {ts && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:8}}>Source: CricClubs · Updated {new Date(ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>}

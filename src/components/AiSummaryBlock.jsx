@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { shareToWhatsApp, stripMarkdown, truncateText } from '../utils/share.js';
 
 function getLeagueSlug() {
   return window.location.pathname.split('/').filter(Boolean)[0] || '';
@@ -25,7 +26,7 @@ function splitContent(text, isMobile) {
   return [sentences.slice(0, 5).join('').trim(), sentences.slice(5).join('').trim()];
 }
 
-export default function AiSummaryBlock({ type, summaryKey }) {
+export default function AiSummaryBlock({ type, summaryKey, shareUrl }) {
   const [state,       setState]       = useState('checking');
   const [insight,     setInsight]     = useState('');
   const [generatedAt, setGeneratedAt] = useState('');
@@ -86,6 +87,16 @@ export default function AiSummaryBlock({ type, summaryKey }) {
               <span className="prematch-insight-footer" style={{margin:0}}>
                 {new Date(generatedAt).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})}
               </span>
+            )}
+            {shareUrl && (
+              <button className="scout-report-share-btn" onClick={() => {
+                const plain = stripMarkdown(insight);
+                const preview = truncateText(plain, 300);
+                shareToWhatsApp(preview, shareUrl);
+              }} title="Share on WhatsApp">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                Share
+              </button>
             )}
             <button className="ai-summary-regen-btn" onClick={() => generate(true)} title="Regenerate">↻</button>
           </div>

@@ -2687,3 +2687,572 @@
   .chat-page-input-area { padding: 8px 12px 12px; }
   .chat-page-messages-inner { padding: 12px 12px 4px; gap: 10px; }
 }
+
+/* ── AI Scouting Report Widget ─────────────────────────────────── */
+
+.scout-report {
+  background: var(--bg-100, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  margin: 16px 0;
+  overflow: hidden;
+}
+
+.scout-report-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+}
+
+.scout-report-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.scout-report-badge {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent, #1a6b3c);
+  background: color-mix(in srgb, var(--accent, #1a6b3c) 10%, transparent);
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+
+.scout-report-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scout-report-timestamp {
+  font-size: 0.75rem;
+  color: var(--text-muted, #9ca3af);
+}
+
+.scout-report-timestamp.scout-stale {
+  color: var(--accent, #1a6b3c);
+  cursor: pointer;
+}
+
+.scout-report-regen-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border, #e5e7eb);
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--text-muted, #9ca3af);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.scout-report-regen-btn:hover {
+  background: var(--bg-hover, #f3f4f6);
+  color: var(--text, #111827);
+}
+
+/* ── Sections ── */
+
+.scout-report-sections {
+  padding: 8px 0;
+}
+
+.scout-section {
+  border-bottom: 1px solid var(--border, #e5e7eb);
+}
+
+.scout-section:last-child {
+  border-bottom: none;
+}
+
+.scout-section-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--text, #111827);
+  transition: background 0.15s;
+}
+
+.scout-section-toggle:hover {
+  background: var(--bg-hover, #f9fafb);
+}
+
+.scout-section-arrow {
+  font-size: 0.65rem;
+  color: var(--text-muted, #9ca3af);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+  width: 10px;
+}
+
+.scout-section.open .scout-section-arrow {
+  transform: rotate(90deg);
+}
+
+.scout-section-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text, #111827);
+}
+
+.scout-section-content {
+  padding: 0 18px 14px 38px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-secondary, #4b5563);
+}
+
+.scout-section-content p {
+  margin: 0 0 8px;
+}
+
+.scout-section-content p:last-child {
+  margin-bottom: 0;
+}
+
+.scout-section-content ul,
+.scout-section-content ol {
+  margin: 0 0 8px;
+  padding-left: 18px;
+}
+
+.scout-section-content strong {
+  color: var(--text, #111827);
+}
+
+/* ── Plain fallback (no sections) ── */
+
+.scout-report-plain {
+  padding: 14px 18px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-secondary, #4b5563);
+}
+
+.scout-report-plain p {
+  margin: 0 0 8px;
+}
+
+.scout-report-plain p:last-child {
+  margin-bottom: 0;
+}
+
+/* ── Generate button ── */
+
+.scout-report-gen-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--accent, #1a6b3c);
+  background: color-mix(in srgb, var(--accent, #1a6b3c) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, #1a6b3c) 25%, transparent);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  margin: 16px 0;
+}
+
+.scout-report-gen-btn:hover {
+  background: color-mix(in srgb, var(--accent, #1a6b3c) 15%, transparent);
+  border-color: var(--accent, #1a6b3c);
+}
+
+/* ── Loading state ── */
+
+.scout-report-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 0;
+  color: var(--text-muted, #9ca3af);
+  font-size: 0.85rem;
+}
+
+/* ── Error state ── */
+
+.scout-report-error {
+  padding: 12px 0;
+  color: #dc2626;
+  font-size: 0.85rem;
+}
+
+.scout-report-error button {
+  background: none;
+  border: none;
+  color: var(--accent, #1a6b3c);
+  cursor: pointer;
+  font-weight: 500;
+  text-decoration: underline;
+}
+
+/* ── Mobile ── */
+
+@media (max-width: 767px) {
+  .scout-report-header {
+    padding: 10px 14px;
+  }
+  .scout-section-toggle {
+    padding: 10px 14px;
+  }
+  .scout-section-content {
+    padding: 0 14px 10px 32px;
+  }
+  .scout-report-plain {
+    padding: 10px 14px;
+  }
+}
+
+/* ── Season Switcher Dropdown ─────────────────────────────────── */
+
+.nav-season-switcher {
+  position: relative;
+  margin-left: 4px;
+}
+
+.nav-season-btn {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border, #e5e7eb);
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted, #9ca3af);
+  transition: background 0.15s, color 0.15s;
+}
+
+.nav-season-btn:hover {
+  background: var(--bg-hover, #f3f4f6);
+  color: var(--text, #111827);
+}
+
+.nav-season-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+}
+
+.nav-season-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 200px;
+  background: var(--bg-100, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  z-index: 100;
+  overflow: hidden;
+  padding: 4px;
+}
+
+.nav-season-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--text, #111827);
+  border-radius: 6px;
+  transition: background 0.1s;
+}
+
+.nav-season-item:hover {
+  background: var(--bg-hover, #f3f4f6);
+}
+
+.nav-season-item.active {
+  font-weight: 600;
+  background: color-mix(in srgb, var(--accent, #1a6b3c) 8%, transparent);
+  color: var(--accent, #1a6b3c);
+}
+
+.nav-season-current-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent, #1a6b3c);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.nav-season-badge {
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--text-muted, #9ca3af);
+  background: var(--bg-200, #f3f4f6);
+  padding: 1px 6px;
+  border-radius: 8px;
+  margin-left: auto;
+}
+
+/* ── Mobile ── */
+
+@media (max-width: 767px) {
+  .nav-season-dropdown {
+    left: auto;
+    right: 0;
+    min-width: 180px;
+  }
+}
+
+/* ── Full-Page Match Preview ─────────────────────────────────── */
+
+.match-page {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 20px 16px 40px;
+}
+
+.match-page-header {
+  margin-bottom: 24px;
+}
+
+.match-page-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.82rem;
+  color: var(--text-muted, #9ca3af);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-bottom: 8px;
+  transition: color 0.15s;
+}
+
+.match-page-back:hover {
+  color: var(--text, #111827);
+}
+
+.match-page-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text, #111827);
+}
+
+.match-page-subtitle {
+  font-size: 1rem;
+  color: var(--text-secondary, #4b5563);
+  margin-top: 4px;
+}
+
+.match-page-body {
+  /* content flows naturally */
+}
+
+@media (max-width: 767px) {
+  .match-page {
+    padding: 12px 12px 32px;
+  }
+  .match-page-title {
+    font-size: 1.1rem;
+  }
+  .match-page-subtitle {
+    font-size: 0.9rem;
+  }
+}
+
+/* ── Match Page: Scorecard ── */
+
+.mp-score-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: var(--bg-100);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.mp-score-team {
+  flex: 1;
+}
+
+.mp-score-team-name {
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+}
+
+.mp-score-team-score {
+  font-size: 22px;
+  font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+}
+
+.mp-score-team-overs {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.mp-score-vs {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.mp-score-result {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  padding: 8px 16px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.mp-innings-section {
+  margin-bottom: 20px;
+}
+
+.mp-innings-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  padding: 6px 12px;
+  background: var(--bg-200);
+  border-radius: 8px;
+}
+
+.mp-innings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: var(--bg-100);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.mp-innings-table th {
+  text-align: right;
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 10px;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+  background: var(--bg-200);
+}
+
+.mp-innings-table th:first-child {
+  text-align: left;
+}
+
+.mp-innings-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.mp-innings-table td:first-child {
+  text-align: left;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  white-space: normal;
+}
+
+.mp-innings-table tr:last-child td {
+  border-bottom: none;
+}
+
+.mp-innings-table tbody tr:nth-child(even) td {
+  background: var(--bg-200);
+}
+
+.mp-innings-table tbody tr:hover td {
+  background: var(--row-hover, #f0fdf4) !important;
+}
+
+.mp-empty-innings {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  background: var(--bg-100);
+  border: 1.5px dashed var(--border);
+  border-radius: 10px;
+}
+
+/* ── Share Button ── */
+
+.scout-report-share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #25D366;
+  background: color-mix(in srgb, #25D366 10%, transparent);
+  border: 1px solid color-mix(in srgb, #25D366 25%, transparent);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.scout-report-share-btn:hover {
+  background: color-mix(in srgb, #25D366 20%, transparent);
+  border-color: #25D366;
+}
+
+@media (max-width: 767px) {
+  .mp-score-bar {
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px;
+  }
+  .mp-score-vs {
+    align-self: center;
+  }
+  .mp-score-team {
+    text-align: center;
+  }
+  .mp-score-result {
+    font-size: 12px;
+  }
+}

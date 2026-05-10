@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { aggregateBatting, aggregateBowling } from '../utils/aggregation.js';
 import AiSummaryBlock from './AiSummaryBlock.jsx';
+import AiScoutReport from './AiScoutReport.jsx';
 
 const DIV_ORDER = ["U11A","U11B","U13A","U13B","U15A","U15B","Emerging Stars"];
 
@@ -90,7 +91,10 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
     <div className="home-page">
 
       {/* ── AI Summary ── */}
-      <AiSummaryBlock type="overview" summaryKey="season" />
+      <AiSummaryBlock type="overview" summaryKey="season" shareUrl={`${window.location.origin}/${window.location.pathname.split('/').filter(Boolean)[0] || ''}`} />
+
+      {/* ── Multi-Season Insights ── */}
+      <AiScoutReport type="season-insights" summaryKey="cross-season" shareUrl={`${window.location.origin}/${window.location.pathname.split('/').filter(Boolean)[0] || ''}`} />
 
       {/* ── Season Hero ── */}
       <div className="season-hero">

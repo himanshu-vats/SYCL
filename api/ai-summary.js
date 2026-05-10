@@ -1,4 +1,5 @@
 const { db } = require('../lib/firebase');
+const { loadMultiSeasonData, getPlayerStatsAcrossSeasons, getTeamStatsAcrossSeasons, formatSeasonsForPrompt } = require('../lib/context-utils');
 
 const SYSTEM_PROMPTS = {
   standings: `You are a cricket analyst covering a youth cricket league. Analyze the standings data and write an insightful 5–7 sentence analysis that:
@@ -69,6 +70,140 @@ Write for parents and coaches who love this league. Be specific with names, numb
 4. If multi-division or multi-season data exists, describes their progression and improvement arc
 5. Summarizes their overall value to their team — are they a match-winner, an anchor, or a consistent contributor?
 Be specific with numbers. Write for parents and coaches who care about this player's development. No markdown headers or bullet points — flowing prose only.`,
+
+  'team-scout': `You are a cricket scout writing an opponent analysis for youth cricket coaches and team managers. Analyze the team's data and produce a structured report with these exact markdown sections:
+
+## Team Overview
+- Season record in context (improving, consistent, or struggling)
+- Division standing and trajectory
+
+## Strengths
+- 3-4 specific strengths (batting depth, bowling attack, fielding, chasing ability)
+- Name specific players and their numbers for each strength
+
+## Weaknesses
+- 2-3 areas where this team can be exploited
+- Specific evidence with player names and numbers
+
+## Key Players
+- Top 2 batters: what makes them dangerous, their preferred style, and a potential weakness
+- Top 2 bowlers: their effectiveness, what conditions suit them, and how to play them
+
+## Tactical Notes
+- How to bowl to each of their top 3 batters (attack stumps? short ball? wide line? spin early?)
+- Which bowlers to target and in what situations
+- Field placement suggestions against their top scorer
+
+Write for a coach preparing their team to face this opponent. Use specific stats.`,
+
+  'player-deep': `You are a talent analyst writing a development report for a youth cricket player. Analyze the player's data across seasons and produce:
+
+## Playing Style
+- Batting archetype (aggressive striker, anchor, mixed) with evidence from the numbers
+- If they bowl: bowling role (strike bowler, containing defender, all-rounder)
+- How their style has evolved across seasons if multi-season data exists
+
+## Season Progression
+- Key stats per season in a clear progression (runs/wickets, average, strike rate/economy)
+- Notable improvements or areas of decline
+- If only one season of data exists, compare their trajectory within the season
+
+## Strengths
+- 2-3 specific things they do best, with numbers
+
+## Areas to Develop
+- 2 specific areas where improvement would most elevate their game
+- Why these matter for their role
+
+## Player Comparison
+- Compare to 1-2 other similar players in the league (similar style, age, role)
+- What separates them from peers
+
+## Role & Value
+- What batting position or bowling phase suits them best
+- Are they a match-winner, reliable contributor, or developing talent?
+- Their importance to their team's success
+
+Write for a coach and parent who want to understand this player's development path.`,
+
+  'match-strategy': `You are a match analyst writing a strategy brief before a youth cricket fixture. Analyze both teams and produce:
+
+## Head-to-Head
+- Past meetings this season and across seasons
+- Who has the upper hand and why
+
+## Recent Form
+- Each team's last 4-5 results with brief assessment
+- Which team enters with momentum
+
+## Key Matchups
+- How Team A's top batters have performed against Team B's bowlers (use specific innings data if available)
+- How Team B's top batters have performed against Team A's bowlers
+- The single most important individual battle that could decide the match
+
+## Win Factors
+- 3 things Team A must do to win
+- 3 things Team B must do to win
+- Which conditions or scenarios favor each team
+
+## Prediction
+- Which team holds the edge and why
+- A brief game scenario (e.g., "If Team A bats first and posts 130+, they defend. If Team B chases, their middle order depth gives them the edge.")
+
+Write with the precision of a strategist. Use specific player names and numbers.`,
+
+  'match-report': `You are a cricket analyst writing a post-match recap for a youth cricket fixture. Analyze the match data and produce a structured report with these exact markdown sections:
+
+## Match Summary
+- Brief overview: who won, by how much, and the defining phase of the match
+- How each team's innings unfolded (strong start, middle collapse, late surge, etc.)
+
+## Key Performers
+- Top batter from each team with specific numbers and match impact
+- Top bowler from each team with specific numbers and match impact
+- Any standout all-round contributions
+
+## Turning Points
+- 2-3 critical moments that swung the match
+- Specific overs, wickets, or partnerships that changed momentum
+
+## Team Performance
+- Batting assessment: which team batted better, where runs were gained or lost
+- Bowling assessment: which bowlers controlled the game, who leaked runs
+- Fielding notes if discernible from the data
+
+## What It Means
+- How this result affects standings or team momentum
+- What each team should take away from this performance
+
+Write with the energy of a match reporter who was there. Use specific player names and numbers.`,
+
+  'season-insights': `You are a cricket journalist reflecting on a youth cricket league across multiple seasons. Analyze the multi-season data and produce:
+
+## Most Improved Players
+- 3-4 players whose stats have jumped significantly from previous season to current
+- Specific before/after numbers (e.g., "avg jumped from 14.2 to 31.5")
+- What changed in their game
+
+## Breakout Performers
+- Players who stepped into bigger roles this season
+- How their output changed
+
+## Record Watch
+- League records broken or threatened this season
+- Individual milestones (e.g., "3 batters on track for 400+ runs")
+
+## League Trends
+- Is run-scoring up or down across seasons?
+- Are bowlers becoming more or less dominant?
+- Which divisions are most competitive?
+
+## Team Trajectories
+- Teams that are building (improving season-over-season)
+- Teams that are plateauing or declining
+- Any programs consistently producing top talent
+
+Write with insight and context that only multi-season analysis can reveal. Use specific names and numbers.`,
 };
 
 function slugify(s) {
@@ -169,7 +304,7 @@ module.exports = async function (req, res) {
     if (!snap.exists) return res.status(404).json({ error: 'League not found' });
     const data = snap.data();
 
-    const context = buildContext(type, key, data);
+    const context = await buildContext(type, key, data, league);
 
     const resp = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
@@ -179,7 +314,7 @@ module.exports = async function (req, res) {
       },
       body: JSON.stringify({
         model: 'deepseek-chat',
-        max_tokens: 600,
+        max_tokens: ['team-scout', 'player-deep', 'match-strategy', 'season-insights', 'match-report'].includes(type) ? 800 : 600,
         messages: [
           { role: 'system', content: SYSTEM_PROMPTS[type] },
           { role: 'user',   content: context },
@@ -206,16 +341,21 @@ module.exports = async function (req, res) {
 
 // ── Context builders ─────────────────────────────────────────────────────────
 
-function buildContext(type, key, data) {
+async function buildContext(type, key, data, leagueSlug) {
   switch (type) {
-    case 'overview':  return overviewContext(data);
-    case 'team':      return teamContext(key, data);
-    case 'division':  return divisionContext(key, data);
-    case 'standings': return standingsContext(key, data);
-    case 'batting':   return battingContext(key, data);
-    case 'bowling':   return bowlingContext(key, data);
-    case 'results':   return resultsContext(key, data);
-    case 'player':    return playerContext(key, data);
+    case 'overview':       return overviewContext(data);
+    case 'team':           return teamContext(key, data);
+    case 'division':       return divisionContext(key, data);
+    case 'standings':      return standingsContext(key, data);
+    case 'batting':        return battingContext(key, data);
+    case 'bowling':        return bowlingContext(key, data);
+    case 'results':        return resultsContext(key, data);
+    case 'player':         return playerContext(key, data);
+    case 'team-scout':     return teamScoutContext(key, data, leagueSlug);
+    case 'player-deep':    return playerDeepContext(key, data, leagueSlug);
+    case 'match-strategy': return matchStrategyContext(key, data, leagueSlug);
+    case 'season-insights': return seasonInsightsContext(key, data, leagueSlug);
+    case 'match-report':    return matchReportContext(key, data, leagueSlug);
     default: return '';
   }
 }
@@ -519,5 +659,418 @@ function playerContext(name, data) {
   }
 
   lines.push('\nWrite the player profile summary now.');
+  return lines.join('\n');
+}
+
+// ── New scouting & strategy context builders ─────────────────────────────
+
+async function teamScoutContext(teamName, data, leagueSlug) {
+  const lines = [`TEAM SCOUTING REPORT — ${teamName}\n`];
+  const league = data;
+
+  // Current season info
+  const allResults = league.results?.matches || [];
+  const teamResults = allResults
+    .filter(r => r.team1 === teamName || r.team2 === teamName)
+    .slice(-10);
+  if (teamResults.length) {
+    const wins = teamResults.filter(r =>
+      r.result?.toLowerCase().startsWith(teamName.toLowerCase())).length;
+    lines.push(`Season record (last ${teamResults.length}): ${wins}W ${teamResults.length - wins}L`);
+    lines.push('Recent results:');
+    teamResults.forEach(r => lines.push(`  ${r.result || `${r.team1} vs ${r.team2}`}`));
+    lines.push('');
+  }
+
+  // Opponent breakdown: wins/losses per opponent
+  const oppMap = new Map();
+  teamResults.forEach(r => {
+    const opp = r.team1 === teamName ? r.team2 : r.team1;
+    if (!opp) return;
+    if (!oppMap.has(opp)) oppMap.set(opp, { wins: 0, losses: 0 });
+    const entry = oppMap.get(opp);
+    if (r.result?.toLowerCase().startsWith(teamName.toLowerCase())) entry.wins++;
+    else entry.losses++;
+  });
+  if (oppMap.size) {
+    lines.push('Record by opponent:');
+    [...oppMap.entries()].sort((a, b) => (b[1].wins + b[1].losses) - (a[1].wins + a[1].losses)).forEach(([opp, rec]) => {
+      lines.push(`  vs ${opp}: ${rec.wins}W ${rec.losses}L`);
+    });
+    lines.push('');
+  }
+
+  // Standings position
+  const divMatches = (league.matches || []).filter(m => m.team1 === teamName || m.team2 === teamName);
+  const division = divMatches[0]?.division;
+  if (division) {
+    const raw = league.standings?.[division];
+    const rows = Array.isArray(raw) ? raw : (raw?.rows || []);
+    const pos = rows.findIndex(r => r.team === teamName);
+    if (pos >= 0) {
+      const t = rows[pos];
+      lines.push(`Division: ${division} — Position ${pos + 1} of ${rows.length} (${t.pts} pts, ${t.won}W ${t.lost}L)\n`);
+    }
+  }
+
+  // Chasing vs defending record
+  const chasingResults = teamResults.filter(r => {
+    if (r.result?.toLowerCase().startsWith(teamName.toLowerCase())) return r.team2 === teamName;
+    return r.team1 === teamName;
+  });
+  const defendingResults = teamResults.filter(r => {
+    if (r.result?.toLowerCase().startsWith(teamName.toLowerCase())) return r.team1 === teamName;
+    return r.team2 === teamName;
+  });
+  lines.push(`Chasing wins: ${chasingResults.length}, Defending wins: ${defendingResults.length}\n`);
+
+  // Top batters
+  const allBat = Object.entries(league.batting || {})
+    .filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+    .flatMap(([, rows]) => Array.isArray(rows) ? rows : []);
+  const batters = allBat.filter(p => p.team === teamName)
+    .sort((a, b) => (parseInt(b.runs) || 0) - (parseInt(a.runs) || 0)).slice(0, 5);
+  if (batters.length) {
+    lines.push('Top batters:');
+    batters.forEach(p => lines.push(`  ${p.player}: ${p.runs} runs, avg ${p.avg}, SR ${p.sr}, HS ${p.hs}`));
+    lines.push('');
+  }
+
+  // Top bowlers
+  const allBowl = Object.entries(league.bowling || {})
+    .filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+    .flatMap(([, rows]) => Array.isArray(rows) ? rows : []);
+  const bowlers = allBowl.filter(p => p.team === teamName)
+    .sort((a, b) => (parseInt(b.wickets) || 0) - (parseInt(a.wickets) || 0)).slice(0, 5);
+  if (bowlers.length) {
+    lines.push('Top bowlers:');
+    bowlers.forEach(p => lines.push(`  ${p.player}: ${p.wickets} wkts, econ ${p.econ}, avg ${p.avg}, best ${p.bbf}`));
+    lines.push('');
+  }
+
+  // Multi-season context if available
+  try {
+    const seasons = await loadMultiSeasonData(leagueSlug, 1);
+    if (seasons.length > 1) {
+      const teamAcross = getTeamStatsAcrossSeasons(seasons, teamName);
+      lines.push('MULTI-SEASON CONTEXT:');
+      lines.push(formatSeasonsForPrompt(seasons));
+      teamAcross.forEach(ts => {
+        if (!ts.isCurrent && ts.standingsEntry) {
+          lines.push(`  ${ts.season}: Position ${ts.standingsEntry.division}, ${ts.standingsEntry.won || 0}W ${ts.standingsEntry.lost || 0}L`);
+        }
+      });
+      lines.push('');
+    }
+  } catch (_) { /* historical data unavailable — skip */ }
+
+  lines.push('Produce the team scouting report now with all sections as specified.');
+  return lines.join('\n');
+}
+
+async function playerDeepContext(name, data, leagueSlug) {
+  const lines = [`PLAYER DEEP ANALYSIS — ${name}\n`];
+
+  // Current season data (reuse existing playerContext pattern)
+  const lower = name.toLowerCase().trim();
+  const allBat = Object.entries(data.batting || {})
+    .filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+    .flatMap(([div, rows]) => Array.isArray(rows) ? rows.map(r => ({ ...r, _div: div })) : []);
+  const allBowl = Object.entries(data.bowling || {})
+    .filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+    .flatMap(([div, rows]) => Array.isArray(rows) ? rows.map(r => ({ ...r, _div: div })) : []);
+
+  const batRows = allBat.filter(p => (p.player || '').toLowerCase().trim() === lower);
+  const bowlRows = allBowl.filter(p => (p.player || '').toLowerCase().trim() === lower);
+
+  lines.push('CURRENT SEASON STATS:');
+  if (batRows.length) {
+    lines.push('Batting:');
+    batRows.forEach(p => {
+      lines.push(`  ${p._div}: ${p.mat} mat, ${p.inns} inns, ${p.runs} runs, avg ${p.avg}, SR ${p.sr}, HS ${p.hs || '—'}, 50s ${p.fifties || 0}, 100s ${p.hundreds || 0}`);
+    });
+  }
+  if (bowlRows.length) {
+    lines.push('Bowling:');
+    bowlRows.forEach(p => {
+      lines.push(`  ${p._div}: ${p.mat} mat, ${p.wickets} wkts, econ ${p.econ}, avg ${p.avg}, best ${p.bbf || '—'}`);
+    });
+  }
+  lines.push('');
+
+  // Multi-season context
+  try {
+    const seasons = await loadMultiSeasonData(leagueSlug, 2);
+    if (seasons.length > 1) {
+      const across = getPlayerStatsAcrossSeasons(seasons, name);
+      const hasHistory = across.some(s => !s.isCurrent && (s.battingRows.length > 0 || s.bowlingRows.length > 0));
+      if (hasHistory) {
+        lines.push('HISTORICAL SEASONS:');
+        lines.push(formatSeasonsForPrompt(seasons));
+        across.forEach(ps => {
+          if (ps.battingRows.length > 0) {
+            const b = ps.battingRows[0];
+            lines.push(`  ${ps.season}${ps.isCurrent ? ' (current)' : ''}: ${b.runs || 0} runs, avg ${b.avg || '—'}, SR ${b.sr || '—'} in ${b.mat || 0} matches`);
+          }
+          if (ps.bowlingRows.length > 0) {
+            const bw = ps.bowlingRows[0];
+            lines.push(`  ${ps.season}${ps.isCurrent ? ' (current)' : ''}: ${bw.wickets || 0} wkts, econ ${bw.econ || '—'}, avg ${bw.avg || '—'} in ${bw.mat || 0} matches`);
+          }
+        });
+        lines.push('');
+      }
+    }
+  } catch (_) { /* historical data unavailable */ }
+
+  lines.push('Produce the player development report now with all sections as specified.');
+  return lines.join('\n');
+}
+
+async function matchStrategyContext(matchId, data, leagueSlug) {
+  const lines = [`MATCH STRATEGY BRIEF — Match ID: ${matchId}\n`];
+
+  // Find the match in schedule
+  const match = (data.matches || []).find(m => String(m.id) === String(matchId));
+  if (!match) {
+    lines.push('Match not found in schedule.');
+    return lines.join('\n');
+  }
+
+  const { team1, team2, division, date } = match;
+  lines.push(`Fixture: ${team1} vs ${team2} — Division ${division}, ${date || 'TBD'}\n`);
+
+  // Team standings in division
+  if (division) {
+    const raw = data.standings?.[division];
+    const rows = Array.isArray(raw) ? raw : (raw?.rows || []);
+    [team1, team2].forEach(team => {
+      const pos = rows.findIndex(r => r.team === team);
+      if (pos >= 0) {
+        const t = rows[pos];
+        lines.push(`${team}: Position ${pos + 1} of ${rows.length} — ${t.pts} pts, ${t.won}W ${t.lost}L`);
+      }
+    });
+    lines.push('');
+  }
+
+  // Head-to-head results (all seasons if available)
+  const allResults = data.results?.matches || [];
+  const h2h = allResults.filter(r =>
+    (r.team1 === team1 && r.team2 === team2) || (r.team1 === team2 && r.team2 === team1)
+  );
+  if (h2h.length) {
+    lines.push('HEAD-TO-HEAD THIS SEASON:');
+    h2h.forEach(r => lines.push(`  ${r.result || `${r.team1} vs ${r.team2}`}`));
+    const aWins = h2h.filter(r => r.result?.toLowerCase().startsWith(team1.toLowerCase())).length;
+    const bWins = h2h.filter(r => r.result?.toLowerCase().startsWith(team2.toLowerCase())).length;
+    lines.push(`  Edge: ${team1} ${aWins} — ${team2} ${bWins}\n`);
+  }
+
+  // Recent form
+  const lastN = (team, n) => allResults
+    .filter(r => r.team1 === team || r.team2 === team)
+    .slice(-n)
+    .map(r => r.result?.toLowerCase().startsWith(team.toLowerCase()) ? 'W' : 'L')
+    .join('');
+  lines.push(`Recent form: ${team1} [${lastN(team1, 5)}]  ${team2} [${lastN(team2, 5)}]\n`);
+
+  // Key batters and bowlers for each team
+  const allBat = Object.entries(data.batting || {})
+    .filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+    .flatMap(([, rows]) => Array.isArray(rows) ? rows : []);
+  const allBowl = Object.entries(data.bowling || {})
+    .filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+    .flatMap(([, rows]) => Array.isArray(rows) ? rows : []);
+
+  [team1, team2].forEach(team => {
+    const batters = allBat.filter(p => p.team === team)
+      .sort((a, b) => (parseInt(b.runs) || 0) - (parseInt(a.runs) || 0)).slice(0, 3);
+    if (batters.length) {
+      lines.push(`${team} key batters:`);
+      batters.forEach(p => lines.push(`  ${p.player}: ${p.runs} runs, avg ${p.avg}, SR ${p.sr}`));
+    }
+    const bowlers = allBowl.filter(p => p.team === team)
+      .sort((a, b) => (parseInt(b.wickets) || 0) - (parseInt(a.wickets) || 0)).slice(0, 3);
+    if (bowlers.length) {
+      lines.push(`${team} key bowlers:`);
+      bowlers.forEach(p => lines.push(`  ${p.player}: ${p.wickets} wkts, econ ${p.econ}`));
+    }
+    lines.push('');
+  });
+
+  // Try to get batter-vs-bowler data from innings subcollection
+  try {
+    const matchRefs = (data.matches || []).filter(m => m.team1 === team1 && m.team2 === team2);
+    if (matchRefs.length) {
+      lines.push('BATTER-VS-BOWLER DATA (from previous meetings):');
+      for (const prevMatch of matchRefs.slice(0, 2)) {
+        const innDoc = await db.collection('leagues').doc(leagueSlug)
+          .collection('matches').doc(String(prevMatch.id)).get();
+        if (innDoc.exists && Array.isArray(innDoc.data().innings)) {
+          const inns = innDoc.data().innings;
+          // Show batter vs bowler snippets
+          const batters = [...new Set(inns.filter(i => i.role === 'bat').map(i => i.player))];
+          batters.slice(0, 4).forEach(batter => {
+            const batInns = inns.filter(i => i.role === 'bat' && i.player === batter);
+            const bowlers = [...new Set(inns.filter(i => i.role === 'bowl').map(i => i.player))];
+            batInns.slice(0, 2).forEach(bi => {
+              lines.push(`  ${bi.player}: ${bi.runs}r ${bi.balls}b, dismissal: ${bi.dismissal || 'not out'}`);
+            });
+          });
+        }
+      }
+      lines.push('');
+    }
+  } catch (_) { /* innings data unavailable */ }
+
+  lines.push('Produce the match strategy brief now with all specified sections.');
+  return lines.join('\n');
+}
+
+async function seasonInsightsContext(key, data, leagueSlug) {
+  const lines = [`MULTI-SEASON INSIGHTS\n`];
+
+  // Current season overview stats
+  const allMatches = data.matches || [];
+  const allResults = data.results?.matches || [];
+  const total = allMatches.length;
+  const done = allResults.length;
+  lines.push(`Current season: ${data.season || ''} — ${done}/${total} matches played`);
+  lines.push(`League: ${data.leagueName || ''}\n`);
+
+  // Standings snapshot
+  const divs = Object.keys(data.standings || {}).filter(k => k !== 'updatedAt');
+  if (divs.length) {
+    lines.push('CURRENT STANDINGS:');
+    for (const div of divs) {
+      const raw = data.standings[div];
+      const rows = Array.isArray(raw) ? raw : (raw?.rows || []);
+      if (rows.length) {
+        lines.push(`  ${div}: ${rows.slice(0, 3).map(r => `${r.team}(${r.pts}pts)`).join(', ')}`);
+      }
+    }
+    lines.push('');
+  }
+
+  // Current stat leaders
+  const allBat = getStats(data.batting, 'combined', 'bat')
+    .sort((a, b) => (parseInt(b.runs) || 0) - (parseInt(a.runs) || 0)).slice(0, 5);
+  if (allBat.length) {
+    lines.push('Top run-scorers:');
+    allBat.forEach(p => lines.push(`  ${p.player}: ${p.runs} runs, avg ${p.avg}`));
+    lines.push('');
+  }
+
+  const allBowl = getStats(data.bowling, 'combined', 'bowl')
+    .sort((a, b) => (parseInt(b.wickets) || 0) - (parseInt(a.wickets) || 0)).slice(0, 5);
+  if (allBowl.length) {
+    lines.push('Top wicket-takers:');
+    allBowl.forEach(p => lines.push(`  ${p.player}: ${p.wickets} wkts, econ ${p.econ}`));
+    lines.push('');
+  }
+
+  // Multi-season data
+  try {
+    const seasons = await loadMultiSeasonData(leagueSlug, 2);
+    if (seasons.length > 1) {
+      lines.push('AVAILABLE SEASONS:');
+      lines.push(formatSeasonsForPrompt(seasons));
+      lines.push('');
+
+      // Compare stat leaders across seasons
+      const historicalSeasons = seasons.filter(s => !s.isCurrent);
+      for (const hs of historicalSeasons) {
+        const hBat = getStats(hs.data.batting, 'combined', 'bat')
+          .sort((a, b) => (parseInt(b.runs) || 0) - (parseInt(a.runs) || 0)).slice(0, 3);
+        const hBowl = getStats(hs.data.bowling, 'combined', 'bowl')
+          .sort((a, b) => (parseInt(b.wickets) || 0) - (parseInt(a.wickets) || 0)).slice(0, 3);
+        lines.push(`${hs.season} top batters: ${hBat.map(p => `${p.player}(${p.runs}r)`).join(', ')}`);
+        lines.push(`${hs.season} top bowlers: ${hBowl.map(p => `${p.player}(${p.wickets}w)`).join(', ')}`);
+      }
+      lines.push('');
+
+      // Find players who appear in current + past — potential "most improved"
+      const currentBatMap = new Map();
+      Object.entries(data.batting || {}).filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+        .flatMap(([, rows]) => Array.isArray(rows) ? rows : [])
+        .forEach(r => { if (r.player && r.runs) currentBatMap.set(r.player.toLowerCase(), parseInt(r.runs) || 0); });
+
+      const pastBatMap = new Map();
+      for (const hs of historicalSeasons) {
+        Object.entries(hs.data.batting || {}).filter(([k]) => k !== 'updatedAt' && k !== 'combined')
+          .flatMap(([, rows]) => Array.isArray(rows) ? rows : [])
+          .forEach(r => { if (r.player && r.runs) pastBatMap.set(r.player.toLowerCase(), parseInt(r.runs) || 0); });
+      }
+
+      const improved = [];
+      currentBatMap.forEach((runs, name) => {
+        const pastRuns = pastBatMap.get(name);
+        if (pastRuns && pastRuns > 0) {
+          improved.push({ name, currentRuns: runs, pastRuns, jump: runs - pastRuns, pct: Math.round((runs - pastRuns) / pastRuns * 100) });
+        }
+      });
+      improved.sort((a, b) => b.jump - a.jump);
+      if (improved.length) {
+        lines.push('PLAYERS WITH BOTH CURRENT AND PAST SEASON DATA (potential most improved candidates):');
+        improved.slice(0, 10).forEach(p => {
+          lines.push(`  ${p.name}: ${p.pastRuns}r → ${p.currentRuns}r (${p.pct >= 0 ? '+' : ''}${p.pct}%)`);
+        });
+        lines.push('');
+      }
+    }
+  } catch (_) { /* historical data unavailable */ }
+
+  lines.push('Produce the multi-season insights report now with all specified sections.');
+  return lines.join('\n');
+}
+
+async function matchReportContext(matchId, data, leagueSlug) {
+  const lines = [`MATCH REPORT — Match ID: ${matchId}\n`];
+
+  // Find match in parent doc
+  const match = (data.matches || []).find(m => String(m.id) === String(matchId));
+  if (!match) {
+    lines.push('Match not found in schedule.');
+    return lines.join('\n');
+  }
+
+  const { team1, team2, division, date, result, team1Score, team2Score } = match;
+  lines.push(`${team1} vs ${team2} — ${division}, ${date || 'TBD'}`);
+  lines.push(`Result: ${result || 'N/A'}`);
+  if (team1Score) lines.push(`${team1}: ${team1Score.score} (${team1Score.overs || '?'} overs)`);
+  if (team2Score) lines.push(`${team2}: ${team2Score.score} (${team2Score.overs || '?'} overs)`);
+  lines.push('');
+
+  // Read innings from match subcollection
+  try {
+    const innDoc = await db.collection('leagues').doc(leagueSlug)
+      .collection('matches').doc(String(matchId)).get();
+    const innings = innDoc.exists && Array.isArray(innDoc.data().innings)
+      ? innDoc.data().innings : [];
+
+    if (innings.length) {
+      const batInnings = innings.filter(i => i.role === 'bat');
+      if (batInnings.length) {
+        lines.push('BATTING INNINGS:');
+        batInnings.sort((a, b) => (b.runs || 0) - (a.runs || 0));
+        batInnings.forEach(i => {
+          lines.push(`  ${i.player} (${i.team}): ${i.runs || 0}${i.notOut ? '*' : ''} (${i.balls || 0}b, ${i.fours || 0}×4, ${i.sixes || 0}×6, SR ${i.sr || 0}) — ${i.dismissal || 'not out'}`);
+        });
+        lines.push('');
+      }
+
+      const bowlInnings = innings.filter(i => i.role === 'bowl');
+      if (bowlInnings.length) {
+        lines.push('BOWLING FIGURES:');
+        bowlInnings.sort((a, b) => (b.wickets || 0) - (a.wickets || 0) || (a.econ || 99) - (b.econ || 99));
+        bowlInnings.forEach(i => {
+          lines.push(`  ${i.player} (${i.team}): ${i.overs || '?'}ov, ${i.maidens || 0}m, ${i.runs || 0}r, ${i.wickets || 0}w, econ ${i.econ || 0}`);
+        });
+        lines.push('');
+      }
+    }
+  } catch (_) { /* innings data unavailable */ }
+
+  lines.push('Produce the post-match recap now with all sections as specified.');
   return lines.join('\n');
 }

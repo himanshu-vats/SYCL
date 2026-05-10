@@ -1,5 +1,13 @@
 const { db } = require('../lib/firebase');
 
+// Season strings look like "Spring 2026" or "Fall 2025".
+// A season is historical if its year is before the current year.
+function _isHistoricalSeason(season) {
+  const match = season && season.match(/\b(\d{4})\b/);
+  if (!match) return false;
+  return parseInt(match[1], 10) < new Date().getFullYear();
+}
+
 module.exports = async function(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -147,6 +155,10 @@ module.exports = async function(req, res) {
     });
     if (hasStandings) Object.keys(standings).forEach(d => divisionSet.add(d));
 
+    // Detect whether this is a historical season (not the current year's season)
+    const historical = req.body?.historical === true ||
+      (season ? _isHistoricalSeason(season) : false);
+
     // Update leagues-index with enriched metadata
     await db.collection('meta').doc('leagues-index').set(
       {
@@ -158,6 +170,7 @@ module.exports = async function(req, res) {
           completedCount,
           divisionCount: divisionSet.size,
           teamCount: teamSet.size,
+          historical,
         }
       },
       { merge: true }

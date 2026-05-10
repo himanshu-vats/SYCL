@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import AiSummaryBlock from './AiSummaryBlock.jsx';
+import AiScoutReport from './AiScoutReport.jsx';
 import { aggregateBatting, aggregateBowling } from '../utils/aggregation.js';
 import { computeBattingBenchmark, computeBowlingBenchmark, getBattingArchetype, getBowlingArchetype } from '../utils/insights.js';
 import { getPlayerInningsHistory, computeBestBattingInnings, computeBestBowlingSpell, detectCurrentStreak, computeOpponentBattingStats, computeOpponentBowlingStats, formatMatchDate, computeMatchChartData, computePlayerRadar, computeImpactRating, computeRollingAverage } from '../utils/innings.js';
@@ -229,7 +229,7 @@ export default function PlayerProfilePage({ name, batting, bowling, rankings, pl
       </div>
 
       <div style={{padding:'0 16px 8px'}}>
-        <AiSummaryBlock type="player" summaryKey={name} />
+        <AiScoutReport type="player-deep" summaryKey={name} shareUrl={`${window.location.origin}/${window.location.pathname.split('/').filter(Boolean)[0] || ''}#player=${encodeURIComponent(name)}`} />
       </div>
 
       <div className="headline-pills">

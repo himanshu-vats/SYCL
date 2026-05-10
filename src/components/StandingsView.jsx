@@ -26,7 +26,7 @@ export default function StandingsView({ matches, division, standings, results, o
     const leader = rows[0];
     return (
       <div>
-        <AiSummaryBlock type="standings" summaryKey={division} />
+        <AiSummaryBlock type="standings" summaryKey={division} shareUrl={`${window.location.origin}/${window.location.pathname.split('/').filter(Boolean)[0] || ''}#tab=standings&division=${encodeURIComponent(division)}`} />
         {leader && (
           <div className="leader-row">
             <div className="leader-card gold">

@@ -1,7 +1,7 @@
 import { parseDate } from '../utils/schedule.js';
 import { computeFormGuide, computeStreak } from '../utils/form.js';
 import { aggregateBatting, aggregateBowling } from '../utils/aggregation.js';
-import AiSummaryBlock from './AiSummaryBlock.jsx';
+import AiScoutReport from './AiScoutReport.jsx';
 
 export default function TeamProfilePage({ name, data, onClose, onDrilldown }) {
   const { matches = [], results, batting, bowling } = data;
@@ -70,7 +70,7 @@ export default function TeamProfilePage({ name, data, onClose, onDrilldown }) {
       </div>
 
       <div style={{padding:'12px 16px 4px'}}>
-        <AiSummaryBlock type="team" summaryKey={name} />
+        <AiScoutReport type="team-scout" summaryKey={name} shareUrl={`${window.location.origin}/${window.location.pathname.split('/').filter(Boolean)[0] || ''}#team=${encodeURIComponent(name)}`} />
       </div>
 
       <div className="tp-body">
