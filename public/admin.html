@@ -1042,7 +1042,14 @@ async function generateAllSummaries(bust = false) {
     }
 
     // ── Pre-match predictions ──
-    const upcomingMatches = (data.matches || []).filter(m => m.id && !m.result && m.team1 && m.team2);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const completedIds = new Set((data.results?.matches || []).map(r => String(r.matchId || r.id)));
+    const upcomingMatches = (data.matches || []).filter(m => {
+      if (!m.id || !m.team1 || !m.team2) return false;
+      if (completedIds.has(String(m.id))) return false;
+      const d = new Date(m.date);
+      return !isNaN(d) && d >= today;
+    });
     log(`\nPre-match predictions: ${upcomingMatches.length} upcoming matches found.`);
     statusEl.textContent = `Generating pre-match 0 / ${upcomingMatches.length}…`;
 
@@ -1666,7 +1673,125 @@ function parseScorecard(doc, matchMeta){
       }
     });
   });
-  return innings;
+
+  // ── Parse extras, totals, fall-of-wickets per innings ──
+  var matchDetails={}, innNo=0;
+  tables.forEach(function(tbl){
+    var hdr2=Array.from(tbl.querySelectorAll('thead th, thead td'));
+    if(!hdr2.length) hdr2=Array.from(tbl.querySelectorAll('tr:first-child > th, tr:first-child > td'));
+    if(hdr2.length<4) return;
+    var h2t=hdr2.map(function(c){return (c.textContent||'').trim().toLowerCase();});
+    if(!(h2t.some(function(t){return t==='r';}) && h2t.some(function(t){return t==='b';}) && h2t.some(function(t){return t==='4s';}))) return;
+    innNo++;
+    var bt='';
+    for(var k=0;k<hdr2.length;k++){var ct=(hdr2[k].textContent||'').trim();if(/innings/i.test(ct)&&ct.length<300){bt=ct.replace(/innings[\s\S]*$/i,'').trim();break;}}
+    if(!bt) bt=innNo===1?matchMeta.team1:matchMeta.team2;
+    var det={team:bt};
+    var trows=Array.from(tbl.querySelectorAll('tbody tr'));
+    if(!trows.length) trows=Array.from(tbl.querySelectorAll('tr')).slice(1);
+    trows.forEach(function(rw){
+      var cs=Array.from(rw.querySelectorAll('th, td'));
+      if(cs.length<2) return;
+      var ft=(cs[0]?(cs[0].textContent||''):'').trim().toLowerCase();
+      if(/^extras/i.test(ft)){
+        var xt=''; for(var xi=0;xi<cs.length;xi++){var cx=(cs[xi].textContent||'').trim();if(/b\s*\d+/.test(cx)&&/lb\s*\d+/.test(cx)){xt=cx;break;}}
+        var xm=xt.match(/b\s*(\d+).*?lb\s*(\d+).*?w\s*(\d+).*?nb\s*(\d+)/i);
+        var totalExtras=cs[1]?parseInt((cs[1].textContent||'').replace(/[^0-9]/g,''))||0:0;
+        if(!totalExtras&&xm) totalExtras=(parseInt(xm[1])||0)+(parseInt(xm[2])||0)+(parseInt(xm[3])||0)+(parseInt(xm[4])||0);
+        det.extras=xm?{b:parseInt(xm[1])||0,lb:parseInt(xm[2])||0,w:parseInt(xm[3])||0,nb:parseInt(xm[4])||0,total:totalExtras}:{b:0,lb:0,w:0,nb:0,total:totalExtras};
+      }
+      if(/^total/i.test(ft)){
+        var boldCell=rw.querySelector('b');
+        var runs=boldCell?parseInt((boldCell.textContent||'').replace(/[^0-9]/g,''))||0:0;
+        var totText=''; for(var ti=0;ti<cs.length;ti++){totText+=(cs[ti].textContent||'')+' ';}
+        var twm=totText.match(/\((\d+)\s*wickets?,\s*([\d.]+)\s*overs?\)/i);
+        det.total={runs:runs,wickets:twm?parseInt(twm[1])||0:0,overs:twm?twm[2]:'0'};
+      }
+    });
+    matchDetails[innNo]=det;
+  });
+  // Fall of wickets
+  var fowDivs=Array.from(doc.querySelectorAll('div.fallofwickets'));
+  fowDivs.forEach(function(fowDiv,idx){
+    var innNum=idx+1;
+    if(!matchDetails[innNum]) matchDetails[innNum]={team:innNum===1?matchMeta.team1:matchMeta.team2};
+    var fows=[];
+    Array.from(fowDiv.querySelectorAll('div.fall-in-all')).forEach(function(fi){
+      var h5s=Array.from(fi.querySelectorAll('div.fall-text h5'));
+      var batsman=h5s[0]?(h5s[0].textContent||'').trim():'';
+      var fText=h5s[1]?(h5s[1].textContent||'').trim():'';
+      var fm=fText.match(/(\d+)-(\d+),\s*Over\s*([\d.]+)/i);
+      var aTag=fi.querySelector('div.fall-image a[href]');
+      var pid='';
+      if(aTag){var href=aTag.getAttribute('href')||'';var pm=href.match(/playerId=(\d+)/i);pid=pm?pm[1]:'';}
+      fows.push({wicket:fm?parseInt(fm[1])||0:0,score:fm?parseInt(fm[2])||0:0,over:fm?fm[3]:'',batsman:batsman,playerId:pid});
+    });
+    matchDetails[innNum].fallOfWickets=fows;
+  });
+  return {innings:innings, matchDetails:matchDetails};
+}
+
+// ── Parse ball-by-ball data ──
+// Extracts every delivery from updateBall() JS calls embedded in the page.
+function parseBallByBall(doc, matchId){
+  var balls=[];
+  // Build bowlerId→name map from openVideoHTMLvs links
+  var bowlerMap={};
+  Array.from(doc.querySelectorAll('a[href*="openVideoHTMLvs"]')).forEach(function(a){
+    var h=a.getAttribute('href')||'';
+    var parts=h.replace(/^javascript:openVideoHTMLvs\(/,'').replace(/\)$/,'').split(',');
+    if(parts.length>=3){
+      var bid=(parts[0]||'').replace(/['"]/g,'').trim();
+      var bname=(parts[2]||'').replace(/['"]/g,'').trim();
+      if(bid&&bname) bowlerMap[bid]=bname;
+    }
+  });
+  // Parse updateBall() calls
+  Array.from(doc.querySelectorAll('a[href*="updateBall("]')).forEach(function(a){
+    var h=a.getAttribute('href')||'';
+    var argsStr=h.replace(/^javascript:updateBall\(/,'').replace(/\)$/,'');
+    // Split by comma, but respect quoted strings
+    var args=[];
+    var cur='', inQ=false, qc='';
+    for(var ci=0;ci<argsStr.length;ci++){
+      var ch=argsStr[ci];
+      if(inQ){cur+=ch;if(ch===qc&&argsStr[ci-1]!=='\\') inQ=false;}
+      else if(ch==='"'||ch==="'"){inQ=true;qc=ch;cur+=ch;}
+      else if(ch===','){args.push(cur.trim());cur='';}
+      else cur+=ch;
+    }
+    args.push(cur.trim());
+    // Clean quotes from each arg
+    args=args.map(function(s){
+      s=s.trim();
+      if((s[0]==='"'&&s[s.length-1]==='"')||(s[0]==="'"&&s[s.length-1]==="'")) s=s.slice(1,-1);
+      return s;
+    });
+    var inn=parseInt(args[1])||0;
+    var overBallEl=a.closest('ul.bbb-row'); if(!overBallEl) overBallEl=a.parentElement;
+    while(overBallEl&&!overBallEl.querySelector('.ov')){overBallEl=overBallEl.previousElementSibling;}
+    var ovSpan=overBallEl?overBallEl.querySelector('.ov'):null;
+    var ovText=ovSpan?(ovSpan.textContent||'').trim():'0.0';
+    var ovParts=ovText.split('.');
+    var over=parseInt(ovParts[0])||0;
+    var ball=parseInt(ovParts[1])||0;
+    var ballType=args[16]||'';
+    balls.push({
+      ballId:args[0]||'', matchId:matchId, innings:inn,
+      over:over, ball:ball,
+      strikerId:args[2]||'', strikerName:args[3]||'',
+      nonStrikerId:args[4]||'', nonStrikerName:args[5]||'',
+      bowlerPlayerId:args[14]||'', bowlerName:bowlerMap[args[14]]||'',
+      runs:parseInt(args[15])||0, ballType:ballType,
+      isFour:args[11]==='true', isSix:args[12]==='true',
+      isWide:ballType==='Wide', isNoBall:ballType==='No Ball',
+      wides:parseInt(args[19])||0, noBalls:parseInt(args[20])||0,
+      isDismissal:args[22]==='1'||args[22]==='true'
+    });
+  });
+  // Sort by innings, over, ball
+  balls.sort(function(a,b){return a.innings-b.innings||a.over-b.over||a.ball-b.ball;});
+  return balls;
 }
 
 // Fetch scorecards with capped concurrency (browser limits ~6 per origin)
