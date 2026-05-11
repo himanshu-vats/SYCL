@@ -45,7 +45,8 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
   const completed   = allResults.length;
   const total       = matches.length;
   const pct         = total > 0 ? Math.round(completed / total * 100) : 0;
-  const seasonDone  = total > 0 && upcoming.length === 0;
+  const _now = new Date(); _now.setHours(0,0,0,0);
+  const seasonDone  = total > 0 && !matches.some(m => { const d = parseD(m.date); return d && d >= _now; });
 
   const allBatters = useMemo(() => {
     if (!batting) return [];
