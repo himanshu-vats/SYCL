@@ -38,19 +38,19 @@ export default function ScheduleView({ matches, division, onDrilldown }) {
       <td className="mob-hide" style={{color:"var(--text-muted)",fontSize:12}}>{m.umpire1||"—"}</td>
       <td style={{fontSize:12,color:m.result||m.winner?"var(--text-primary)":"var(--text-muted)"}}>
         {m.result||m.winner||"—"}
-        {isUpcomingRow && !m.result && !m.winner ? (
+        {m.result || m.winner ? (
+          <a
+            href={'https://cricclubs.com/SYCLYouth/viewScorecard.do?fixtureId=' + (m.id || m.fixtureId || '') + '&clubId=10669'}
+            target='_blank'
+            rel='noopener noreferrer'
+            style={{fontSize:12, color:'var(--a-500)', whiteSpace:'nowrap', textDecoration:'none', border:'1px solid var(--a-500)', borderRadius:6, padding:'3px 10px', marginLeft:6}}
+          >Scorecard ↗</a>
+        ) : (
           <button
             className="prematch-btn"
             onClick={() => onDrilldown({type:'match', matchId:m.id, team1:m.team1, team2:m.team2, date:m.date, division:m.division})}
             title="AI Match Preview & Prediction"
           >⚡ Predict</button>
-        ) : (
-          <button
-            className="prematch-btn"
-            style={{marginLeft:6}}
-            onClick={() => onDrilldown({type:'match', matchId:m.id, team1:m.team1, team2:m.team2, date:m.date, division:m.division})}
-            title="View Match Page"
-          >📊 View</button>
         )}
       </td>
     </tr>

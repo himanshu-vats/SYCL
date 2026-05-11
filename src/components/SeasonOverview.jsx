@@ -209,11 +209,20 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
             <div key={i} className="home-result-row" style={{flexWrap:'wrap',gap:4}}>
               <span className="home-result-div">{m.division}</span>
               <span className="home-result-text">{m.team1} vs {m.team2} · {fmtDate(m.date)}{m.time ? ` ${m.time}` : ''}</span>
-              <button
-                className="prematch-btn"
-                onClick={() => onDrilldown({type:'match', matchId:m.id, team1:m.team1, team2:m.team2, date:m.date, division:m.division})}
-                title="AI Match Preview & Prediction"
-              >⚡ Predict</button>
+              {(m.result || m.winner) ? (
+                <a
+                  href={'https://cricclubs.com/SYCLYouth/viewScorecard.do?fixtureId=' + (m.id || m.fixtureId || '') + '&clubId=10669'}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  style={{fontSize:12, color:'var(--a-500)', whiteSpace:'nowrap', textDecoration:'none', border:'1px solid var(--a-500)', borderRadius:6, padding:'3px 10px'}}
+                >Scorecard ↗</a>
+              ) : (
+                <button
+                  className="prematch-btn"
+                  onClick={() => onDrilldown({type:'match', matchId:m.id, team1:m.team1, team2:m.team2, date:m.date, division:m.division})}
+                  title="AI Match Preview & Prediction"
+                >⚡ Predict</button>
+              )}
             </div>
           ))}
         </div>

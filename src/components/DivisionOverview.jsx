@@ -260,12 +260,21 @@ export default function DivisionOverview({ data, division, onTabClick, onDrilldo
                     <span className="clickable" onClick={() => onDrilldown({ type: 'team', name: m.team2 })}>{m.team2}</span>
                   </div>
                   {m.ground && <div className="do-match-ground">{m.ground}</div>}
-                  <button
-                    className="prematch-btn"
-                    style={{ marginTop: 4 }}
-                    onClick={() => onDrilldown({ type: 'match', matchId: m.id, team1: m.team1, team2: m.team2, date: m.date, division: m.division || division })}
-                    title="AI Match Preview & Prediction"
-                  >⚡ Predict</button>
+                  {(m.result || m.winner) ? (
+                    <a
+                      href={'https://cricclubs.com/SYCLYouth/viewScorecard.do?fixtureId=' + (m.id || m.fixtureId || '') + '&clubId=10669'}
+                      target='_blank'
+                      rel='noopener noreferrer'
+                      style={{fontSize:12, color:'var(--a-500)', whiteSpace:'nowrap', textDecoration:'none', border:'1px solid var(--a-500)', borderRadius:6, padding:'3px 10px', marginTop:4}}
+                    >Scorecard ↗</a>
+                  ) : (
+                    <button
+                      className="prematch-btn"
+                      style={{ marginTop: 4 }}
+                      onClick={() => onDrilldown({ type: 'match', matchId: m.id, team1: m.team1, team2: m.team2, date: m.date, division: m.division || division })}
+                      title="AI Match Preview & Prediction"
+                    >⚡ Predict</button>
+                  )}
                 </div>
               ))}
             </div>
@@ -320,12 +329,21 @@ export default function DivisionOverview({ data, division, onTabClick, onDrilldo
                     <span className="clickable" onClick={() => onDrilldown({ type: 'team', name: m.team2 })}>{m.team2}</span>
                   </div>
                   {m.ground && <div className="do-match-ground">{m.ground}</div>}
-                  <button
-                    className="prematch-btn"
-                    style={{ marginTop: 4 }}
-                    onClick={() => onDrilldown({ type: 'match', matchId: m.id, team1: m.team1, team2: m.team2, date: m.date, division: m.division || division })}
-                    title="AI Match Preview & Prediction"
-                  >⚡ Predict</button>
+                  {(m.result || m.winner) ? (
+                    <a
+                      href={'https://cricclubs.com/SYCLYouth/viewScorecard.do?fixtureId=' + (m.id || m.fixtureId || '') + '&clubId=10669'}
+                      target='_blank'
+                      rel='noopener noreferrer'
+                      style={{fontSize:12, color:'var(--a-500)', whiteSpace:'nowrap', textDecoration:'none', border:'1px solid var(--a-500)', borderRadius:6, padding:'3px 10px', marginTop:4}}
+                    >Scorecard ↗</a>
+                  ) : (
+                    <button
+                      className="prematch-btn"
+                      style={{ marginTop: 4 }}
+                      onClick={() => onDrilldown({ type: 'match', matchId: m.id, team1: m.team1, team2: m.team2, date: m.date, division: m.division || division })}
+                      title="AI Match Preview & Prediction"
+                    >⚡ Predict</button>
+                  )}
                 </div>
               ))}
             </div>
