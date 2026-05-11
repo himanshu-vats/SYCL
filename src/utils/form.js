@@ -35,6 +35,11 @@ export function sortRows(rows, col, dir) {
   if (!col) return rows;
   return [...rows].sort((a, b) => {
     const va = a[col], vb = b[col];
+    if (col === 'date') {
+      const da = parseDate(va), db = parseDate(vb);
+      const cmp = da && db ? da - db : 0;
+      return dir === 'asc' ? cmp : -cmp;
+    }
     const na = parseFloat(va), nb = parseFloat(vb);
     const cmp = (!isNaN(na) && !isNaN(nb)) ? na - nb : String(va||'').localeCompare(String(vb||''));
     return dir === 'asc' ? cmp : -cmp;
