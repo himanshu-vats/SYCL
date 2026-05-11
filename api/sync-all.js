@@ -37,8 +37,9 @@ module.exports = async function(req, res) {
   const hasBowling  = bowling && typeof bowling === 'object' && Object.keys(bowling).length > 0;
   const hasRankings = rankings && typeof rankings === 'object' && Object.keys(rankings).length > 0;
   const hasInnings  = Array.isArray(playerInnings) && playerInnings.length > 0;
+  const hasMatchDetails = Array.isArray(req.body.matchDetails) && req.body.matchDetails.length > 0;
 
-  if (!hasMatches && !hasResults && !hasStandings && !hasBatting && !hasBowling && !hasRankings && !hasInnings) {
+  if (!hasMatches && !hasResults && !hasStandings && !hasBatting && !hasBowling && !hasRankings && !hasInnings && !hasMatchDetails) {
     res.status(400).json({ error: 'No data provided' });
     return;
   }
@@ -140,6 +141,23 @@ module.exports = async function(req, res) {
       }));
     }
 
+    // Write bowling/balls/extras/fallOfWickets to per-match subcollection
+    const matchDetailsArr = hasMatchDetails ? req.body.matchDetails : [];
+    for (const md of matchDetailsArr) {
+      if (!md || !md.matchId) continue;
+      const matchRef = docRef.collection('matches').doc(String(md.matchId));
+      const update = {};
+      if (md.balls && md.balls.length)         update.balls = md.balls;
+      if (md.matchDetails) {
+        for (const [inn, data] of Object.entries(md.matchDetails)) {
+          update[`innings${inn}_extras`]       = data.extras || null;
+          update[`innings${inn}_total`]        = data.total  || null;
+          update[`innings${inn}_fow`]          = data.fallOfWickets || [];
+        }
+      }
+      if (Object.keys(update).length) await matchRef.set(update, { merge: true });
+    }
+
     // Compute summary stats for the landing page cards
     const matchCount = hasMatches ? matches.length : (existing.matches?.length || 0);
     const resultsArr = hasResults ? results : (existing.results?.matches || []);
@@ -186,6 +204,10 @@ module.exports = async function(req, res) {
     if (hasInnings) {
       const newMatchIds = new Set(playerInnings.map(i => i.matchId).filter(Boolean));
       parts.push(`${playerInnings.length} innings from ${newMatchIds.size} match${newMatchIds.size===1?'':'es'}`);
+    }
+    if (hasMatchDetails) {
+      const bbbSets = matchDetailsArr.filter(md => md && md.balls && md.balls.length).length;
+      parts.push(`ball-by-ball + extras from ${matchDetailsArr.length} match${matchDetailsArr.length===1?'':'es'}`);
     }
     if (migratedFromLegacy > 0) {
       parts.push(`migrated ${migratedFromLegacy} legacy innings to subcollection`);

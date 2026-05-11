@@ -1797,22 +1797,24 @@ function parseBallByBall(doc, matchId){
 // Fetch scorecards with capped concurrency (browser limits ~6 per origin)
 function fetchScorecardsThrottled(matches, concurrency, onProgress){
   return new Promise(function(resolve){
-    if(!matches.length){resolve([]);return;}
-    var all=[], i=0, inFlight=0, done=0, total=matches.length;
+    if(!matches.length){resolve({innings:[],matchDetails:[]});return;}
+    var allInnings=[], allMatchDetails=[], i=0, inFlight=0, done=0, total=matches.length;
     function next(){
       while(inFlight<concurrency && i<total){
         var m=matches[i++]; inFlight++;
-        fetch(m.scorecard,{credentials:'include'})
-          .then(function(r){return r.text();})
-          .then(function(h){return parseScorecard(new DOMParser().parseFromString(h,'text/html'),m);})
-          .catch(function(){return [];})
-          .then(function(inn){
-            all=all.concat(inn);
-            inFlight--; done++;
-            if(onProgress) onProgress(done,total);
-            if(done===total) resolve(all);
-            else next();
-          });
+        var bbbUrl=m.scorecard.replace('viewScorecard.do','ballByBall.do');
+        Promise.all([
+          fetch(m.scorecard,{credentials:'include'}).then(function(r){return r.text();}).then(function(h){return parseScorecard(new DOMParser().parseFromString(h,'text/html'),m);}).catch(function(){return {innings:[],matchDetails:{}};}),
+          fetch(bbbUrl,{credentials:'include'}).then(function(r){return r.text();}).then(function(h){return parseBallByBall(new DOMParser().parseFromString(h,'text/html'),m.matchId);}).catch(function(){return [];})
+        ]).then(function(results){
+          var scData=results[0], bbbData=results[1];
+          allInnings=allInnings.concat(scData.innings||[]);
+          allMatchDetails.push({matchId:m.matchId, balls:bbbData, matchDetails:scData.matchDetails||{}});
+          inFlight--; done++;
+          if(onProgress) onProgress(done,total);
+          if(done===total) resolve({innings:allInnings, matchDetails:allMatchDetails});
+          else next();
+        });
       }
     }
     next();
@@ -1904,9 +1906,12 @@ Promise.all(fetchAll).then(function(fetched){
         setMsg('Scraping scorecards… '+done+'/'+total);
       });
     })
-    .then(function(playerInnings){
-      if(playerInnings && playerInnings.length) payload.playerInnings=playerInnings;
-      setMsg('Saving '+(playerInnings?playerInnings.length:0)+' new innings to dashboard…');
+    .then(function(result){
+      var playerInnings=result.innings||result||[];
+      var matchDetails=result.matchDetails||[];
+      if(playerInnings.length) payload.playerInnings=playerInnings;
+      if(matchDetails.length)  payload.matchDetails=matchDetails;
+      setMsg('Saving '+(playerInnings.length)+' new innings + '+matchDetails.length+' ball-by-ball sets to dashboard…');
       return fetch('${origin}/api/sync-all',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Password':'${password}'},body:JSON.stringify(payload)}).then(function(r){return r.json();});
     });
 }).then(function(resp){
