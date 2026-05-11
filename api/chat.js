@@ -86,7 +86,9 @@ module.exports = async function (req, res) {
     // ── System prompt ─────────────────────────────────────────────
     const allMatches = data.matches || [];
     const allPlayed  = (data.results?.matches || []).length;
-    const seasonDone = allMatches.length > 0 && allPlayed >= allMatches.length;
+    const _today = new Date(); _today.setHours(0,0,0,0);
+    const hasUpcoming = allMatches.some(m => { const d = new Date(m.date); return !isNaN(d) && d >= _today; });
+    const seasonDone = allMatches.length > 0 && !hasUpcoming;
     const seasonStatus = seasonDone
       ? `The ${data.season || 'current'} season is NOW COMPLETE — all matches have been played. There are no upcoming fixtures. Final standings are decided by total points accumulated across all league matches (highest points = best rank). The top-2 teams in each division met in the final round to decide the champion.`
       : `Season in progress: ${allPlayed}/${allMatches.length} matches played.`;
@@ -353,7 +355,8 @@ function buildContext(question, data) {
   // General overview
   const allResults = data.results?.matches || [];
   const totalMatches = (data.matches || []).length;
-  const isComplete = totalMatches > 0 && allResults.length >= totalMatches;
+  const _t = new Date(); _t.setHours(0,0,0,0);
+  const isComplete = totalMatches > 0 && !(data.matches || []).some(m => { const d = new Date(m.date); return !isNaN(d) && d >= _t; });
   lines.push(`SEASON OVERVIEW — ${data.leagueName} ${data.season}`);
   lines.push(isComplete
     ? `Season COMPLETE: All ${totalMatches} matches played. Final standings are official.`

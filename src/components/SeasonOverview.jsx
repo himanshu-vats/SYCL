@@ -45,6 +45,7 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
   const completed   = allResults.length;
   const total       = matches.length;
   const pct         = total > 0 ? Math.round(completed / total * 100) : 0;
+  const seasonDone  = total > 0 && upcoming.length === 0;
 
   const allBatters = useMemo(() => {
     if (!batting) return [];
@@ -118,7 +119,7 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
         <div className="season-hero-progress">
           <div className="season-hero-progress-row">
             <span className="season-hero-progress-label">Season Progress</span>
-            <span className="season-hero-progress-pct">{completed} / {total} matches · {pct}% complete</span>
+            <span className="season-hero-progress-pct">{seasonDone ? `Season Complete · ${completed} matches played` : `${completed} / ${total} matches · ${pct}% complete`}</span>
           </div>
           <div className="season-hero-track">
             <div className="season-hero-fill" style={{width:`${pct}%`}} />

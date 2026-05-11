@@ -3,11 +3,12 @@ const { loadMultiSeasonData, getPlayerStatsAcrossSeasons, getTeamStatsAcrossSeas
 
 const SYSTEM_PROMPTS = {
   standings: `You are a cricket analyst covering a youth cricket league. Analyze the standings data and write an insightful 5–7 sentence analysis that:
-1. Describes the title race — exact points gap, whether the leader can be caught, games in hand
-2. Identifies teams in form vs teams in free-fall, with specific W/L evidence
-3. Estimates what the 2nd/3rd placed teams need (wins required) to overtake the leader
-4. Notes any surprising positions given the team's batting or bowling strength
-5. Names the single most important upcoming fixture that could swing the division
+1. Describes the title race outcome — who won the division, the exact points gap, and how commanding the victory was
+2. Identifies teams that overperformed or underperformed vs expectations, with specific W/L evidence
+3. Highlights any team that finished strongly vs any that faded at the end
+4. Notes any surprising final positions given the team's batting or bowling strength
+5. Closes with the defining story of this division's season — what will be remembered?
+If the season is still in progress, name the single most important upcoming fixture that could swing the division.
 Be analytical and specific with numbers. Write for parents and coaches who follow every game. No markdown headers or bullet points — flowing prose only.`,
 
   batting: `You are a cricket analyst covering a youth cricket league. Analyze the batting leaderboard and write an insightful 5–7 sentence analysis that:
@@ -46,21 +47,22 @@ Use match specifics and team names. No markdown headers or bullet points — flo
 Use specific names and numbers. Write for parents of players on this team. No markdown headers or bullet points — flowing prose only.`,
 
   division: `You are a cricket analyst writing a division summary for youth cricket parents and coaches. Analyze all the division data provided and write an insightful 5–7 sentence analysis that:
-1. Opens with the defining story of this division — is it a runaway leader, a tight race, or total chaos?
-2. Describes the title race with specific points, games in hand, and what each contender needs
+1. Opens with the defining story of this division — who won it, how convincingly, and what made this division memorable?
+2. Describes the final standings with specific points and what separated the champions from the rest
 3. Names the division's standout individual performers (batter and bowler) with their key numbers
-4. Notes any team on a hot streak or a worrying slide, and what's driving it
-5. Highlights the most important upcoming fixture in this division and why it matters
-6. Closes with a prediction or storyline to watch for the rest of the division season
+4. Notes any team that surprised — either overachieved or underperformed vs expectations
+5. Highlights the most exciting or decisive match(es) of the division
+6. Closes with a verdict on the division — what will fans remember about this season?
+If the season is still in progress, mention the most important upcoming fixture instead of a retrospective close.
 Be specific. Write with the energy of a local sports journalist who watched every game. No markdown headers or bullet points — flowing prose only.`,
 
   overview: `You are a cricket analyst writing the season homepage summary for a youth cricket league. Analyze all the data provided and write an insightful 6–8 sentence summary that:
-1. Opens with a compelling one-sentence state-of-the-season hook — what is the defining story of this season so far?
-2. Covers the title races across divisions — who leads, how tight is it, any dominant team or shock leader?
-3. Highlights 2–3 standout individual performers (batter and bowler) with specific numbers that tell their story
-4. Notes any interesting team narratives — a team on a hot streak, a surprise package, or a defending champion under pressure
-5. Comments on the style of cricket being played — high-scoring, tight bowling contests, or a mix?
-6. Closes with what to watch for in the coming weeks — key fixtures, milestone chasers, title deciders
+1. Opens with a compelling hook — if the season is complete, declare the champions and the defining story; if in progress, state what hangs in the balance
+2. Covers the title outcomes (or races) across all divisions — who won, how dominant, any surprise champion?
+3. Highlights 2–3 standout individual performers (batter and bowler) with specific numbers that define their season
+4. Notes compelling team narratives — a dominant champion, a surprise package, or a team that showed great character
+5. Comments on the style of cricket played across the season — high-scoring, tight bowling contests, or a mix?
+6. If season complete: closes with a season verdict — what made Spring 2026 memorable and what storylines will be talked about. If in progress: closes with key fixtures and title deciders to watch.
 Write for parents and coaches who love this league. Be specific with names, numbers, and division context. Make it feel like an editorial, not a report card. No markdown headers or bullet points — flowing prose only.`,
 
   player: `You are a cricket analyst writing a detailed player profile for youth cricket. Analyze the player's stats and write an insightful 5–7 sentence analysis that:
@@ -514,7 +516,11 @@ function overviewContext(data) {
   const allResults = data.results?.matches || [];
   const total = allMatches.length;
   const done  = allResults.length;
-  lines.push(`Season progress: ${done} of ${total} matches played (${total > 0 ? Math.round(done/total*100) : 0}%)\n`);
+  const _now = new Date(); _now.setHours(0,0,0,0);
+  const seasonComplete = total > 0 && !allMatches.some(m => { const d = new Date(m.date); return !isNaN(d) && d >= _now; });
+  lines.push(seasonComplete
+    ? `SEASON STATUS: COMPLETE. All ${total} matches have been played. Final standings are official. There are NO upcoming fixtures — do NOT mention upcoming matches.\n`
+    : `Season progress: ${done} of ${total} matches played (${total > 0 ? Math.round(done/total*100) : 0}%)\n`);
 
   // Standings per division — leader + closest rival
   const divs = Object.keys(data.standings || {});
