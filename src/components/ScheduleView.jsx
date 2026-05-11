@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { parseDate, isAM } from '../utils/schedule.js';
 
-export default function ScheduleView({ matches, division, onDrilldown }) {
+export default function ScheduleView({ matches, results, division, onDrilldown }) {
   const [teamFilter, setTeamFilter] = useState("");
   const [subTab, setSubTab] = useState("upcoming");
   const isCombined = division === 'combined';
@@ -9,7 +9,24 @@ export default function ScheduleView({ matches, division, onDrilldown }) {
   const teams = [...new Set(dm.flatMap(m => [m.team1, m.team2]))].sort();
   const today = new Date(); today.setHours(0,0,0,0);
 
-  const isUpcoming = m => { const d = parseDate(m.date); return !d || d >= today; };
+  const allResults = results?.matches || [];
+  function toYMD(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d)) return dateStr;
+    return d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+  }
+  const resultMap = new Map();
+  allResults.forEach(r => {
+    const key = (r.team1||'').toLowerCase()+'|'+(r.team2||'').toLowerCase()+'|'+toYMD(r.date);
+    resultMap.set(key, r);
+  });
+  function getResult(m) {
+    const key = (m.team1||'').toLowerCase()+'|'+(m.team2||'').toLowerCase()+'|'+toYMD(m.date);
+    return resultMap.get(key) || null;
+  }
+
+  const isUpcoming = m => { const d = parseDate(m.date); return (!d || d >= today) && !getResult(m); };
   const matchesTeam = m => !teamFilter || m.team1 === teamFilter || m.team2 === teamFilter;
   const cmpAsc = (a,b) => {
     const da = parseDate(a.date), db = parseDate(b.date);
@@ -26,7 +43,10 @@ export default function ScheduleView({ matches, division, onDrilldown }) {
     return Object.entries(g);
   };
 
-  const matchRow = (m, isUpcomingRow) => (
+  const matchRow = (m, isUpcomingRow) => {
+    const matchResult = getResult(m);
+    const scorecardUrl = matchResult?.scorecard || ('https://cricclubs.com/SYCLYouth/viewScorecard.do?fixtureId=' + (m.id || '') + '&clubId=10669');
+    return (
     <tr key={m.id}>
       <td className="num-cell mob-hide" style={{color:"var(--text-muted)",width:40}}>{m.id}</td>
       <td style={{width:80}}>
@@ -36,11 +56,11 @@ export default function ScheduleView({ matches, division, onDrilldown }) {
       <td className="team-name clickable" onClick={() => onDrilldown({type:'team',name:m.team2})}>{m.team2}</td>
       <td className="mob-hide" style={{color:"var(--text-muted)",fontSize:12}}>{m.ground||"—"}</td>
       <td className="mob-hide" style={{color:"var(--text-muted)",fontSize:12}}>{m.umpire1||"—"}</td>
-      <td style={{fontSize:12,color:m.result||m.winner?"var(--text-primary)":"var(--text-muted)"}}>
-        {m.result||m.winner||"—"}
-        {m.result || m.winner ? (
+      <td style={{fontSize:12,color:m.result||m.winner||matchResult?"var(--text-primary)":"var(--text-muted)"}}>
+        {m.result||m.winner||matchResult?.result||"—"}
+        {m.result || m.winner || matchResult ? (
           <a
-            href={'https://cricclubs.com/SYCLYouth/viewScorecard.do?fixtureId=' + (m.id || m.fixtureId || '') + '&clubId=10669'}
+            href={scorecardUrl}
             target='_blank'
             rel='noopener noreferrer'
             style={{fontSize:12, color:'var(--a-500)', whiteSpace:'nowrap', textDecoration:'none', border:'1px solid var(--a-500)', borderRadius:6, padding:'3px 10px', marginLeft:6}}
@@ -54,7 +74,7 @@ export default function ScheduleView({ matches, division, onDrilldown }) {
         )}
       </td>
     </tr>
-  );
+  )};
 
   const dateRows = (ms, isPast) => groupByDate(ms).flatMap(([date, grp]) => {
     const d = parseDate(date);

@@ -293,7 +293,7 @@ export default function SYCLDashboard() {
 
               {activeTab==="overview" && selectedDivision && selectedDivision !== 'combined' && <DivisionOverview data={data} division={selectedDivision} onTabClick={handleTabClick} onDrilldown={handleDrilldown} onAllDivisions={() => setSelectedDivision('combined')} />}
               {activeTab==="overview" && (!selectedDivision || selectedDivision === 'combined') && <SeasonOverview  data={data} lastRefresh={lastRefresh} onDrilldown={handleDrilldown} onGoToDivision={handleGoToDivision} />}
-              {selectedDivision && activeTab==="schedule"  && <ScheduleView  matches={data.matches} division={selectedDivision} onDrilldown={handleDrilldown}/>}
+              {selectedDivision && activeTab==="schedule"  && <ScheduleView  matches={data.matches} results={data.results} division={selectedDivision} onDrilldown={handleDrilldown}/>}
               {selectedDivision && activeTab==="standings" && <StandingsView matches={data.matches} division={selectedDivision} standings={data.standings} results={data.results} onDrilldown={handleDrilldown}/>}
               {activeTab==="results"   && <ResultsView  results={data.results}   division={selectedDivision} onDrilldown={handleDrilldown}/>}
               {activeTab==="batting"   && <BattingView  batting={data.batting}   division={selectedDivision} onDrilldown={handleDrilldown}/>}

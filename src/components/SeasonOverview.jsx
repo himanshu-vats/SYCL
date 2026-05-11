@@ -25,6 +25,23 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
   }, [matches]);
 
   const allResults  = results?.matches || [];
+
+  function toYMD(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d)) return dateStr;
+    return d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+  }
+  const resultMap = new Map();
+  allResults.forEach(r => {
+    const key = (r.team1||'').toLowerCase()+'|'+(r.team2||'').toLowerCase()+'|'+toYMD(r.date);
+    resultMap.set(key, r);
+  });
+  function getResult(m) {
+    const key = (m.team1||'').toLowerCase()+'|'+(m.team2||'').toLowerCase()+'|'+toYMD(m.date);
+    return resultMap.get(key) || null;
+  }
+
   const completed   = allResults.length;
   const total       = matches.length;
   const pct         = total > 0 ? Math.round(completed / total * 100) : 0;
@@ -64,7 +81,7 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
 
   // Upcoming (next 6, all divs)
   const upcoming = useMemo(() =>
-    matches.filter(m => { const d=parseD(m.date); return d&&d>=today&&!m.result&&!m.winner; })
+    matches.filter(m => { const d=parseD(m.date); const inResults=getResult(m); return d&&d>=today&&!m.result&&!m.winner&&!inResults; })
       .sort((a,b) => { const da=parseD(a.date),db=parseD(b.date); return da&&db ? da-db : 0; }).slice(0,6),
     [matches]);
 
@@ -209,9 +226,9 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
             <div key={i} className="home-result-row" style={{flexWrap:'wrap',gap:4}}>
               <span className="home-result-div">{m.division}</span>
               <span className="home-result-text">{m.team1} vs {m.team2} · {fmtDate(m.date)}{m.time ? ` ${m.time}` : ''}</span>
-              {(m.result || m.winner) ? (
+              {(m.result || m.winner || getResult(m)) ? (
                 <a
-                  href={'https://cricclubs.com/SYCLYouth/viewScorecard.do?fixtureId=' + (m.id || m.fixtureId || '') + '&clubId=10669'}
+                  href={getResult(m)?.scorecard || ('https://cricclubs.com/SYCLYouth/viewScorecard.do?fixtureId=' + (m.id || m.fixtureId || '') + '&clubId=10669')}
                   target='_blank'
                   rel='noopener noreferrer'
                   style={{fontSize:12, color:'var(--a-500)', whiteSpace:'nowrap', textDecoration:'none', border:'1px solid var(--a-500)', borderRadius:6, padding:'3px 10px'}}

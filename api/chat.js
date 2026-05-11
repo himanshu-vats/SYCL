@@ -84,8 +84,16 @@ module.exports = async function (req, res) {
     const divisionList = Object.keys(data.standings || {}).filter(k => k !== 'updatedAt').join(', ') || 'various divisions';
 
     // ── System prompt ─────────────────────────────────────────────
+    const allMatches = data.matches || [];
+    const allPlayed  = (data.results?.matches || []).length;
+    const seasonDone = allMatches.length > 0 && allPlayed >= allMatches.length;
+    const seasonStatus = seasonDone
+      ? `The ${data.season || 'current'} season is NOW COMPLETE — all matches have been played. There are no upcoming fixtures. Final standings are decided by total points accumulated across all league matches (highest points = best rank). The top-2 teams in each division met in the final round to decide the champion.`
+      : `Season in progress: ${allPlayed}/${allMatches.length} matches played.`;
+
     const SYSTEM = `You are the SYCL Season Insight AI for ${data.leagueName || 'Seattle Youth Cricket League'} — ${data.season || 'current season'}.
 This league has the following divisions: ${divisionList}.
+${seasonStatus}
 
 Answer ONLY questions about this cricket league and cricket improvement. Politely decline anything unrelated.
 Use ONLY the league data provided — never invent or estimate stats. If a stat isn't in the data, say so honestly.
@@ -298,7 +306,7 @@ function buildContext(question, data) {
   }
 
   // Batting leaderboard
-  if (/batting|run|scorer|centur|fift|averag|batsman|boundary|six|four/.test(q)) {
+  if (/batting|run|scorer|centur|fift|averag|batsman|boundary|six|6s\b|6'?s|four|4s\b/.test(q)) {
     lines.push('TOP BATTERS (combined across all divisions):');
     leaderBat.sort((a, b) => (parseInt(b.runs) || 0) - (parseInt(a.runs) || 0)).slice(0, 15)
       .forEach((p, i) => lines.push(`  ${i + 1}. ${p.player} (${p.team}): ${p.runs}R | avg:${p.avg} | SR:${p.sr} | HS:${p.hs} | 50s:${p.fifties ?? 0} | 100s:${p.hundreds ?? 0} | mat:${p.mat}`));
@@ -333,15 +341,23 @@ function buildContext(question, data) {
     const upcoming = (data.matches || [])
       .filter(m => { const d = new Date(m.date); return !isNaN(d) && d >= today && !m.result && !m.winner; })
       .sort((a, b) => new Date(a.date) - new Date(b.date)).slice(0, 6);
-    lines.push('UPCOMING FIXTURES:');
-    upcoming.forEach(m => lines.push(`  [${m.division}] ${m.team1} vs ${m.team2} — ${m.date}${m.time ? ` ${m.time}` : ''}`));
+    if (upcoming.length === 0) {
+      lines.push('SEASON STATUS: The season is complete — all matches have been played. No upcoming fixtures remain.');
+    } else {
+      lines.push('UPCOMING FIXTURES:');
+      upcoming.forEach(m => lines.push(`  [${m.division}] ${m.team1} vs ${m.team2} — ${m.date}${m.time ? ` ${m.time}` : ''}`));
+    }
     return lines.join('\n');
   }
 
   // General overview
   const allResults = data.results?.matches || [];
+  const totalMatches = (data.matches || []).length;
+  const isComplete = totalMatches > 0 && allResults.length >= totalMatches;
   lines.push(`SEASON OVERVIEW — ${data.leagueName} ${data.season}`);
-  lines.push(`Progress: ${allResults.length}/${(data.matches || []).length} matches played`);
+  lines.push(isComplete
+    ? `Season COMPLETE: All ${totalMatches} matches played. Final standings are official.`
+    : `Progress: ${allResults.length}/${totalMatches} matches played`);
   lines.push('');
   lines.push('DIVISION LEADERS:');
   divKeys.forEach(div => {
