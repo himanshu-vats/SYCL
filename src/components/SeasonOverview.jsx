@@ -32,15 +32,13 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
     if (isNaN(d)) return dateStr;
     return d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
   }
-  const resultMap = new Map();
-  allResults.forEach(r => {
-    const key = (r.team1||'').toLowerCase()+'|'+(r.team2||'').toLowerCase()+'|'+toYMD(r.date);
-    resultMap.set(key, r);
-  });
-  function getResult(m) {
-    const key = (m.team1||'').toLowerCase()+'|'+(m.team2||'').toLowerCase()+'|'+toYMD(m.date);
-    return resultMap.get(key) || null;
+  function matchKey(t1, t2, date) {
+    const teams = [t1, t2].map(t => (t||'').toLowerCase().trim()).sort();
+    return teams[0]+'|'+teams[1]+'|'+toYMD(date);
   }
+  const resultMap = new Map();
+  allResults.forEach(r => resultMap.set(matchKey(r.team1, r.team2, r.date), r));
+  function getResult(m) { return resultMap.get(matchKey(m.team1, m.team2, m.date)) || null; }
 
   const completed   = allResults.length;
   const total       = matches.length;
