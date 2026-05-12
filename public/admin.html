@@ -1619,10 +1619,19 @@ function parseScorecard(doc, matchMeta){
       var playerCell=isBat?cells[0]:cells[1];
       if(!playerCell) return;
 
-      // Extract just the player name from <a><b>Name</b></a>; fall back to first text node line.
-      var nameEl=playerCell.querySelector('a b');
-      var player=nameEl ? (nameEl.textContent||'').trim()
-        : (playerCell.textContent||'').trim().split(/[\\n\\r]/)[0].trim();
+      // CricClubs embeds player names inside openVideoHTMLvs() hrefs (not visible text nodes).
+      // Extract name from the first such link in the cell; fall back to <a><b> then textContent.
+      var vidEl=playerCell.querySelector('a[href*="openVideoHTMLvs"]');
+      var player='';
+      if(vidEl){
+        var vh=(vidEl.getAttribute('href')||'').replace(/\\);?\\s*$/,'');
+        var vp=vh.replace(/^javascript:openVideoHTMLvs\\(/,'').split(',');
+        player=(vp[2]||'').replace(/['"]/g,'').trim();
+      }
+      if(!player){
+        var nameEl=playerCell.querySelector('a b');
+        player=nameEl?(nameEl.textContent||'').trim():(playerCell.textContent||'').trim().split(/[\\n\\r]/)[0].trim();
+      }
       player=player
         .replace(/\\s*\\(c\\)/gi,'')
         .replace(/\\s*\\(wk\\)/gi,'')
@@ -1739,7 +1748,7 @@ function parseBallByBall(doc, matchId){
   var bowlerMap={};
   Array.from(doc.querySelectorAll('a[href*="openVideoHTMLvs"]')).forEach(function(a){
     var h=a.getAttribute('href')||'';
-    var parts=h.replace(/^javascript:openVideoHTMLvs\\(/,'').replace(/\\)$/,'').split(',');
+    var parts=h.replace(/^javascript:openVideoHTMLvs\\(/,'').replace(/\\);?\\s*$/,'').split(',');
     if(parts.length>=3){
       var bid=(parts[0]||'').replace(/['"]/g,'').trim();
       var bname=(parts[2]||'').replace(/['"]/g,'').trim();
@@ -1749,7 +1758,7 @@ function parseBallByBall(doc, matchId){
   // Parse updateBall() calls
   Array.from(doc.querySelectorAll('a[href*="updateBall("]')).forEach(function(a){
     var h=a.getAttribute('href')||'';
-    var argsStr=h.replace(/^javascript:updateBall\\(/,'').replace(/\\)$/,'');
+    var argsStr=h.replace(/^javascript:updateBall\\(/,'').replace(/\\);?\\s*$/,'');
     // Split by comma, but respect quoted strings
     var args=[];
     var cur='', inQ=false, qc='';
