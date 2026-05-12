@@ -1764,7 +1764,7 @@ function parseBallByBall(doc, matchId){
     var cur='', inQ=false, qc='';
     for(var ci=0;ci<argsStr.length;ci++){
       var ch=argsStr[ci];
-      if(inQ){cur+=ch;if(ch===qc&&argsStr[ci-1]!=='\\') inQ=false;}
+      if(inQ){cur+=ch;if(ch===qc&&argsStr[ci-1]!=='\\\\') inQ=false;}
       else if(ch==='"'||ch==="'"){inQ=true;qc=ch;cur+=ch;}
       else if(ch===','){args.push(cur.trim());cur='';}
       else cur+=ch;
