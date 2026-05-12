@@ -1447,8 +1447,11 @@ function parseResults(){
       if(sp)scores.push({score:sp.textContent.trim(),overs:p?p.textContent.trim():'',won:li.classList.contains('win')});
     });
     var scA=row.querySelector('a[href*="viewScorecard"]');
+    // Fall back to constructing the URL from matchId — most result rows don't expose
+    // the viewScorecard link explicitly even though the page exists for every match.
+    var scorecardUrl=scA?scA.href:(matchId?'https://www.cricclubs.com/SYCLYouth/viewScorecard.do?matchId='+matchId+'&clubId=10669':'');
     if(team1&&team2&&result){
-      out.push({matchId:matchId,date:dateStr,division:division,team1:team1,team2:team2,result:result,team1Score:scores[0]||null,team2Score:scores[1]||null,scorecard:scA?scA.href:''});
+      out.push({matchId:matchId,date:dateStr,division:division,team1:team1,team2:team2,result:result,team1Score:scores[0]||null,team2Score:scores[1]||null,scorecard:scorecardUrl});
     }
   });
   return out;
