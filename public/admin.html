@@ -1708,7 +1708,8 @@ function parseScorecard(doc, matchMeta){
       if(/^extras/i.test(ft)){
         var xt=''; for(var xi=0;xi<cs.length;xi++){var cx=(cs[xi].textContent||'').trim();if(/b\\s*\\d+/.test(cx)&&/lb\\s*\\d+/.test(cx)){xt=cx;break;}}
         var xm=xt.match(/b\\s*(\\d+).*?lb\\s*(\\d+).*?w\\s*(\\d+).*?nb\\s*(\\d+)/i);
-        var totalExtras=cs[1]?parseInt((cs[1].textContent||'').replace(/[^0-9]/g,''))||0:0;
+        var totalExtras=0;
+        for(var xi=cs.length-1;xi>=1;xi--){var ct2=(cs[xi].textContent||'').trim();if(/^\\d+$/.test(ct2)){totalExtras=parseInt(ct2)||0;break;}}
         if(!totalExtras&&xm) totalExtras=(parseInt(xm[1])||0)+(parseInt(xm[2])||0)+(parseInt(xm[3])||0)+(parseInt(xm[4])||0);
         det.extras=xm?{b:parseInt(xm[1])||0,lb:parseInt(xm[2])||0,w:parseInt(xm[3])||0,nb:parseInt(xm[4])||0,total:totalExtras}:{b:0,lb:0,w:0,nb:0,total:totalExtras};
       }
@@ -1744,64 +1745,95 @@ function parseScorecard(doc, matchMeta){
 }
 
 // ── Parse ball-by-ball data ──
-// Extracts every delivery from updateBall() JS calls embedded in the page.
+// Primary: extract from embedded templistOfVideo JSON (always present).
+// Fallback: parse updateBall() anchor hrefs (admin-only dropdowns, may be absent).
 function parseBallByBall(doc, matchId){
   var balls=[];
-  // Build bowlerId→name map from openVideoHTMLvs links
-  var bowlerMap={};
-  Array.from(doc.querySelectorAll('a[href*="openVideoHTMLvs"]')).forEach(function(a){
-    var h=a.getAttribute('href')||'';
-    var parts=h.replace(/^javascript:openVideoHTMLvs\\(/,'').replace(/\\);?\\s*$/,'').split(',');
-    if(parts.length>=3){
-      var bid=(parts[0]||'').replace(/['"]/g,'').trim();
-      var bname=(parts[2]||'').replace(/['"]/g,'').trim();
-      if(bid&&bname) bowlerMap[bid]=bname;
+  // Primary path: templistOfVideo JSON embedded in <script>
+  var scripts=Array.from(doc.querySelectorAll('script'));
+  for(var si=0;si<scripts.length;si++){
+    var st=scripts[si].textContent||'';
+    var mkr='var templistOfVideo = ';
+    var mi=st.indexOf(mkr);
+    if(mi<0) continue;
+    var as=st.indexOf('[',mi);
+    if(as<0) continue;
+    var depth=0,idx=as;
+    for(;idx<st.length;idx++){
+      if(st[idx]==='[') depth++;
+      else if(st[idx]===']'){depth--;if(depth===0) break;}
     }
-  });
-  // Parse updateBall() calls
-  Array.from(doc.querySelectorAll('a[href*="updateBall("]')).forEach(function(a){
-    var h=a.getAttribute('href')||'';
-    var argsStr=h.replace(/^javascript:updateBall\\(/,'').replace(/\\);?\\s*$/,'');
-    // Split by comma, but respect quoted strings
-    var args=[];
-    var cur='', inQ=false, qc='';
-    for(var ci=0;ci<argsStr.length;ci++){
-      var ch=argsStr[ci];
-      if(inQ){cur+=ch;if(ch===qc&&argsStr[ci-1]!=='\\\\') inQ=false;}
-      else if(ch==='"'||ch==="'"){inQ=true;qc=ch;cur+=ch;}
-      else if(ch===','){args.push(cur.trim());cur='';}
-      else cur+=ch;
-    }
-    args.push(cur.trim());
-    // Clean quotes from each arg
-    args=args.map(function(s){
-      s=s.trim();
-      if((s[0]==='"'&&s[s.length-1]==='"')||(s[0]==="'"&&s[s.length-1]==="'")) s=s.slice(1,-1);
-      return s;
+    try{
+      var data=JSON.parse(st.substring(as,idx+1));
+      data.forEach(function(b){
+        if(b.ballType==='Auto Comment Ball') return;
+        balls.push({
+          ballId:String(b.ballId||''),matchId:matchId,innings:b.inningsNumber||0,
+          over:b.over||0,ball:b.ball||0,
+          strikerId:String(b.batsman||0),strikerName:b.batsmanName||'',
+          nonStrikerId:String(b.runner||0),nonStrikerName:b.runnerName||'',
+          bowlerPlayerId:String(b.bowler||0),bowlerName:b.bowlerName||'',
+          runs:b.runs||0,ballType:b.ballType||'',
+          isFour:b.isFour||false,isSix:b.isSix||false,
+          isWide:b.wide||false,isNoBall:b.noBall||false,
+          wides:b.wideRuns||0,noBalls:b.noBallRuns||0,
+          isDismissal:b.out||false,outMethod:b.outMethod||''
+        });
+      });
+      if(balls.length) break;
+    }catch(e){}
+  }
+  // Fallback: updateBall() anchor hrefs (admin dropdowns)
+  if(!balls.length){
+    var bowlerMap={};
+    Array.from(doc.querySelectorAll('a[href*="openVideoHTMLvs"]')).forEach(function(a){
+      var h=a.getAttribute('href')||'';
+      var parts=h.replace(/^javascript:openVideoHTMLvs\\(/,'').replace(/\\);?\\s*$/,'').split(',');
+      if(parts.length>=3){
+        var bid=(parts[0]||'').replace(/['"]/g,'').trim();
+        var bname=(parts[2]||'').replace(/['"]/g,'').trim();
+        if(bid&&bname) bowlerMap[bid]=bname;
+      }
     });
-    var inn=parseInt(args[1])||0;
-    var overBallEl=a.closest('ul.bbb-row'); if(!overBallEl) overBallEl=a.parentElement;
-    while(overBallEl&&!overBallEl.querySelector('.ov')){overBallEl=overBallEl.previousElementSibling;}
-    var ovSpan=overBallEl?overBallEl.querySelector('.ov'):null;
-    var ovText=ovSpan?(ovSpan.textContent||'').trim():'0.0';
-    var ovParts=ovText.split('.');
-    var over=parseInt(ovParts[0])||0;
-    var ball=parseInt(ovParts[1])||0;
-    var ballType=args[16]||'';
-    balls.push({
-      ballId:args[0]||'', matchId:matchId, innings:inn,
-      over:over, ball:ball,
-      strikerId:args[2]||'', strikerName:args[3]||'',
-      nonStrikerId:args[4]||'', nonStrikerName:args[5]||'',
-      bowlerPlayerId:args[14]||'', bowlerName:bowlerMap[args[14]]||'',
-      runs:parseInt(args[15])||0, ballType:ballType,
-      isFour:args[11]==='true', isSix:args[12]==='true',
-      isWide:ballType==='Wide', isNoBall:ballType==='No Ball',
-      wides:parseInt(args[19])||0, noBalls:parseInt(args[20])||0,
-      isDismissal:args[22]==='1'||args[22]==='true'
+    Array.from(doc.querySelectorAll('a[href*="updateBall("]')).forEach(function(a){
+      var h=a.getAttribute('href')||'';
+      var argsStr=h.replace(/^javascript:updateBall\\(/,'').replace(/\\);?\\s*$/,'');
+      var args=[],cur='',inQ=false,qc='';
+      for(var ci=0;ci<argsStr.length;ci++){
+        var ch=argsStr[ci];
+        if(inQ){cur+=ch;if(ch===qc&&argsStr[ci-1]!=='\\\\') inQ=false;}
+        else if(ch==='"'||ch==="'"){inQ=true;qc=ch;cur+=ch;}
+        else if(ch===','){args.push(cur.trim());cur='';}
+        else cur+=ch;
+      }
+      args.push(cur.trim());
+      args=args.map(function(s){
+        s=s.trim();
+        if((s[0]==='"'&&s[s.length-1]==='"')||(s[0]==="'"&&s[s.length-1]==="'")) s=s.slice(1,-1);
+        return s;
+      });
+      var inn=parseInt(args[1])||0;
+      var overBallEl=a.closest('ul.bbb-row'); if(!overBallEl) overBallEl=a.parentElement;
+      while(overBallEl&&!overBallEl.querySelector('.ov')){overBallEl=overBallEl.previousElementSibling;}
+      var ovSpan=overBallEl?overBallEl.querySelector('.ov'):null;
+      var ovText=ovSpan?(ovSpan.textContent||'').trim():'0.0';
+      var ovParts=ovText.split('.');
+      var over=parseInt(ovParts[0])||0;
+      var ball=parseInt(ovParts[1])||0;
+      var ballType=args[16]||'';
+      balls.push({
+        ballId:args[0]||'',matchId:matchId,innings:inn,over:over,ball:ball,
+        strikerId:args[2]||'',strikerName:args[3]||'',
+        nonStrikerId:args[4]||'',nonStrikerName:args[5]||'',
+        bowlerPlayerId:args[14]||'',bowlerName:bowlerMap[args[14]]||'',
+        runs:parseInt(args[15])||0,ballType:ballType,
+        isFour:args[11]==='true',isSix:args[12]==='true',
+        isWide:ballType==='Wide',isNoBall:ballType==='No Ball',
+        wides:parseInt(args[19])||0,noBalls:parseInt(args[20])||0,
+        isDismissal:args[22]==='1'||args[22]==='true',outMethod:''
+      });
     });
-  });
-  // Sort by innings, over, ball
+  }
   balls.sort(function(a,b){return a.innings-b.innings||a.over-b.over||a.ball-b.ball;});
   return balls;
 }
