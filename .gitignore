@@ -2,3 +2,9 @@
 node_modules/
 dist/
 deepclaude/
+_chat.txt
+*.html.bak
+ball by ball .html
+full scorecard.html
+ballbyball_source.txt
+scorecard_source.txt
