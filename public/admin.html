@@ -1977,14 +1977,24 @@ Promise.all(fetchAll).then(function(fetched){
       if(playerInnings.length) payload.playerInnings=playerInnings;
       if(matchDetails.length)  payload.matchDetails=matchDetails;
       setMsg('Saving '+playerInnings.length+' innings + '+matchDetails.length+' ball-by-ball sets…');
-      return fetch('${origin}/api/sync-all',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','X-Admin-Password':'${password}'},
-        body:JSON.stringify(payload)
-      }).then(function(r){
-        if(!r.ok) return r.text().then(function(t){throw new Error('HTTP '+r.status+': '+t);});
-        return r.json();
-      });
+      // Try embedded password first; if 401, prompt user (handles stale bookmarklets)
+      var pwd='${password}';
+      function doPost(p){
+        return fetch('${origin}/api/sync-all',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','X-Admin-Password':p},
+          body:JSON.stringify(payload)
+        }).then(function(r){
+          if(r.status===401){
+            var newPwd=prompt('Admin password required (bookmarklet may be stale):');
+            if(!newPwd) throw new Error('Cancelled');
+            return doPost(newPwd);
+          }
+          if(!r.ok) return r.text().then(function(t){throw new Error('HTTP '+r.status+': '+t);});
+          return r.json();
+        });
+      }
+      return doPost(pwd);
     });
 }).then(function(resp){
   ov.remove();
