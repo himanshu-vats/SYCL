@@ -1845,20 +1845,37 @@ function fetchScorecardsThrottled(matches, concurrency, onProgress){
     var allInnings=[], allMatchDetails=[], i=0, inFlight=0, done=0, total=matches.length;
     function next(){
       while(inFlight<concurrency && i<total){
-        var m=matches[i++]; inFlight++;
-        var bbbUrl=m.scorecard.replace('viewScorecard.do','ballByBall.do');
-        Promise.all([
-          fetch(m.scorecard,{credentials:'include'}).then(function(r){return r.text();}).then(function(h){return parseScorecard(new DOMParser().parseFromString(h,'text/html'),m);}).catch(function(){return {innings:[],matchDetails:{}};}),
-          fetch(bbbUrl,{credentials:'include'}).then(function(r){return r.text();}).then(function(h){return parseBallByBall(new DOMParser().parseFromString(h,'text/html'),m.matchId);}).catch(function(){return [];})
-        ]).then(function(results){
-          var scData=results[0], bbbData=results[1];
-          allInnings=allInnings.concat(scData.innings||[]);
-          allMatchDetails.push({matchId:m.matchId, balls:bbbData, matchDetails:scData.matchDetails||{}});
-          inFlight--; done++;
-          if(onProgress) onProgress(done,total);
-          if(done===total) resolve({innings:allInnings, matchDetails:allMatchDetails});
-          else next();
-        });
+        // IIFE captures match per-iteration — fixes var closure bug where
+        // all concurrent promises would otherwise share the last assigned m.
+        (function(match){
+          inFlight++;
+          var bbbUrl=match.scorecard.replace('viewScorecard.do','ballByBall.do');
+          console.log('[SYCL] Fetching scorecard+BBB for matchId='+match.matchId+' ('+match.team1+' vs '+match.team2+')');
+          Promise.all([
+            fetch(match.scorecard,{credentials:'include'})
+              .then(function(r){return r.text();})
+              .then(function(h){return parseScorecard(new DOMParser().parseFromString(h,'text/html'),match);})
+              .catch(function(e){console.warn('[SYCL] Scorecard parse failed for '+match.matchId,e);return {innings:[],matchDetails:{}};}),
+            fetch(bbbUrl,{credentials:'include'})
+              .then(function(r){return r.text();})
+              .then(function(h){return parseBallByBall(new DOMParser().parseFromString(h,'text/html'),match.matchId);})
+              .catch(function(e){console.warn('[SYCL] Ball-by-ball parse failed for '+match.matchId,e);return [];})
+          ]).then(function(res){
+            var scData=res[0], bbbData=res[1];
+            console.log('[SYCL] matchId='+match.matchId+' → innings:'+(scData.innings||[]).length+' balls:'+(bbbData||[]).length);
+            allInnings=allInnings.concat(scData.innings||[]);
+            allMatchDetails.push({matchId:match.matchId, balls:bbbData||[], matchDetails:scData.matchDetails||{}});
+            inFlight--; done++;
+            if(onProgress) onProgress(done,total);
+            if(done===total) resolve({innings:allInnings, matchDetails:allMatchDetails});
+            else next();
+          }).catch(function(e){
+            console.error('[SYCL] Unexpected error for matchId='+match.matchId,e);
+            inFlight--; done++;
+            if(done===total) resolve({innings:allInnings, matchDetails:allMatchDetails});
+            else next();
+          });
+        })(matches[i++]);
       }
     }
     next();
@@ -1868,6 +1885,7 @@ function fetchScorecardsThrottled(matches, concurrency, onProgress){
 // ── Main ──────────────────────────────────────────────────────
 var results=parseResults();
 var divOptions=getDivisionOptions();
+console.log('[SYCL] parseResults:',results.length,'results | divOptions:',divOptions.length,'divisions');
 
 if(!results.length&&!divOptions.length){
   alert('No match results or division links found.\\nMake sure you are on the CricClubs Match Results page (listMatches.do).');return;
@@ -1934,9 +1952,10 @@ Promise.all(fetchAll).then(function(fetched){
   // 2) Find matches with a scorecard URL that aren't synced yet.
   // 3) Fetch and parse only those (typically 0-10 per sync after first).
   setMsg('Checking for new scorecards…');
+  console.log('[SYCL] League slug:',payload.league,'| Checking synced matches…');
   return fetch('${origin}/api/synced-matches?league='+encodeURIComponent(payload.league),{credentials:'omit'})
     .then(function(r){return r.ok?r.json():{matchIds:[]};})
-    .catch(function(){return {matchIds:[]};})
+    .catch(function(e){console.warn('[SYCL] synced-matches check failed',e);return {matchIds:[]};})
     .then(function(syncedData){
       var syncedSet={};
       (syncedData.matchIds||[]).forEach(function(id){syncedSet[String(id)]=true;});
@@ -1944,25 +1963,39 @@ Promise.all(fetchAll).then(function(fetched){
         return m.scorecard && m.matchId && !syncedSet[String(m.matchId)];
       });
       var alreadyHave=results.length-newMatches.length;
+      console.log('[SYCL] New matches to scrape:',newMatches.length,'| Already synced:',alreadyHave);
       setMsg('Found '+newMatches.length+' new match'+(newMatches.length===1?'':'es')+' to scrape (already have '+alreadyHave+')');
-      if(newMatches.length===0) return [];
-      return fetchScorecardsThrottled(newMatches,6,function(done,total){
-        setMsg('Scraping scorecards… '+done+'/'+total);
+      if(newMatches.length===0) return {innings:[],matchDetails:[]};
+      return fetchScorecardsThrottled(newMatches,3,function(done,total){
+        setMsg('Scraping scorecards + ball-by-ball… '+done+'/'+total);
       });
     })
     .then(function(result){
-      var playerInnings=result.innings||result||[];
+      var playerInnings=result.innings||[];
       var matchDetails=result.matchDetails||[];
+      console.log('[SYCL] Scraped innings:',playerInnings.length,'| matchDetails sets:',matchDetails.length);
       if(playerInnings.length) payload.playerInnings=playerInnings;
       if(matchDetails.length)  payload.matchDetails=matchDetails;
-      setMsg('Saving '+(playerInnings.length)+' new innings + '+matchDetails.length+' ball-by-ball sets to dashboard…');
-      return fetch('${origin}/api/sync-all',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Password':'${password}'},body:JSON.stringify(payload)}).then(function(r){return r.json();});
+      setMsg('Saving '+playerInnings.length+' innings + '+matchDetails.length+' ball-by-ball sets…');
+      return fetch('${origin}/api/sync-all',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Admin-Password':'${password}'},
+        body:JSON.stringify(payload)
+      }).then(function(r){
+        if(!r.ok) return r.text().then(function(t){throw new Error('HTTP '+r.status+': '+t);});
+        return r.json();
+      });
     });
 }).then(function(resp){
   ov.remove();
   if(!resp)return;
+  console.log('[SYCL] Sync complete:',resp);
   alert(resp.error?('Error: '+resp.error):resp.message);
-}).catch(function(e){ov.remove();alert('Error: '+e.message);});
+}).catch(function(e){
+  ov.remove();
+  console.error('[SYCL] Sync failed:',e);
+  alert('Sync error: '+e.message+'\\n\\nOpen DevTools console (F12) for details.');
+});
 })();`;
 
   document.getElementById('syncAllBookmarkletLink').href = 'javascript:' + encodeURIComponent(code);
