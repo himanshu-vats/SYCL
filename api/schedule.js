@@ -28,10 +28,12 @@ module.exports = async function(req, res) {
     }
 
     const data = parentSnap.data();
-    if (!data.matches?.length) {
+    // Allow leagues with results but no fixtures (e.g. no schedule page on CricClubs)
+    if (!data.matches?.length && !data.results?.matches?.length) {
       res.status(404).json({ error: 'No matches' });
       return;
     }
+    if (!data.matches) data.matches = [];
 
     // Flatten innings from all per-match subcollection docs into a single
     // playerInnings array — keeps the frontend contract identical to the
