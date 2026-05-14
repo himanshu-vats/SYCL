@@ -35,7 +35,8 @@ module.exports = async function (req, res) {
 
   if (!league || !question?.trim()) return res.status(400).json({ error: 'league and question required' });
   if (!sessionInfo) return res.status(400).json({ error: 'Session info required' });
-  if (!sessionInfo.name) sessionInfo.name = 'Cricket Fan';
+  // Allow anonymous access — use sessionId tail as unique anonymous identifier
+  if (!sessionInfo.name) sessionInfo.name = 'Fan#' + (sessionId || '').slice(-4);
   if (question.length > MAX_Q_LEN)  return res.status(400).json({ error: 'Question too long (max 300 chars)' });
 
   const isUnlimited = sessionInfo.accessCode?.trim() === ADMIN_CODE;
