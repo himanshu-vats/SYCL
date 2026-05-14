@@ -8,10 +8,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': {
-        target: 'https://sycl-blue.vercel.app',
-        changeOrigin: true,
-      },
+      '/api': 'http://localhost:3001',
     },
   },
 });

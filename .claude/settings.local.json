@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude --version)",
+      "Bash(vercel --version)",
+      "Read(//Users/himanshuvats/**)",
+      "Bash(curl -s \"https://api.github.com/search/repositories?q=deepclaude+claude+deepseek&sort=stars&order=desc\")",
+      "WebFetch(domain:www.anthropic.com)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:5173/api/leagues)",
+      "Bash(curl -s http://localhost:3000/api/leagues)",
+      "Bash(npm install *)",
+      "Bash(curl -s https://sycl-bkdlx7tbc-himanshu-vats-projects-d1bf0645.vercel.app/api/leagues)",
+      "Bash(node -e ' *)",
+      "Bash(python3 -c ' *)"
+    ]
+  }
+}
