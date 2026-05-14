@@ -12,7 +12,11 @@
       "Bash(npm install *)",
       "Bash(curl -s https://sycl-bkdlx7tbc-himanshu-vats-projects-d1bf0645.vercel.app/api/leagues)",
       "Bash(node -e ' *)",
-      "Bash(python3 -c ' *)"
+      "Bash(python3 -c ' *)",
+      "Bash(grep -v \"^507:\\\\|^536:\\\\|detectedClubId\\\\|CRICCLUBS\\\\|fixtureId\\\\|\\\\${\")",
+      "Bash(grep -n \"^}\\\\s*$\\\\|^}\\)\\(\\);\\\\|^}\\\\s*//\" /Users/himanshuvats/Documents/code/SYCL/SYCL/public/admin.html)",
+      "Bash(firebase projects:list)",
+      "Bash(sudo npm install -g firebase-tools)"
     ]
   }
 }
