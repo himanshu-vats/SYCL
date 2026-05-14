@@ -131,10 +131,11 @@ export default function SYCLDashboard() {
     fetch(url)
       .then(r => r.ok ? r.json() : null)
       .then(d => {
-        if (d?.matches?.length) {
-          const divisions = [...new Set(d.matches.map(m => m.division))];
+        if (d && (d.matches?.length || d.results?.matches?.length)) {
+          const allMatches = d.matches?.length ? d.matches : (d.results?.matches || []);
+          const divisions = [...new Set(allMatches.map(m => m.division).filter(Boolean))];
           setData(prev => {
-            const next = { matches: d.matches, divisions, standings: d.standings || {}, batting: d.batting || null, bowling: d.bowling || null, rankings: d.rankings || null, results: d.results || null, playerInnings: Array.isArray(d.playerInnings) ? d.playerInnings : [], leagueName: d.leagueName, season: d.season };
+            const next = { matches: d.matches || [], divisions, standings: d.standings || {}, batting: d.batting || null, bowling: d.bowling || null, rankings: d.rankings || null, results: d.results || null, playerInnings: Array.isArray(d.playerInnings) ? d.playerInnings : [], leagueName: d.leagueName, season: d.season };
             if (!prev) setSelectedDivision('combined');
             return next;
           });
@@ -276,7 +277,7 @@ export default function SYCLDashboard() {
                 : <div style={{textAlign:"center",padding:'64px 16px'}}>
                     <div style={{fontSize:40,marginBottom:14}}>🏏</div>
                     <div style={{fontSize:16,fontWeight:700,color:"var(--text-secondary)",marginBottom:6}}>No schedule data yet</div>
-                    <button className="small-btn" style={{marginTop:16}} onClick={() => loadData(true)}>Try again</button>
+                    <button className="small-btn" style={{marginTop:16}} onClick={() => loadData(true, slug)}>Try again</button>
                   </div>
               }
             </div>

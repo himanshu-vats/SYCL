@@ -1479,13 +1479,37 @@ function getDivisionOptions(){
     // Divisions dropdown found — use it (SYCL-style multi-division league)
     links=Array.from(divMenu.querySelectorAll('a[href*="league="]'));
   } else if(currentLeagueId){
-    // No divisions dropdown — this is a single-series league (USA Cricket style)
-    // Just use the current series as the one "division"
-    var seriesSel=Array.from(document.querySelectorAll('select')).find(function(s){
-      return s.options[s.selectedIndex]&&s.value&&/\\d+/.test(s.value);
+    // No divisions dropdown — single-series league (USA Cricket style)
+    // Read division name from match result rows on page (e.g. "USAC 2026 - Seattle HUB - Phase1 - U15")
+    // Extract age group (U11/U13/U15/U17/U19) from the series title shown in result rows
+    var divNameFromRow='';
+    var matchRows=document.querySelectorAll('.row.team-data .match-data-row, .panel-body .col-md-6, [class*="match"] h4, [class*="match"] h5');
+    matchRows.forEach(function(el){
+      if(divNameFromRow)return;
+      var txt=el.textContent.trim();
+      var ageMatch=txt.match(/\\bU\\d{2}\\b/i);
+      if(ageMatch)divNameFromRow=ageMatch[0].toUpperCase();
     });
-    var seriesName=seriesSel?seriesSel.options[seriesSel.selectedIndex].text.trim():'Division 1';
-    return [{name:seriesName,leagueId:currentLeagueId}];
+    // Also try reading from the page heading or selected series text
+    if(!divNameFromRow){
+      var heading=document.querySelector('h2,h3,.panel-title');
+      if(heading){
+        var ageMatch2=heading.textContent.match(/\\bU\\d{2}\\b/i);
+        if(ageMatch2)divNameFromRow=ageMatch2[0].toUpperCase();
+      }
+    }
+    // Also try the series select option text
+    if(!divNameFromRow){
+      var seriesSel=Array.from(document.querySelectorAll('select')).find(function(s){
+        return s.options[s.selectedIndex]&&s.value&&/\\d+/.test(s.value);
+      });
+      if(seriesSel){
+        var ageMatch3=seriesSel.options[seriesSel.selectedIndex].text.match(/\\bU\\d{2}\\b/i);
+        if(ageMatch3)divNameFromRow=ageMatch3[0].toUpperCase();
+      }
+    }
+    var divName=divNameFromRow||currentLeagueId;
+    return [{name:divName,leagueId:currentLeagueId}];
   }
 
   links.forEach(function(a){

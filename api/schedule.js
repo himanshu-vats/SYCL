@@ -45,6 +45,24 @@ module.exports = async function(req, res) {
     });
     data.playerInnings = playerInnings;
 
+    // Normalize division names — if batting/bowling/standings only have "Division 1"
+    // but results have a real division name, remap to match results
+    const resultDivisions = [...new Set((data.results?.matches || []).map(m => m.division).filter(Boolean))];
+    if (resultDivisions.length === 1 && resultDivisions[0] !== 'Division 1') {
+      const realDiv = resultDivisions[0];
+      const remap = (obj) => {
+        if (!obj || !obj['Division 1']) return obj;
+        const out = { ...obj };
+        out[realDiv] = out['Division 1'];
+        delete out['Division 1'];
+        return out;
+      };
+      if (data.batting) data.batting = remap(data.batting);
+      if (data.bowling) data.bowling = remap(data.bowling);
+      if (data.standings) data.standings = remap(data.standings);
+      if (data.rankings) data.rankings = remap(data.rankings);
+    }
+
     res.json(data);
   } catch (e) {
     console.error('schedule error:', e);
