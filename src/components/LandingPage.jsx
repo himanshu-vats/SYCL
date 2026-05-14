@@ -30,7 +30,7 @@ function SeasonCard({ league }) {
     ? Math.round((league.completedCount || 0) / league.matchCount * 100)
     : null;
 
-  const state = completion === 100 ? 'concluded'
+  const state = completion !== null && completion >= 98 ? 'concluded'
     : (league.completedCount || 0) > 0 ? 'active'
     : 'upcoming';
 
@@ -162,7 +162,7 @@ function LeaguePanel({ leagueName, seasons, onBack }) {
   const filtered = seasons.filter(l => {
     if (filter === 'all') return true;
     const pct = l.matchCount ? Math.round((l.completedCount || 0) / l.matchCount * 100) : null;
-    const state = pct === 100 ? 'concluded' : (l.completedCount || 0) > 0 ? 'active' : 'upcoming';
+    const state = pct !== null && pct >= 98 ? 'concluded' : (l.completedCount || 0) > 0 ? 'active' : 'upcoming';
     return state === filter;
   });
 
