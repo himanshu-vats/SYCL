@@ -246,6 +246,7 @@ export default function LandingPage() {
   const [activeTab, setActiveTab] = useState('all');
   const [searchQ, setSearchQ] = useState('');
   const [theme, setTheme] = useTheme();
+  const [pendingAiQ, setPendingAiQ] = useState(null); // question waiting for season pick
   const searchRef = useRef(null);
 
   useEffect(() => {
@@ -383,27 +384,56 @@ export default function LandingPage() {
 
           {/* AI Question Teaser — shows when at least one league is loaded */}
           {!loading && leagueList.length > 0 && (
-            <AiQuestionTeaser
-              onAsk={(q) => {
-                // Navigate to most recently updated active season + open chat
-                const activeSeasons = leagueList.filter(l => {
-                  const pct = l.matchCount ? Math.round((l.completedCount||0)/l.matchCount*100) : null;
-                  return pct !== null && pct < 98;
-                });
-                const target = activeSeasons.length > 0 ? activeSeasons[0] : leagueList[0];
-                if (q) {
-                  window.location.href = `/${target.slug}#tab=chat&q=${encodeURIComponent(q)}`;
-                } else {
-                  window.location.href = `/${target.slug}#tab=chat`;
-                }
-              }}
-              questions={[
-                'Who are the top run scorers this season?',
-                'Which team is on the longest winning streak?',
-                'What matches are coming up next?',
-                'Who takes the most wickets across all divisions?',
-              ]}
-            />
+            <>
+              {pendingAiQ === null ? (
+                <AiQuestionTeaser
+                  onAsk={(q) => {
+                    if (!q) {
+                      // "ask your own" with no league context — pick most recent active
+                      const target = leagueList.find(l => {
+                        const pct = l.matchCount ? Math.round((l.completedCount||0)/l.matchCount*100) : null;
+                        return pct !== null && pct < 98;
+                      }) || leagueList[0];
+                      window.location.href = `/${target.slug}#tab=chat`;
+                      return;
+                    }
+                    if (leagueList.length === 1) {
+                      window.location.href = `/${leagueList[0].slug}#tab=chat&q=${encodeURIComponent(q)}`;
+                      return;
+                    }
+                    setPendingAiQ(q);
+                  }}
+                  questions={[
+                    'Who are the top run scorers this season?',
+                    'Which team is on the longest winning streak?',
+                    'What matches are coming up next?',
+                    'Who takes the most wickets across all divisions?',
+                  ]}
+                />
+              ) : (
+                <div className="aqt-wrap">
+                  <div className="aqt-header">
+                    <span className="aqt-icon">✦</span>
+                    <span className="aqt-label">Which season are you asking about?</span>
+                  </div>
+                  <p className="aqt-context-q">"{pendingAiQ}"</p>
+                  <div className="aqt-chips">
+                    {leagueList.slice(0, 6).map(l => (
+                      <button
+                        key={l.slug}
+                        className="aqt-chip"
+                        onClick={() => {
+                          window.location.href = `/${l.slug}#tab=chat&q=${encodeURIComponent(pendingAiQ)}`;
+                        }}
+                      >
+                        {l.name} · {l.season}
+                      </button>
+                    ))}
+                  </div>
+                  <button className="aqt-open-link" onClick={() => setPendingAiQ(null)}>← Back</button>
+                </div>
+              )}
+            </>
           )}
 
           {loading ? (
