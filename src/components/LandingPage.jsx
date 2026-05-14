@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import AiQuestionTeaser from './AiQuestionTeaser.jsx';
 
 const ARROW_SVG = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:11,height:11}}>
@@ -379,6 +380,31 @@ export default function LandingPage() {
               </div>
             )}
           </section>
+
+          {/* AI Question Teaser — shows when at least one league is loaded */}
+          {!loading && leagueList.length > 0 && (
+            <AiQuestionTeaser
+              onAsk={(q) => {
+                // Navigate to most recently updated active season + open chat
+                const activeSeasons = leagueList.filter(l => {
+                  const pct = l.matchCount ? Math.round((l.completedCount||0)/l.matchCount*100) : null;
+                  return pct !== null && pct < 98;
+                });
+                const target = activeSeasons.length > 0 ? activeSeasons[0] : leagueList[0];
+                if (q) {
+                  window.location.href = `/${target.slug}#tab=chat&q=${encodeURIComponent(q)}`;
+                } else {
+                  window.location.href = `/${target.slug}#tab=chat`;
+                }
+              }}
+              questions={[
+                'Who are the top run scorers this season?',
+                'Which team is on the longest winning streak?',
+                'What matches are coming up next?',
+                'Who takes the most wickets across all divisions?',
+              ]}
+            />
+          )}
 
           {loading ? (
             <div className="cs-loading">Loading seasons…</div>

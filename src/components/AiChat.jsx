@@ -32,7 +32,7 @@ function saveSession(slug, data) {
   } catch {}
 }
 
-export default function AiChat({ slug }) {
+export default function AiChat({ slug, pendingQuestion, onPendingConsumed }) {
   const [saved] = useState(() => loadSession(slug));
 
   const [phase,        setPhase]        = useState(() => saved ? 'chat' : 'intro');
@@ -55,6 +55,66 @@ export default function AiChat({ slug }) {
 
   useEffect(() => {
     if (phase === 'chat') setTimeout(() => inputRef.current?.focus(), 100);
+  }, [phase]);
+
+  // Read question from URL hash on first mount (from landing page teaser)
+  useEffect(() => {
+    try {
+      const hash = window.location.hash.replace(/^#/, '');
+      const params = {};
+      hash.split('&').forEach(p => { const [k,v]=p.split('='); if(k&&v) params[k]=decodeURIComponent(v); });
+      if (params.q && params.q.trim()) {
+        // Clear the q param from URL so refresh doesn't re-trigger
+        history.replaceState(null, '', window.location.pathname + '#tab=chat');
+        // Fire after a short delay so component is fully mounted
+        setTimeout(() => {
+          const defaultName = name.trim() || 'Cricket Fan';
+          if (!name.trim()) setName(defaultName);
+          if (phase !== 'chat') {
+            setMessages([{ role:'ai', content:`Hi ${defaultName}! 🏏 I'm your CricSeason AI assistant. Ask me anything about the season!` }]);
+            setPhase('chat');
+            setTimeout(() => send(params.q), 200);
+          } else {
+            send(params.q);
+          }
+        }, 100);
+      }
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-submit pending question from teaser chips
+  useEffect(() => {
+    if (pendingQuestion === null) return;
+    if (phase !== 'chat') {
+      // Not in chat yet — start chat with a default name then submit
+      const defaultName = name.trim() || 'Cricket Fan';
+      if (!name.trim()) setName(defaultName);
+      const welcome = {
+        role: 'ai',
+        content: `Hi ${defaultName}! 🏏 I'm your CricSeason AI assistant. Ask me anything about the season — player stats, standings, upcoming matches, or how to improve your game!`,
+      };
+      setMessages([welcome]);
+      setPhase('chat');
+      // question will be submitted after phase change via the next effect firing
+    } else if (pendingQuestion !== '') {
+      send(pendingQuestion);
+      onPendingConsumed?.();
+    } else {
+      // empty string = just open chat, focus input
+      setTimeout(() => inputRef.current?.focus(), 150);
+      onPendingConsumed?.();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingQuestion]);
+
+  // After phase switches to chat, fire any pending question
+  useEffect(() => {
+    if (phase === 'chat' && pendingQuestion && pendingQuestion !== '') {
+      send(pendingQuestion);
+      onPendingConsumed?.();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
   // Persist conversation to localStorage whenever messages change

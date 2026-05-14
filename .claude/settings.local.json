@@ -20,7 +20,21 @@
       "Bash(curl -s \"https://cricseason.info/api/leagues\")",
       "Bash(python3 -m json.tool)",
       "Bash(curl -s \"https://cricseason.info/api/schedule?league=SYCL-Spring-2026\")",
-      "Bash(curl -s \"http://localhost:5173/api/schedule?league=USA-SeattleHub-U15-2026\")"
+      "Bash(curl -s \"http://localhost:5173/api/schedule?league=USA-SeattleHub-U15-2026\")",
+      "WebFetch(domain:www.accenture.com)",
+      "WebFetch(domain:uxdesign.cc)",
+      "WebFetch(domain:www.lazarev.agency)",
+      "WebFetch(domain:artium.ai)",
+      "WebFetch(domain:productled.com)",
+      "WebFetch(domain:www.espncricinfo.com)",
+      "WebFetch(domain:www.growthmates.news)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:www.aiuxplayground.com)",
+      "WebFetch(domain:mttmr.com)",
+      "WebFetch(domain:www.saasui.design)",
+      "WebFetch(domain:uxpatterns.dev)",
+      "WebFetch(domain:bricxlabs.com)",
+      "WebFetch(domain:www.cricvision.ai)"
     ]
   }
 }
