@@ -58,30 +58,6 @@ export default function AiChat({ slug, pendingQuestion, onPendingConsumed }) {
     if (phase === 'chat') setTimeout(() => inputRef.current?.focus(), 100);
   }, [phase]);
 
-  // Read question from URL hash on first mount (from landing page teaser)
-  useEffect(() => {
-    try {
-      const hash = window.location.hash.replace(/^#/, '');
-      const params = {};
-      hash.split('&').forEach(p => { const [k,v]=p.split('='); if(k&&v) params[k]=decodeURIComponent(v); });
-      if (params.q && params.q.trim()) {
-        history.replaceState(null, '', window.location.pathname + '#tab=chat');
-        setTimeout(() => {
-          const defaultName = name.trim() || 'Cricket Fan';
-          if (!name.trim()) setName(defaultName);
-          if (phase !== 'chat') {
-            setMessages([{ role:'ai', content:`Hi ${defaultName}! 🏏 I'm your CricSeason AI assistant. Ask me anything about the season!` }]);
-            setPhase('chat');
-            setTimeout(() => send(params.q), 200);
-          } else {
-            send(params.q);
-          }
-        }, 100);
-      }
-    } catch {}
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Auto-submit pending question from teaser chips (fires once via ref guard)
   useEffect(() => {
     if (pendingQuestion === null) return;

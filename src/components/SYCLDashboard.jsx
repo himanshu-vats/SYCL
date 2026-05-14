@@ -44,14 +44,29 @@ export default function SYCLDashboard() {
   });
   const [data, setData] = useState(null);
   const [selectedDivision, setSelectedDivision] = useState(() => getHashParams().division || null);
-  const [activeTab, setActiveTab] = useState(() => getHashParams().tab || "overview");
+  const [activeTab, setActiveTab] = useState(() => {
+    const p = getHashParams();
+    // If there's a q param, we're going to chat — even if hash gets cleared before tab is read
+    if (p.q && p.q.trim()) return 'chat';
+    return p.tab || 'overview';
+  });
   const [theme, setTheme] = useState(() => {
     try { return localStorage.getItem('cs_theme') || 'dark'; } catch { return 'dark'; }
   });
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(null);
   const [drilldown, setDrilldown] = useState(null);
-  const [pendingQuestion, setPendingQuestion] = useState(null);
+  const [pendingQuestion, setPendingQuestion] = useState(() => {
+    // Read ?q= from URL hash on first load (from landing page AI chip)
+    try {
+      const p = getHashParams();
+      if (p.q && p.q.trim()) {
+        history.replaceState(null, '', window.location.pathname + '#tab=chat');
+        return p.q.trim();
+      }
+    } catch {}
+    return null;
+  });
   const [matchPage, setMatchPage] = useState(() => {
     try {
       const h = window.location.hash;
