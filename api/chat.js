@@ -301,8 +301,8 @@ function buildContext(question, data) {
     return lines.join('\n');
   }
 
-  // Results
-  if (/result|match|game|played|won|lost|last week|recent|score/.test(q)) {
+  // Results (exclude "scorer/scorers" which belongs to batting)
+  if (/result|match|game|played|won|lost|last week|recent|\bscore\b/.test(q) && !/scorer/.test(q)) {
     const results = (data.results?.matches || []).slice(-8);
     lines.push('RECENT RESULTS:');
     results.forEach(r => lines.push(`  [${r.division}] ${r.result || `${r.team1} vs ${r.team2}`}`));
