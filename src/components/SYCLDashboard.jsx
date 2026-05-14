@@ -51,6 +51,7 @@ export default function SYCLDashboard() {
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(null);
   const [drilldown, setDrilldown] = useState(null);
+  const [pendingQuestion, setPendingQuestion] = useState(null);
   const [matchPage, setMatchPage] = useState(() => {
     try {
       const h = window.location.hash;
@@ -187,6 +188,11 @@ export default function SYCLDashboard() {
     setActiveTab(tab === 'overview' ? 'overview' : tab);
   }, []);
 
+  const handleAskQuestion = useCallback((question) => {
+    setPendingQuestion(question || '');
+    setActiveTab('chat');
+  }, []);
+
   if (!slug) return (
     <NavBar slug={null} />
   );
@@ -267,7 +273,7 @@ export default function SYCLDashboard() {
 
         <main className="app-main">
           {activeTab === 'chat' ? (
-            <AiChat slug={slug} />
+            <AiChat slug={slug} pendingQuestion={pendingQuestion} onPendingConsumed={() => setPendingQuestion(null)} />
           ) : activeTab === 'feedback' ? (
             <FeedbackPage slug={slug} />
           ) : !data ? (
@@ -303,7 +309,7 @@ export default function SYCLDashboard() {
               )}
 
               {activeTab==="overview" && selectedDivision && selectedDivision !== 'combined' && <DivisionOverview data={data} division={selectedDivision} onTabClick={handleTabClick} onDrilldown={handleDrilldown} onAllDivisions={() => setSelectedDivision('combined')} />}
-              {activeTab==="overview" && (!selectedDivision || selectedDivision === 'combined') && <SeasonOverview  data={data} lastRefresh={lastRefresh} onDrilldown={handleDrilldown} onGoToDivision={handleGoToDivision} />}
+              {activeTab==="overview" && (!selectedDivision || selectedDivision === 'combined') && <SeasonOverview  data={data} lastRefresh={lastRefresh} onDrilldown={handleDrilldown} onGoToDivision={handleGoToDivision} onAskQuestion={handleAskQuestion} />}
               {selectedDivision && activeTab==="schedule"  && <ScheduleView  matches={data.matches} results={data.results} division={selectedDivision} onDrilldown={handleDrilldown}/>}
               {selectedDivision && activeTab==="standings" && <StandingsView matches={data.matches} division={selectedDivision} standings={data.standings} results={data.results} onDrilldown={handleDrilldown}/>}
               {activeTab==="results"   && <ResultsView  results={data.results}   division={selectedDivision} onDrilldown={handleDrilldown}/>}

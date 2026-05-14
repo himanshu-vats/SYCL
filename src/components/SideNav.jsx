@@ -1,4 +1,5 @@
-import { Home, Calendar, Trophy, BarChart2, Activity, Wind, Star, Bot, MessageSquare, Send } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Home, Calendar, Trophy, BarChart2, Activity, Wind, Star, Bot, Send } from 'lucide-react';
 
 const TABS = [
   ["overview",  Home,      "Home"],
@@ -13,6 +14,16 @@ const TABS = [
 
 export default function SideNav({ activeTab, onTabClick }) {
   const isActive = (key) => activeTab === key;
+  const [chatVisited, setChatVisited] = useState(() => {
+    try { return !!localStorage.getItem('cs_chat_visited'); } catch { return false; }
+  });
+
+  useEffect(() => {
+    if (activeTab === 'chat' && !chatVisited) {
+      setChatVisited(true);
+      try { localStorage.setItem('cs_chat_visited', '1'); } catch {}
+    }
+  }, [activeTab, chatVisited]);
 
   return (
     <nav className="side-nav">
@@ -25,6 +36,9 @@ export default function SideNav({ activeTab, onTabClick }) {
             >
               <Icon size={15} strokeWidth={1.8} className="side-nav-icon" />
               <span className="side-nav-label">{label}</span>
+              {key === 'chat' && !chatVisited && !isActive(key) && (
+                <span className="side-nav-pulse" />
+              )}
             </button>
           </li>
         ))}

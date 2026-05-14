@@ -2,10 +2,11 @@ import { useMemo } from 'react';
 import { aggregateBatting, aggregateBowling } from '../utils/aggregation.js';
 import AiSummaryBlock from './AiSummaryBlock.jsx';
 import AiScoutReport from './AiScoutReport.jsx';
+import AiQuestionTeaser from './AiQuestionTeaser.jsx';
 
 const DIV_ORDER = ["U11A","U11B","U13A","U13B","U15A","U15B","Emerging Stars"];
 
-export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToDivision }) {
+export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToDivision, onAskQuestion }) {
   const { matches = [], results, batting, bowling, rankings, standings } = data;
   const today = new Date(); today.setHours(0,0,0,0);
   const parseD = s => { if (!s) return null; const d = new Date(s); return isNaN(d) ? null : d; };
@@ -112,6 +113,19 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
 
       {/* ── Multi-Season Insights ── */}
       <AiScoutReport type="season-insights" summaryKey="cross-season" shareUrl={`${window.location.origin}/${window.location.pathname.split('/').filter(Boolean)[0] || ''}`} />
+
+      {/* ── AI Question Teaser ── */}
+      {onAskQuestion && (
+        <AiQuestionTeaser
+          onAsk={onAskQuestion}
+          questions={[
+            topBatter ? `How is ${topBatter.player || topBatter.Player} performing this season?` : 'Who leads the batting charts?',
+            'Which division has the tightest standings?',
+            upcoming.length > 0 ? 'What matches are coming up this weekend?' : 'Who improved the most this season?',
+            topBowler ? `Tell me about ${topBowler.player || topBowler.Player}'s bowling this season` : 'Who are the best bowlers this season?',
+          ]}
+        />
+      )}
 
       {/* ── Season Hero ── */}
       <div className="season-hero">

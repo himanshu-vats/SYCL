@@ -32,7 +32,7 @@ function saveSession(slug, data) {
   } catch {}
 }
 
-export default function AiChat({ slug }) {
+export default function AiChat({ slug, pendingQuestion, onPendingConsumed }) {
   const [saved] = useState(() => loadSession(slug));
 
   const [phase,        setPhase]        = useState(() => saved ? 'chat' : 'intro');
@@ -105,6 +105,7 @@ export default function AiChat({ slug }) {
   }, [pendingQuestion]);
 
   useEffect(() => { pendingFiredRef.current = false; }, [pendingQuestion]);
+
   // Persist conversation to localStorage whenever messages change
   useEffect(() => {
     if (phase !== 'chat' || !name) return;
