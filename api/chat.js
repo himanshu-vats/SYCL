@@ -34,7 +34,8 @@ module.exports = async function (req, res) {
   const { league, question, sessionId, sessionInfo = {}, history = [] } = req.body || {};
 
   if (!league || !question?.trim()) return res.status(400).json({ error: 'league and question required' });
-  if (!sessionInfo?.name)           return res.status(400).json({ error: 'Session info required' });
+  if (!sessionInfo) return res.status(400).json({ error: 'Session info required' });
+  if (!sessionInfo.name) sessionInfo.name = 'Cricket Fan';
   if (question.length > MAX_Q_LEN)  return res.status(400).json({ error: 'Question too long (max 300 chars)' });
 
   const isUnlimited = sessionInfo.accessCode?.trim() === ADMIN_CODE;
