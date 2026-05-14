@@ -17,6 +17,7 @@ import MatchPreviewPanel from './MatchPreviewPanel.jsx';
 import SideNav from './SideNav.jsx';
 import AiChat from './AiChat.jsx';
 import FeedbackPage from './FeedbackPage.jsx';
+import DashboardSkeleton from './DashboardSkeleton.jsx';
 
 function getHashParams() {
   try {
@@ -32,11 +33,20 @@ function getHashParams() {
 }
 
 export default function SYCLDashboard() {
+  const [prefetch] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem('cs_prefetch');
+      if (!raw) return null;
+      const p = JSON.parse(raw);
+      sessionStorage.removeItem('cs_prefetch');
+      return p;
+    } catch { return null; }
+  });
   const [data, setData] = useState(null);
   const [selectedDivision, setSelectedDivision] = useState(() => getHashParams().division || null);
   const [activeTab, setActiveTab] = useState(() => getHashParams().tab || "overview");
   const [theme, setTheme] = useState(() => {
-    try { return localStorage.getItem('sycl_theme') || 'light'; } catch { return 'light'; }
+    try { return localStorage.getItem('cs_theme') || 'dark'; } catch { return 'dark'; }
   });
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(null);
@@ -97,7 +107,7 @@ export default function SYCLDashboard() {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    try { localStorage.setItem('sycl_theme', theme); } catch {}
+    try { localStorage.setItem('cs_theme', theme); } catch {}
   }, [theme]);
 
   // Sync selectedDivision + activeTab to URL hash (except when player/team page is showing)
@@ -182,7 +192,7 @@ export default function SYCLDashboard() {
 
   if (playerPage) return (
     <div className="app">
-      <NavBar slug={slug} leagueName={data?.leagueName} season={data?.season}
+      <NavBar slug={slug} leagueName={data?.leagueName || prefetch?.leagueName} season={data?.season || prefetch?.season}
               activeTab={activeTab} onTabClick={handleTabClick}
               playerName={playerPage} onClosePlayer={closePlayerPage}
               loading={loading} onRefresh={() => loadData(true, slug)}
@@ -201,7 +211,7 @@ export default function SYCLDashboard() {
 
   if (teamPage) return (
     <div className="app">
-      <NavBar slug={slug} leagueName={data?.leagueName} season={data?.season}
+      <NavBar slug={slug} leagueName={data?.leagueName || prefetch?.leagueName} season={data?.season || prefetch?.season}
               activeTab={activeTab} onTabClick={handleTabClick}
               teamName={teamPage} onCloseTeam={closeTeamPage}
               loading={loading} onRefresh={() => loadData(true, slug)}
@@ -221,7 +231,7 @@ export default function SYCLDashboard() {
 
   if (matchPage) return (
     <div className="app">
-      <NavBar slug={slug} leagueName={data?.leagueName} season={data?.season}
+      <NavBar slug={slug} leagueName={data?.leagueName || prefetch?.leagueName} season={data?.season || prefetch?.season}
               activeTab={activeTab} onTabClick={handleTabClick}
               loading={loading} onRefresh={() => loadData(true, slug)}
               />
@@ -239,7 +249,7 @@ export default function SYCLDashboard() {
 
   return (
     <div className="app">
-      <NavBar slug={slug} leagueName={data?.leagueName} season={data?.season}
+      <NavBar slug={slug} leagueName={data?.leagueName || prefetch?.leagueName} season={data?.season || prefetch?.season}
               activeTab={activeTab} onTabClick={handleTabClick}
               loading={loading} onRefresh={() => loadData(true, slug)}
               
@@ -260,10 +270,10 @@ export default function SYCLDashboard() {
           ) : activeTab === 'feedback' ? (
             <FeedbackPage slug={slug} />
           ) : !data ? (
-            <div className="content-wrap" style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:320}}>
+            <div className="content-wrap">
               {loading
-                ? <div className="loading-text" style={{fontSize:13,color:"var(--text-muted)"}}>Loading…</div>
-                : <div style={{textAlign:"center"}}>
+                ? <DashboardSkeleton prefetch={prefetch} />
+                : <div style={{textAlign:"center",padding:'64px 16px'}}>
                     <div style={{fontSize:40,marginBottom:14}}>🏏</div>
                     <div style={{fontSize:16,fontWeight:700,color:"var(--text-secondary)",marginBottom:6}}>No schedule data yet</div>
                     <button className="small-btn" style={{marginTop:16}} onClick={() => loadData(true)}>Try again</button>

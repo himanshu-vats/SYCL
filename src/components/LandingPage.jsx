@@ -31,11 +31,11 @@ function SeasonCard({ league }) {
     : null;
 
   const state = completion === 100 ? 'concluded'
-    : (league.completedCount || 0) > 0 ? 'live'
+    : (league.completedCount || 0) > 0 ? 'active'
     : 'upcoming';
 
-  const stateLabel = state === 'concluded' ? 'Concluded'
-    : state === 'live' ? 'Live'
+  const stateLabel = state === 'concluded' ? 'Complete'
+    : state === 'active' ? 'In Progress'
     : 'Upcoming';
 
   const formatAgo = (ms) => {
@@ -49,16 +49,34 @@ function SeasonCard({ league }) {
     return `${Math.floor(d / 7)}w ago`;
   };
 
+  const handleClick = (e) => {
+    e.preventDefault();
+    try {
+      sessionStorage.setItem('cs_prefetch', JSON.stringify({
+        slug: league.slug,
+        leagueName: league.name,
+        season: league.season,
+        teamCount: league.teamCount,
+        matchCount: league.matchCount,
+        completedCount: league.completedCount,
+        divisionCount: league.divisionCount,
+        updatedAt: league.updatedAt,
+      }));
+    } catch {}
+    window.location.href = `/${league.slug}`;
+  };
+
   return (
     <a
-      className={`cs-season-card${state === 'concluded' ? '' : state === 'live' ? ' cs-featured' : ''}`}
+      className={`cs-season-card${state === 'active' ? ' cs-featured' : ''}`}
       data-state={state}
       href={`/${league.slug}`}
+      onClick={handleClick}
     >
       <div className="cs-card-top">
         <span className="cs-status" data-state={state}>
           <span className="cs-dot" />
-          {stateLabel}{state === 'live' && completion !== null ? ` · ${completion}%` : ''}
+          {stateLabel}{state === 'active' && completion !== null ? ` · ${completion}%` : ''}
         </span>
         <span className="cs-arrow">{ARROW_SVG}</span>
       </div>
@@ -95,7 +113,7 @@ function SeasonCard({ league }) {
 function LeagueSummaryCard({ leagueName, seasons, onSelect }) {
   const latest = seasons[0];
   const totalTeams = seasons.reduce((s, l) => s + (l.teamCount || 0), 0);
-  const liveSeasons = seasons.filter(l => {
+  const activeSeasons = seasons.filter(l => {
     const pct = l.matchCount ? Math.round((l.completedCount || 0) / l.matchCount * 100) : null;
     return pct !== null && pct > 0 && pct < 100;
   }).length;
@@ -124,11 +142,11 @@ function LeagueSummaryCard({ leagueName, seasons, onSelect }) {
       <div className="cs-ls-row">
         <div><div className="cs-ls-lbl">Seasons</div><div className="cs-ls-val">{String(seasons.length).padStart(2,'0')}</div></div>
         <div><div className="cs-ls-lbl">Teams</div><div className="cs-ls-val">{totalTeams || '—'}</div></div>
-        <div><div className="cs-ls-lbl">Live</div><div className="cs-ls-val">{String(liveSeasons).padStart(2,'0')}</div></div>
+        <div><div className="cs-ls-lbl">Active</div><div className="cs-ls-val">{String(activeSeasons).padStart(2,'0')}</div></div>
       </div>
       <div className="cs-ls-foot">
         <span className="cs-ls-status">
-          {liveSeasons > 0 && <span className="cs-dot" style={{background:'var(--cs-live)'}} />}
+          {activeSeasons > 0 && <span className="cs-dot" style={{background:'var(--cs-live)'}} />}
           {latest?.season || 'No seasons'}
         </span>
         <span>Updated {formatAgo(updatedMs)}</span>
@@ -144,7 +162,7 @@ function LeaguePanel({ leagueName, seasons, onBack }) {
   const filtered = seasons.filter(l => {
     if (filter === 'all') return true;
     const pct = l.matchCount ? Math.round((l.completedCount || 0) / l.matchCount * 100) : null;
-    const state = pct === 100 ? 'concluded' : (l.completedCount || 0) > 0 ? 'live' : 'upcoming';
+    const state = pct === 100 ? 'concluded' : (l.completedCount || 0) > 0 ? 'active' : 'upcoming';
     return state === filter;
   });
 
@@ -171,18 +189,18 @@ function LeaguePanel({ leagueName, seasons, onBack }) {
             </a>
           ))}
           {seasons.slice(0,1).map(l => (
-            <a key={l.slug + '-s'} href={`/${l.slug}?tab=standings`}>
+            <a key={l.slug + '-s'} href={`/${l.slug}#tab=standings`}>
               <span>Standings</span>
               <span className="cs-rail-count">{l.divisionCount ? `${l.divisionCount} div.` : '›'}</span>
             </a>
           ))}
           {seasons.slice(0,1).map(l => (
-            <a key={l.slug + '-b'} href={`/${l.slug}?tab=batting`}>
+            <a key={l.slug + '-b'} href={`/${l.slug}#tab=batting`}>
               <span>Leaderboards</span><span className="cs-rail-count">Bat · Bowl</span>
             </a>
           ))}
           {seasons.slice(0,1).map(l => (
-            <a key={l.slug + '-sc'} href={`/${l.slug}?tab=schedule`}>
+            <a key={l.slug + '-sc'} href={`/${l.slug}#tab=schedule`}>
               <span>Schedule</span><span className="cs-rail-count">›</span>
             </a>
           ))}
@@ -192,7 +210,7 @@ function LeaguePanel({ leagueName, seasons, onBack }) {
           <div className="cs-seasons-hd">
             <h2>Seasons</h2>
             <div className="cs-chips">
-              {[['all','All'],['live','Live'],['upcoming','Upcoming'],['concluded','Past']].map(([val, label]) => (
+              {[['all','All'],['active','In Progress'],['upcoming','Upcoming'],['concluded','Complete']].map(([val, label]) => (
                 <button
                   key={val}
                   className="cs-chip"
@@ -200,7 +218,7 @@ function LeaguePanel({ leagueName, seasons, onBack }) {
                   onClick={() => setFilter(val)}
                 >
                   {val !== 'all' && <span className="cs-dot" style={{
-                    background: val === 'live' ? 'var(--cs-live)' : val === 'upcoming' ? 'var(--cs-upcoming)' : 'var(--cs-muted)',
+                    background: val === 'active' ? 'var(--cs-live)' : val === 'upcoming' ? 'var(--cs-upcoming)' : 'var(--cs-muted)',
                     marginRight: 5
                   }} />}
                   {label}
@@ -265,10 +283,8 @@ export default function LandingPage() {
       seasons.some(l => (l.season || '').toLowerCase().includes(q));
   });
 
-  const activeLeagueName = leagueNames.find(n => {
-    const code = n.split(' ').map(w => w[0]).join('').slice(0, 5).toUpperCase();
-    return code.toLowerCase() === activeTab;
-  });
+  const getCode = (n) => n.length <= 6 ? n.toUpperCase() : n.split(' ').map(w => w[0]).join('').slice(0,5).toUpperCase();
+  const activeLeagueName = leagueNames.find(n => getCode(n).toLowerCase() === activeTab);
 
   return (
     <div className="cs-root" data-theme={theme}>
@@ -326,7 +342,7 @@ export default function LandingPage() {
                 <span className="cs-tab-code">{String(leagueNames.length).padStart(2,'0')}</span>
               </button>
               {leagueNames.map(name => {
-                const code = name.split(' ').map(w => w[0]).join('').slice(0,5).toUpperCase();
+                const code = name.length <= 6 ? name.toUpperCase() : name.split(' ').map(w => w[0]).join('').slice(0,5).toUpperCase();
                 const tabKey = code.toLowerCase();
                 return (
                   <button
@@ -386,7 +402,7 @@ export default function LandingPage() {
                     leagueName={name}
                     seasons={grouped[name]}
                     onSelect={(n) => {
-                      const code = n.split(' ').map(w => w[0]).join('').slice(0,5).toUpperCase();
+                      const code = n.length <= 6 ? n.toUpperCase() : n.split(' ').map(w => w[0]).join('').slice(0,5).toUpperCase();
                       setActiveTab(code.toLowerCase());
                     }}
                   />
