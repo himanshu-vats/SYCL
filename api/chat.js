@@ -189,10 +189,10 @@ function buildContext(question, data) {
   const leaderBat  = combinedStats(data.batting);
   const leaderBowl = combinedStats(data.bowling);
 
-  // Find mentioned player (first-name fuzzy match)
+  // Find mentioned player (first-name fuzzy match — search both batting AND bowling)
   const mentionedPlayers = [];
   const seen = new Set();
-  for (const p of allBat) {
+  for (const p of [...allBat, ...allBowl]) {
     const name  = (p.player || '').trim();
     const first = name.toLowerCase().split(' ')[0];
     if (first.length > 2 && q.includes(first) && !seen.has(name)) {

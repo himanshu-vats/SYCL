@@ -48,6 +48,7 @@ export default function AiChat({ slug }) {
 
   const bottomRef = useRef(null);
   const inputRef  = useRef(null);
+  const pendingFiredRef = useRef(false);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -57,6 +58,53 @@ export default function AiChat({ slug }) {
     if (phase === 'chat') setTimeout(() => inputRef.current?.focus(), 100);
   }, [phase]);
 
+  // Read question from URL hash on first mount (from landing page teaser)
+  useEffect(() => {
+    try {
+      const hash = window.location.hash.replace(/^#/, '');
+      const params = {};
+      hash.split('&').forEach(p => { const [k,v]=p.split('='); if(k&&v) params[k]=decodeURIComponent(v); });
+      if (params.q && params.q.trim()) {
+        history.replaceState(null, '', window.location.pathname + '#tab=chat');
+        setTimeout(() => {
+          const defaultName = name.trim() || 'Cricket Fan';
+          if (!name.trim()) setName(defaultName);
+          if (phase !== 'chat') {
+            setMessages([{ role:'ai', content:`Hi ${defaultName}! 🏏 I'm your CricSeason AI assistant. Ask me anything about the season!` }]);
+            setPhase('chat');
+            setTimeout(() => send(params.q), 200);
+          } else {
+            send(params.q);
+          }
+        }, 100);
+      }
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-submit pending question from teaser chips (fires once via ref guard)
+  useEffect(() => {
+    if (pendingQuestion === null) return;
+    if (pendingFiredRef.current) return;
+    pendingFiredRef.current = true;
+    const fire = (q) => {
+      if (q) { send(q); }
+      else { setTimeout(() => inputRef.current?.focus(), 150); }
+      onPendingConsumed?.();
+    };
+    if (phase !== 'chat') {
+      const defaultName = name.trim() || 'Cricket Fan';
+      if (!name.trim()) setName(defaultName);
+      setMessages([{ role:'ai', content:`Hi ${defaultName}! 🏏 I'm your CricSeason AI assistant. Ask me anything about the season!` }]);
+      setPhase('chat');
+      setTimeout(() => fire(pendingQuestion), 300);
+    } else {
+      fire(pendingQuestion);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingQuestion]);
+
+  useEffect(() => { pendingFiredRef.current = false; }, [pendingQuestion]);
   // Persist conversation to localStorage whenever messages change
   useEffect(() => {
     if (phase !== 'chat' || !name) return;
