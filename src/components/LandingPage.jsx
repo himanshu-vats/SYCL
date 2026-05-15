@@ -1,12 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import AiQuestionTeaser from './AiQuestionTeaser.jsx';
 
-const ARROW_SVG = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:11,height:11}}>
-    <path d="M7 17 17 7"/><path d="M9 7h8v8"/>
-  </svg>
-);
-
 const SEARCH_SVG = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:14,height:14,flexShrink:0}}>
     <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
@@ -24,228 +18,101 @@ function useTheme() {
   return [theme, setTheme];
 }
 
-function SeasonCard({ league }) {
-  const now = Date.now();
-  const updatedMs = league.updatedAt ? now - new Date(league.updatedAt).getTime() : null;
+function getState(league) {
+  const pct = league.matchCount ? Math.round((league.completedCount || 0) / league.matchCount * 100) : null;
+  if (pct !== null && pct >= 98) return 'concluded';
+  if ((league.completedCount || 0) > 0) return 'active';
+  return 'upcoming';
+}
+
+function SeasonRow({ league }) {
+  const state = getState(league);
   const completion = league.matchCount
     ? Math.round((league.completedCount || 0) / league.matchCount * 100)
     : null;
-
-  const state = completion !== null && completion >= 98 ? 'concluded'
-    : (league.completedCount || 0) > 0 ? 'active'
-    : 'upcoming';
 
   const stateLabel = state === 'concluded' ? 'Complete'
     : state === 'active' ? 'In Progress'
     : 'Upcoming';
 
-  const formatAgo = (ms) => {
-    if (ms === null) return '—';
-    const h = Math.floor(ms / 3600000);
-    const d = Math.floor(ms / 86400000);
-    if (h < 1) return 'just now';
-    if (h < 24) return `${h}h ago`;
-    if (d === 1) return 'yesterday';
-    if (d < 7) return `${d}d ago`;
-    return `${Math.floor(d / 7)}w ago`;
-  };
-
-  const handleClick = (e) => {
-    e.preventDefault();
+  const prefetch = () => {
     try {
       sessionStorage.setItem('cs_prefetch', JSON.stringify({
-        slug: league.slug,
-        leagueName: league.name,
-        season: league.season,
-        teamCount: league.teamCount,
-        matchCount: league.matchCount,
-        completedCount: league.completedCount,
-        divisionCount: league.divisionCount,
+        slug: league.slug, leagueName: league.name, season: league.season,
+        teamCount: league.teamCount, matchCount: league.matchCount,
+        completedCount: league.completedCount, divisionCount: league.divisionCount,
         updatedAt: league.updatedAt,
       }));
     } catch {}
-    window.location.href = `/${league.slug}`;
   };
+
+  const quickLinks = [
+    { label: 'Standings', tab: 'standings' },
+    { label: 'Batting',   tab: 'batting'   },
+    { label: 'Bowling',   tab: 'bowling'   },
+    { label: 'Schedule',  tab: 'schedule'  },
+    { label: 'Ask AI',    tab: 'chat'      },
+  ];
 
   return (
     <a
-      className={`cs-season-card${state === 'active' ? ' cs-featured' : ''}`}
-      data-state={state}
+      className={`lp-season-row${state === 'active' ? ' lp-row-active' : ''}`}
       href={`/${league.slug}`}
-      onClick={handleClick}
+      onClick={prefetch}
     >
-      <div className="cs-card-top">
-        <span className="cs-status" data-state={state}>
-          <span className="cs-dot" />
+      <div className="lp-row-main">
+        <div className="lp-row-name">{league.season || 'Season'}</div>
+        <div className={`lp-row-status lp-status-${state}`}>
+          <span className="lp-dot" />
           {stateLabel}{state === 'active' && completion !== null ? ` · ${completion}%` : ''}
-        </span>
-        <span className="cs-arrow">{ARROW_SVG}</span>
-      </div>
-      <h3 className="cs-card-title">{league.season || 'Season'}</h3>
-      <div className="cs-card-dates">Updated {formatAgo(updatedMs)}</div>
-      {(league.divisionCount || league.teamCount || league.matchCount) ? (
-        <div className="cs-stats-inline">
-          {league.divisionCount ? <div className="cs-si"><span className="cs-si-lbl">Divs</span><span className="cs-si-val">{league.divisionCount}</span></div> : null}
-          {league.teamCount ? <div className="cs-si"><span className="cs-si-lbl">Teams</span><span className="cs-si-val">{league.teamCount}</span></div> : null}
-          {league.matchCount ? (
-            <div className="cs-si">
-              <span className="cs-si-lbl">Matches</span>
-              <span className="cs-si-val">
-                {league.completedCount || 0}
-                <span className="cs-si-of">/{league.matchCount}</span>
-              </span>
-            </div>
-          ) : null}
         </div>
-      ) : null}
-      {completion !== null && (
-        <div className="cs-progress-block">
-          <div className="cs-progress-meta">
-            <span>Season progress</span>
-            <span className="cs-pct">{completion}%</span>
+        {completion !== null && (
+          <div className="lp-row-bar">
+            <div className="lp-row-bar-fill" style={{width:`${Math.min(completion,100)}%`}} />
           </div>
-          <div className="cs-bar"><span style={{width:`${completion}%`}} /></div>
-        </div>
-      )}
+        )}
+      </div>
+      <div className="lp-row-links" onClick={e => e.stopPropagation()}>
+        {quickLinks.map(({ label, tab }) => (
+          <a
+            key={tab}
+            className="lp-row-link"
+            href={`/${league.slug}#tab=${tab}`}
+            onClick={e => { e.stopPropagation(); prefetch(); }}
+          >
+            {label}
+          </a>
+        ))}
+      </div>
     </a>
   );
 }
 
-function LeagueSummaryCard({ leagueName, seasons, onSelect }) {
-  const latest = seasons[0];
-  const totalTeams = seasons.reduce((s, l) => s + (l.teamCount || 0), 0);
-  const activeSeasons = seasons.filter(l => {
-    const pct = l.matchCount ? Math.round((l.completedCount || 0) / l.matchCount * 100) : null;
-    return pct !== null && pct > 0 && pct < 100;
-  }).length;
-  const now = Date.now();
-  const updatedMs = latest?.updatedAt ? now - new Date(latest.updatedAt).getTime() : null;
-  const formatAgo = (ms) => {
-    if (ms === null) return '—';
-    const h = Math.floor(ms / 3600000);
-    const d = Math.floor(ms / 86400000);
-    if (h < 1) return 'just now';
-    if (h < 24) return `${h}h ago`;
-    if (d === 1) return 'yesterday';
-    if (d < 7) return `${d}d ago`;
-    return `${Math.floor(d / 7)}w ago`;
-  };
-
-  const code = leagueName.length <= 6 ? leagueName.toUpperCase() : leagueName.split(' ').map(w => w[0]).join('').slice(0, 5).toUpperCase();
+function LeagueColumn({ leagueName, seasons }) {
+  const code = leagueName.length <= 6
+    ? leagueName.toUpperCase()
+    : leagueName.split(' ').map(w => w[0]).join('').slice(0, 5).toUpperCase();
+  const activeSeason = seasons.find(l => getState(l) === 'active');
 
   return (
-    <button className="cs-league-summary" onClick={() => onSelect(leagueName)}>
-      <div className="cs-ls-top">
-        <div className="cs-ls-code">{code}</div>
-        <span className="cs-ls-arrow">→</span>
+    <div className="lp-league-col">
+      <div className="lp-col-header">
+        <span className="lp-col-code">{code}</span>
+        {activeSeason && <span className="lp-live-badge">LIVE</span>}
       </div>
-      <div className="cs-ls-name">{leagueName}</div>
-      <div className="cs-ls-row">
-        <div><div className="cs-ls-lbl">Seasons</div><div className="cs-ls-val">{String(seasons.length).padStart(2,'0')}</div></div>
-        <div><div className="cs-ls-lbl">Teams</div><div className="cs-ls-val">{totalTeams || '—'}</div></div>
-        <div><div className="cs-ls-lbl">Active</div><div className="cs-ls-val">{String(activeSeasons).padStart(2,'0')}</div></div>
+      <div className="lp-col-seasons">
+        {seasons.map(l => <SeasonRow key={l.slug} league={l} />)}
       </div>
-      <div className="cs-ls-foot">
-        <span className="cs-ls-status">
-          {activeSeasons > 0 && <span className="cs-dot" style={{background:'var(--cs-live)'}} />}
-          {latest?.season || 'No seasons'}
-        </span>
-        <span>Updated {formatAgo(updatedMs)}</span>
-      </div>
-    </button>
-  );
-}
-
-function LeaguePanel({ leagueName, seasons, onBack }) {
-  const [filter, setFilter] = useState('all');
-  const code = leagueName.length <= 6 ? leagueName.toUpperCase() : leagueName.split(' ').map(w => w[0]).join('').slice(0, 5).toUpperCase();
-
-  const filtered = seasons.filter(l => {
-    if (filter === 'all') return true;
-    const pct = l.matchCount ? Math.round((l.completedCount || 0) / l.matchCount * 100) : null;
-    const state = pct !== null && pct >= 98 ? 'concluded' : (l.completedCount || 0) > 0 ? 'active' : 'upcoming';
-    return state === filter;
-  });
-
-  return (
-    <section className="cs-panel cs-panel-active">
-      <div className="cs-panel-head">
-        <div className="cs-panel-code">{code}</div>
-        <div className="cs-panel-meta">
-          <p className="cs-panel-name">{leagueName}</p>
-          <div className="cs-panel-tags">
-            <span className="cs-tag cs-tag-accent">Cricket</span>
-            <span className="cs-tag">{seasons.length} seasons</span>
-          </div>
-        </div>
-        <button className="cs-panel-back" onClick={onBack}>← All leagues</button>
-      </div>
-
-      <div className="cs-panel-body">
-        <aside className="cs-rail">
-          <div className="cs-rail-hd">Quick links</div>
-          {seasons.slice(0, 1).map(l => (
-            <a key={l.slug} href={`/${l.slug}`}>
-              <span>Current season</span><span className="cs-rail-count">›</span>
-            </a>
-          ))}
-          {seasons.slice(0,1).map(l => (
-            <a key={l.slug + '-s'} href={`/${l.slug}#tab=standings`}>
-              <span>Standings</span>
-              <span className="cs-rail-count">{l.divisionCount ? `${l.divisionCount} div.` : '›'}</span>
-            </a>
-          ))}
-          {seasons.slice(0,1).map(l => (
-            <a key={l.slug + '-b'} href={`/${l.slug}#tab=batting`}>
-              <span>Leaderboards</span><span className="cs-rail-count">Bat · Bowl</span>
-            </a>
-          ))}
-          {seasons.slice(0,1).map(l => (
-            <a key={l.slug + '-sc'} href={`/${l.slug}#tab=schedule`}>
-              <span>Schedule</span><span className="cs-rail-count">›</span>
-            </a>
-          ))}
-        </aside>
-
-        <div>
-          <div className="cs-seasons-hd">
-            <h2>Seasons</h2>
-            <div className="cs-chips">
-              {[['all','All'],['active','In Progress'],['upcoming','Upcoming'],['concluded','Complete']].map(([val, label]) => (
-                <button
-                  key={val}
-                  className="cs-chip"
-                  aria-pressed={filter === val}
-                  onClick={() => setFilter(val)}
-                >
-                  {val !== 'all' && <span className="cs-dot" style={{
-                    background: val === 'active' ? 'var(--cs-live)' : val === 'upcoming' ? 'var(--cs-upcoming)' : 'var(--cs-muted)',
-                    marginRight: 5
-                  }} />}
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="cs-season-grid">
-            {filtered.length > 0
-              ? filtered.map(l => <SeasonCard key={l.slug} league={l} />)
-              : <p style={{color:'var(--cs-muted)',fontSize:14}}>No seasons match this filter.</p>
-            }
-          </div>
-        </div>
-      </div>
-    </section>
+    </div>
   );
 }
 
 export default function LandingPage() {
   const [leagues, setLeagues] = useState({});
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('all');
   const [searchQ, setSearchQ] = useState('');
   const [theme, setTheme] = useTheme();
+  const [pendingAiQ, setPendingAiQ] = useState(null);
   const searchRef = useRef(null);
 
   useEffect(() => {
@@ -266,26 +133,29 @@ export default function LandingPage() {
   Object.keys(grouped).forEach(name => {
     grouped[name].sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
   });
-  const leagueNames = Object.keys(grouped).sort((a, b) => {
-    return new Date(grouped[b][0]?.updatedAt || 0) - new Date(grouped[a][0]?.updatedAt || 0);
-  });
+  const leagueNames = Object.keys(grouped).sort((a, b) =>
+    new Date(grouped[b][0]?.updatedAt || 0) - new Date(grouped[a][0]?.updatedAt || 0)
+  );
 
   const totals = leagueList.reduce((acc, l) => ({
     matches: acc.matches + (l.matchCount || 0),
-    teams: acc.teams + (l.teamCount || 0),
+    teams:   acc.teams   + (l.teamCount  || 0),
     seasons: acc.seasons + 1,
   }), { matches: 0, teams: 0, seasons: 0 });
 
   const filteredLeagueNames = leagueNames.filter(name => {
     if (!searchQ) return true;
     const q = searchQ.toLowerCase();
-    const seasons = grouped[name] || [];
     return name.toLowerCase().includes(q) ||
-      seasons.some(l => (l.season || '').toLowerCase().includes(q));
+      (grouped[name] || []).some(l => (l.season || '').toLowerCase().includes(q));
   });
 
-  const getCode = (n) => n.length <= 6 ? n.toUpperCase() : n.split(' ').map(w => w[0]).join('').slice(0,5).toUpperCase();
-  const activeLeagueName = leagueNames.find(n => getCode(n).toLowerCase() === activeTab);
+  const getCode = n => n.length <= 6 ? n.toUpperCase() : n.split(' ').map(w => w[0]).join('').slice(0, 5).toUpperCase();
+
+  const scrollToLeague = (name) => {
+    const id = getCode(name).toLowerCase();
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   return (
     <div className="cs-root" data-theme={theme}>
@@ -304,7 +174,7 @@ export default function LandingPage() {
                 type="search"
                 placeholder="Search leagues, seasons…"
                 value={searchQ}
-                onChange={e => { setSearchQ(e.target.value); if (activeTab !== 'all') setActiveTab('all'); }}
+                onChange={e => setSearchQ(e.target.value)}
                 autoComplete="off"
               />
             </label>
@@ -328,33 +198,23 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* LEAGUE TABS */}
-      {!loading && leagueNames.length > 0 && (
+      {/* LEAGUE JUMP NAV — scrolls to section */}
+      {!loading && leagueNames.length > 1 && (
         <nav className="cs-tabbar" aria-label="Leagues">
           <div className="cs-wrap">
             <div className="cs-tabbar-inner" role="tablist">
-              <button
-                className="cs-tab"
-                role="tab"
-                aria-selected={activeTab === 'all'}
-                onClick={() => setActiveTab('all')}
-              >
-                All leagues
-                <span className="cs-tab-code">{String(leagueNames.length).padStart(2,'0')}</span>
-              </button>
               {leagueNames.map(name => {
-                const code = name.length <= 6 ? name.toUpperCase() : name.split(' ').map(w => w[0]).join('').slice(0,5).toUpperCase();
-                const tabKey = code.toLowerCase();
+                const code = getCode(name);
+                const activeSeason = (grouped[name] || []).find(l => getState(l) === 'active');
                 return (
                   <button
                     key={name}
                     className="cs-tab"
-                    role="tab"
-                    aria-selected={activeTab === tabKey}
-                    onClick={() => setActiveTab(tabKey)}
+                    onClick={() => scrollToLeague(name)}
                   >
                     {code}
                     <span className="cs-tab-code">{name.split(' ').slice(0,2).join(' ')}</span>
+                    {activeSeason && <span className="cs-tab-live" />}
                   </button>
                 );
               })}
@@ -369,7 +229,7 @@ export default function LandingPage() {
           <section className="cs-hero-strip">
             <div>
               <h1 className="cs-hero-h1">Cricket analytics for <em>your</em> league.</h1>
-              <p className="cs-hero-sub">Pick a league, pick a season — standings, leaderboards, AI predictions and season insights, built for kids, parents and coaches.</p>
+              <p className="cs-hero-sub">Standings, leaderboards, AI insights — built for kids, parents and coaches.</p>
             </div>
             {!loading && leagueList.length > 0 && (
               <div className="cs-hero-stats" aria-label="Portal totals">
@@ -381,71 +241,75 @@ export default function LandingPage() {
             )}
           </section>
 
-          {/* AI Question Teaser — shows when at least one league is loaded */}
+          {/* AI TEASER */}
           {!loading && leagueList.length > 0 && (
-            <AiQuestionTeaser
-              onAsk={(q) => {
-                // Navigate to most recently updated active season + open chat
-                const activeSeasons = leagueList.filter(l => {
-                  const pct = l.matchCount ? Math.round((l.completedCount||0)/l.matchCount*100) : null;
-                  return pct !== null && pct < 98;
-                });
-                const target = activeSeasons.length > 0 ? activeSeasons[0] : leagueList[0];
-                if (q) {
-                  window.location.href = `/${target.slug}#tab=chat&q=${encodeURIComponent(q)}`;
-                } else {
-                  window.location.href = `/${target.slug}#tab=chat`;
-                }
-              }}
-              questions={[
-                'Who are the top run scorers this season?',
-                'Which team is on the longest winning streak?',
-                'What matches are coming up next?',
-                'Who takes the most wickets across all divisions?',
-              ]}
-            />
+            <>
+              {pendingAiQ === null ? (
+                <AiQuestionTeaser
+                  onAsk={(q) => {
+                    if (!q) {
+                      const target = leagueList.find(l => getState(l) === 'active') || leagueList[0];
+                      window.location.href = `/${target.slug}#tab=chat`;
+                      return;
+                    }
+                    if (leagueList.length === 1) {
+                      window.location.href = `/${leagueList[0].slug}#tab=chat&q=${encodeURIComponent(q)}`;
+                      return;
+                    }
+                    setPendingAiQ(q);
+                  }}
+                  questions={[
+                    'When is my child\'s next match?',
+                    'What matches are coming up this weekend?',
+                    'Who are the top run scorers this season?',
+                    'Who takes the most wickets across all divisions?',
+                  ]}
+                />
+              ) : (
+                <div className="aqt-wrap">
+                  <div className="aqt-header">
+                    <span className="aqt-icon">✦</span>
+                    <span className="aqt-label">Which season are you asking about?</span>
+                  </div>
+                  <p className="aqt-context-q">"{pendingAiQ}"</p>
+                  <div className="aqt-chips">
+                    {leagueList.slice(0, 6).map(l => (
+                      <button key={l.slug} className="aqt-chip"
+                        onClick={() => { window.location.href = `/${l.slug}#tab=chat&q=${encodeURIComponent(pendingAiQ)}`; }}>
+                        {l.name} · {l.season}
+                      </button>
+                    ))}
+                  </div>
+                  <button className="aqt-open-link" onClick={() => setPendingAiQ(null)}>← Back</button>
+                </div>
+              )}
+            </>
           )}
 
+          {/* CONTENT */}
           {loading ? (
             <div className="cs-loading">Loading seasons…</div>
           ) : leagueList.length === 0 ? (
             <div className="cs-empty">
               <div style={{fontSize:48,marginBottom:16}}>🏏</div>
               <h2>No leagues synced yet</h2>
-              <p>Sync your first season from CricClubs to start analyzing player performance, standings, and results.</p>
+              <p>Sync your first season from CricClubs to start analyzing.</p>
               <a href="/admin" className="cs-empty-btn">Open Admin →</a>
             </div>
-          ) : activeTab === 'all' ? (
-            /* ALL LEAGUES PANEL */
-            <section className="cs-panel cs-panel-active">
-              <div className="cs-seasons-hd">
-                <h2>Choose a league</h2>
-              </div>
-              <div className="cs-leagues-grid">
-                {filteredLeagueNames.map(name => (
-                  <LeagueSummaryCard
-                    key={name}
-                    leagueName={name}
-                    seasons={grouped[name]}
-                    onSelect={(n) => {
-                      const code = n.length <= 6 ? n.toUpperCase() : n.split(' ').map(w => w[0]).join('').slice(0,5).toUpperCase();
-                      setActiveTab(code.toLowerCase());
-                    }}
-                  />
-                ))}
-                {filteredLeagueNames.length === 0 && (
-                  <p style={{color:'var(--cs-muted)',fontSize:14,gridColumn:'1/-1'}}>No leagues match "{searchQ}".</p>
-                )}
-              </div>
-            </section>
-          ) : activeLeagueName ? (
-            /* SPECIFIC LEAGUE PANEL */
-            <LeaguePanel
-              leagueName={activeLeagueName}
-              seasons={grouped[activeLeagueName] || []}
-              onBack={() => setActiveTab('all')}
-            />
-          ) : null}
+          ) : (
+            <div className="lp-columns">
+              {filteredLeagueNames.map(name => (
+                <LeagueColumn
+                  key={name}
+                  leagueName={name}
+                  seasons={grouped[name] || []}
+                />
+              ))}
+              {filteredLeagueNames.length === 0 && (
+                <p style={{color:'var(--cs-muted)',fontSize:14,padding:'24px 0'}}>No leagues match "{searchQ}".</p>
+              )}
+            </div>
+          )}
         </div>
       </main>
 

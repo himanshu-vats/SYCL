@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Bot, Plus } from 'lucide-react';
 import { marked } from 'marked';
 
@@ -32,6 +32,79 @@ function saveSession(slug, data) {
   } catch {}
 }
 
+const FB_OPTIONS = [
+  { id: 'inaccurate',  label: 'Stats are wrong' },
+  { id: 'irrelevant',  label: 'Not relevant to my question' },
+  { id: 'incomplete',  label: 'Answer is incomplete' },
+  { id: 'other',       label: 'Something else' },
+];
+
+function MessageFeedback({ slug, sessionId, messageIndex, question, answer }) {
+  const [vote, setVote]         = useState(null); // 'up' | 'down' | null
+  const [showForm, setShowForm] = useState(false);
+  const [checks, setChecks]     = useState({});
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleUp = () => {
+    setVote('up');
+    setShowForm(false);
+    saveFeedback('up', []);
+  };
+
+  const handleDown = () => {
+    if (vote === 'down' && showForm) { setShowForm(false); return; }
+    setVote('down');
+    setShowForm(true);
+  };
+
+  const toggle = (id) => setChecks(c => ({ ...c, [id]: !c[id] }));
+
+  const saveFeedback = useCallback(async (v, reasons) => {
+    try {
+      await fetch('/api/chat-feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug, sessionId, messageIndex, question, answer, vote: v, reasons }),
+      });
+    } catch {}
+  }, [slug, sessionId, messageIndex, question, answer]);
+
+  const handleSubmit = () => {
+    const reasons = Object.entries(checks).filter(([,v])=>v).map(([k])=>k);
+    saveFeedback('down', reasons);
+    setShowForm(false);
+    setSubmitted(true);
+  };
+
+  if (submitted) return <div className="chat-msg-feedback" style={{fontSize:11,color:'var(--text-muted)'}}>Thanks for the feedback</div>;
+
+  return (
+    <div>
+      <div className="chat-msg-feedback">
+        <button className={`chat-fb-btn${vote==='up'?' active-up':''}`} onClick={handleUp} title="Good answer">👍</button>
+        <button className={`chat-fb-btn${vote==='down'?' active-down':''}`} onClick={handleDown} title="Bad answer">👎</button>
+      </div>
+      {showForm && (
+        <div className="chat-fb-form">
+          <div className="chat-fb-form-title">What was wrong? (optional)</div>
+          <div className="chat-fb-options">
+            {FB_OPTIONS.map(o => (
+              <label key={o.id} className="chat-fb-option">
+                <input type="checkbox" checked={!!checks[o.id]} onChange={() => toggle(o.id)} />
+                {o.label}
+              </label>
+            ))}
+          </div>
+          <div className="chat-fb-form-actions">
+            <button className="chat-fb-dismiss" onClick={() => { setShowForm(false); saveFeedback('down', []); setSubmitted(true); }}>Dismiss</button>
+            <button className="chat-fb-submit" onClick={handleSubmit}>Submit</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AiChat({ slug, pendingQuestion, onPendingConsumed }) {
   const [saved] = useState(() => loadSession(slug));
 
@@ -48,6 +121,7 @@ export default function AiChat({ slug, pendingQuestion, onPendingConsumed }) {
 
   const bottomRef = useRef(null);
   const inputRef  = useRef(null);
+  const pendingFiredRef = useRef(false);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -57,65 +131,32 @@ export default function AiChat({ slug, pendingQuestion, onPendingConsumed }) {
     if (phase === 'chat') setTimeout(() => inputRef.current?.focus(), 100);
   }, [phase]);
 
-  // Read question from URL hash on first mount (from landing page teaser)
-  useEffect(() => {
-    try {
-      const hash = window.location.hash.replace(/^#/, '');
-      const params = {};
-      hash.split('&').forEach(p => { const [k,v]=p.split('='); if(k&&v) params[k]=decodeURIComponent(v); });
-      if (params.q && params.q.trim()) {
-        // Clear the q param from URL so refresh doesn't re-trigger
-        history.replaceState(null, '', window.location.pathname + '#tab=chat');
-        // Fire after a short delay so component is fully mounted
-        setTimeout(() => {
-          const defaultName = name.trim() || 'Cricket Fan';
-          if (!name.trim()) setName(defaultName);
-          if (phase !== 'chat') {
-            setMessages([{ role:'ai', content:`Hi ${defaultName}! 🏏 I'm your CricSeason AI assistant. Ask me anything about the season!` }]);
-            setPhase('chat');
-            setTimeout(() => send(params.q), 200);
-          } else {
-            send(params.q);
-          }
-        }, 100);
-      }
-    } catch {}
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Auto-submit pending question from teaser chips
+  // Auto-submit pending question from teaser chips (fires once via ref guard)
   useEffect(() => {
     if (pendingQuestion === null) return;
+    if (pendingFiredRef.current) return;
+    pendingFiredRef.current = true;
+    const fire = (q) => {
+      if (q) {
+        send(q, onPendingConsumed);
+      } else {
+        setTimeout(() => inputRef.current?.focus(), 150);
+        onPendingConsumed?.();
+      }
+    };
     if (phase !== 'chat') {
-      // Not in chat yet — start chat with a default name then submit
       const defaultName = name.trim() || 'Cricket Fan';
       if (!name.trim()) setName(defaultName);
-      const welcome = {
-        role: 'ai',
-        content: `Hi ${defaultName}! 🏏 I'm your CricSeason AI assistant. Ask me anything about the season — player stats, standings, upcoming matches, or how to improve your game!`,
-      };
-      setMessages([welcome]);
+      setMessages([{ role:'ai', content:`Hi ${defaultName}! 🏏 I'm your CricSeason AI assistant. Ask me anything about the season!` }]);
       setPhase('chat');
-      // question will be submitted after phase change via the next effect firing
-    } else if (pendingQuestion !== '') {
-      send(pendingQuestion);
-      onPendingConsumed?.();
+      setTimeout(() => fire(pendingQuestion), 300);
     } else {
-      // empty string = just open chat, focus input
-      setTimeout(() => inputRef.current?.focus(), 150);
-      onPendingConsumed?.();
+      fire(pendingQuestion);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingQuestion]);
 
-  // After phase switches to chat, fire any pending question
-  useEffect(() => {
-    if (phase === 'chat' && pendingQuestion && pendingQuestion !== '') {
-      send(pendingQuestion);
-      onPendingConsumed?.();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase]);
+  useEffect(() => { pendingFiredRef.current = false; }, [pendingQuestion]);
 
   // Persist conversation to localStorage whenever messages change
   useEffect(() => {
@@ -147,7 +188,7 @@ export default function AiChat({ slug, pendingQuestion, onPendingConsumed }) {
     setTimeout(() => inputRef.current?.focus(), 100);
   };
 
-  const send = async (text) => {
+  const send = async (text, afterSend) => {
     const q = (text || input).trim();
     if (!q || loading || questionsLeft === 0) return;
     setInput('');
@@ -156,6 +197,7 @@ export default function AiChat({ slug, pendingQuestion, onPendingConsumed }) {
     // Capture history before state update (slice sends previous exchanges as context)
     const historySnap = messages.slice(-10);
     setMessages(prev => [...prev, userMsg]);
+    afterSend?.();
     setLoading(true);
 
     try {
@@ -270,12 +312,26 @@ export default function AiChat({ slug, pendingQuestion, onPendingConsumed }) {
         <>
           <div className="chat-page-messages">
             <div className="chat-page-messages-inner">
-              {messages.map((m, i) => (
-                <div key={i} className={`chat-msg chat-msg-${m.role}`}>
-                  {m.role === 'ai' && <span className="chat-msg-avatar">🏏</span>}
-                  <div className="chat-msg-bubble">{renderMessage(m.content)}</div>
-                </div>
-              ))}
+              {messages.map((m, i) => {
+                const prevUserMsg = m.role === 'ai' ? messages.slice(0, i).reverse().find(x => x.role === 'user') : null;
+                return (
+                  <div key={i} className={`chat-msg chat-msg-${m.role}`}>
+                    {m.role === 'ai' && <span className="chat-msg-avatar">🏏</span>}
+                    <div>
+                      <div className="chat-msg-bubble">{renderMessage(m.content)}</div>
+                      {m.role === 'ai' && i > 0 && (
+                        <MessageFeedback
+                          slug={slug}
+                          sessionId={sessionId}
+                          messageIndex={i}
+                          question={prevUserMsg?.content || ''}
+                          answer={m.content}
+                        />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
 
               {messages.length === 1 && (
                 <div className="chat-suggestions">

@@ -415,6 +415,11 @@
         <span class="nav-icon">💬</span> Chat Logs
       </button>
 
+      <div class="nav-section" style="margin-top:8px">Data</div>
+      <button class="nav-item" onclick="showSection('manage',this)" id="manageNavBtn">
+        <span class="nav-icon">🗑</span> Manage Data
+      </button>
+
       <div class="nav-section" style="margin-top:8px">Analytics</div>
       <button class="nav-item" onclick="showSection('analytics',this)" id="analyticsNavBtn">
         <span class="nav-icon">📊</span> Analytics
@@ -702,6 +707,16 @@
         <div id="chatLogsTable" style="padding:8px 0;font-size:13px;color:var(--text-muted);text-align:center">
           Select a league and click Refresh to load chat sessions.
         </div>
+      </div>
+    </div>
+
+    <!-- Manage Data section -->
+    <div id="section-manage" class="section">
+      <div class="section-title">Manage Data</div>
+      <div class="section-desc">Delete leagues, seasons, or specific data types from the database. These actions are permanent.</div>
+
+      <div id="manageLeagueList" style="margin-top:20px">
+        <div style="font-size:13px;color:var(--text-muted)">Loading leagues…</div>
       </div>
     </div>
 
@@ -1130,6 +1145,7 @@ function showSection(id, btn) {
   if (btn) btn.classList.add('active');
   if (id === 'propagate') renderPropagateSection();
   if (id === 'analytics') switchAnalyticsTab(_activeAnalyticsTab);
+  if (id === 'manage') loadManageSection();
 }
 
 // ── Bookmarklet ───────────────────────────────────────────────
@@ -3050,6 +3066,120 @@ function showMsg(id, text, type) {
   if (!el) return;
   el.className = 'msg ' + type;
   el.textContent = text;
+}
+
+// ── Manage Data ───────────────────────────────────────────────
+async function loadManageSection() {
+  const wrap = document.getElementById('manageLeagueList');
+  wrap.innerHTML = '<div style="font-size:13px;color:var(--text-muted)">Loading leagues…</div>';
+  try {
+    const r = await fetch('/api/leagues');
+    const leagues = await r.json();
+    const slugs = Object.keys(leagues).sort();
+    if (!slugs.length) { wrap.innerHTML = '<div style="font-size:13px;color:var(--text-muted)">No leagues found.</div>'; return; }
+
+    // Group by league name
+    const groups = {};
+    slugs.forEach(slug => {
+      const name = leagues[slug].name || slug;
+      if (!groups[name]) groups[name] = [];
+      groups[name].push({ slug, ...leagues[slug] });
+    });
+
+    wrap.innerHTML = Object.keys(groups).sort().map(name => {
+      const seasons = groups[name];
+      return `
+        <div class="manage-group" style="margin-bottom:24px;background:var(--bg-100);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:var(--bg-200);border-bottom:1px solid var(--border)">
+            <div>
+              <span style="font-size:15px;font-weight:700;color:var(--text-primary)">${esc(name)}</span>
+              <span style="font-size:12px;color:var(--text-muted);margin-left:8px">${seasons.length} season${seasons.length>1?'s':''}</span>
+            </div>
+            <button onclick="deleteLeague(${JSON.stringify(seasons.map(s=>s.slug))},'${esc(name)}')"
+              style="padding:5px 12px;background:var(--clr-bad-bg);color:var(--clr-bad);border:1px solid var(--clr-bad);border-radius:6px;font-size:12px;cursor:pointer;font-weight:600">
+              🗑 Delete entire league
+            </button>
+          </div>
+          ${seasons.map(s => `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--border)">
+              <div>
+                <span style="font-size:13px;font-weight:600;color:var(--text-primary)">${esc(s.season||s.slug)}</span>
+                <span style="font-size:11px;color:var(--text-muted);margin-left:8px;font-family:monospace">${esc(s.slug)}</span>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:2px">
+                  ${s.teamCount||0} teams · ${s.matchCount||0} matches · ${s.divisionCount||0} divisions
+                </div>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+                <button onclick="deleteDataType('${s.slug}','standings')"
+                  style="padding:4px 10px;background:var(--bg-200);border:1px solid var(--border);border-radius:6px;font-size:11px;cursor:pointer">
+                  Del Standings
+                </button>
+                <button onclick="deleteDataType('${s.slug}','batting')"
+                  style="padding:4px 10px;background:var(--bg-200);border:1px solid var(--border);border-radius:6px;font-size:11px;cursor:pointer">
+                  Del Batting
+                </button>
+                <button onclick="deleteDataType('${s.slug}','bowling')"
+                  style="padding:4px 10px;background:var(--bg-200);border:1px solid var(--border);border-radius:6px;font-size:11px;cursor:pointer">
+                  Del Bowling
+                </button>
+                <button onclick="deleteDataType('${s.slug}','rankings')"
+                  style="padding:4px 10px;background:var(--bg-200);border:1px solid var(--border);border-radius:6px;font-size:11px;cursor:pointer">
+                  Del Rankings
+                </button>
+                <button onclick="deleteSeason('${s.slug}','${esc(s.season||s.slug)}')"
+                  style="padding:4px 10px;background:var(--clr-bad-bg);color:var(--clr-bad);border:1px solid var(--clr-bad);border-radius:6px;font-size:11px;cursor:pointer;font-weight:600">
+                  🗑 Delete season
+                </button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }).join('');
+  } catch(e) {
+    wrap.innerHTML = `<div style="color:var(--clr-bad);font-size:13px">Error: ${e.message}</div>`;
+  }
+}
+
+async function deleteLeague(slugs, name) {
+  if (!confirm(`Delete ENTIRE league "${name}" (${slugs.length} seasons)?\n\nThis permanently removes all data. Cannot be undone.`)) return;
+  const pwd = getPassword();
+  let errors = [];
+  for (const slug of slugs) {
+    const r = await fetch('/api/manage-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': pwd },
+      body: JSON.stringify({ action: 'delete-season', slug })
+    });
+    if (!r.ok) errors.push(slug);
+  }
+  if (errors.length) alert(`Failed to delete: ${errors.join(', ')}`);
+  else alert(`League "${name}" deleted.`);
+  loadManageSection();
+}
+
+async function deleteSeason(slug, name) {
+  if (!confirm(`Delete season "${name}" (${slug})?\n\nAll fixtures, results, standings, batting, bowling, rankings and innings will be permanently removed.`)) return;
+  const r = await fetch('/api/manage-data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Password': getPassword() },
+    body: JSON.stringify({ action: 'delete-season', slug })
+  });
+  const d = await r.json();
+  alert(d.message || d.error);
+  loadManageSection();
+}
+
+async function deleteDataType(slug, type) {
+  if (!confirm(`Delete ${type} data for ${slug}?\n\nThis only removes the ${type} stats — other data is kept.`)) return;
+  const r = await fetch('/api/manage-data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Password': getPassword() },
+    body: JSON.stringify({ action: 'delete-field', slug, field: type })
+  });
+  const d = await r.json();
+  alert(d.message || d.error);
+  loadManageSection();
 }
 
 // ── Init ──────────────────────────────────────────────────────

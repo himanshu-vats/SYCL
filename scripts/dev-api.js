@@ -21,6 +21,26 @@ if (fs.existsSync(envPath)) {
 
 const PORT = 3001;
 
+function parseBody(req) {
+  return new Promise((resolve) => {
+    const ct = req.headers['content-type'] || '';
+    if (req.method === 'GET' || req.method === 'OPTIONS' || req.method === 'HEAD') {
+      resolve(undefined); return;
+    }
+    const chunks = [];
+    req.on('data', c => chunks.push(c));
+    req.on('end', () => {
+      const raw = Buffer.concat(chunks).toString();
+      if (ct.includes('application/json') && raw) {
+        try { resolve(JSON.parse(raw)); } catch { resolve({}); }
+      } else {
+        resolve(undefined);
+      }
+    });
+    req.on('error', () => resolve(undefined));
+  });
+}
+
 const server = http.createServer(async (req, rawRes) => {
   const [urlPath, queryString] = req.url.split('?');
   const apiPath = urlPath.replace(/^\/api\//, '').replace(/^\/api$/, 'leagues');
@@ -32,6 +52,9 @@ const server = http.createServer(async (req, rawRes) => {
       if (k) req.query[decodeURIComponent(k)] = decodeURIComponent(v || '');
     });
   }
+  // Parse JSON body onto req.body like Express does
+  req.body = await parseBody(req);
+
   const handlerPath = path.join(__dirname, '../api', apiPath + '.js');
 
   // Express-compatible response wrapper

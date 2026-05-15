@@ -34,7 +34,9 @@ module.exports = async function (req, res) {
   const { league, question, sessionId, sessionInfo = {}, history = [] } = req.body || {};
 
   if (!league || !question?.trim()) return res.status(400).json({ error: 'league and question required' });
-  if (!sessionInfo?.name)           return res.status(400).json({ error: 'Session info required' });
+  if (!sessionInfo) return res.status(400).json({ error: 'Session info required' });
+  // Allow anonymous access — use sessionId tail as unique anonymous identifier
+  if (!sessionInfo.name) sessionInfo.name = 'Fan#' + (sessionId || '').slice(-4);
   if (question.length > MAX_Q_LEN)  return res.status(400).json({ error: 'Question too long (max 300 chars)' });
 
   const isUnlimited = sessionInfo.accessCode?.trim() === ADMIN_CODE;
@@ -93,24 +95,33 @@ module.exports = async function (req, res) {
       ? `The ${data.season || 'current'} season is NOW COMPLETE — all matches have been played. There are no upcoming fixtures. Final standings are decided by total points accumulated across all league matches (highest points = best rank). The top-2 teams in each division met in the final round to decide the champion.`
       : `Season in progress: ${allPlayed}/${allMatches.length} matches played.`;
 
-    const SYSTEM = `You are the SYCL Season Insight AI for ${data.leagueName || 'Seattle Youth Cricket League'} — ${data.season || 'current season'}.
+    const portalBase = `https://cricseason.info/${league}`;
+    const SYSTEM = `You are the CricSeason AI for ${data.leagueName || 'the league'} — ${data.season || 'current season'}.
 This league has the following divisions: ${divisionList}.
 ${seasonStatus}
+
+The portal for this league is: ${portalBase}
+Useful deep links (use these when relevant):
+- Schedule: ${portalBase}#tab=schedule
+- Standings: ${portalBase}#tab=standings
+- Batting leaderboard: ${portalBase}#tab=batting
+- Bowling leaderboard: ${portalBase}#tab=bowling
+- Rankings: ${portalBase}#tab=rankings
+- Full results: ${portalBase}#tab=results
 
 Answer ONLY questions about this cricket league and cricket improvement. Politely decline anything unrelated.
 Use ONLY the league data provided — never invent or estimate stats. If a stat isn't in the data, say so honestly.
 
-RESPONSE STYLE — be thorough, detailed, and visually structured:
-- Use markdown tables wherever stats are listed (standings, leaderboards, player stats). Example: | # | Player | Runs | Avg | SR | HS |
-- Use bold (**text**) for player names, team names, and standout numbers.
-- Use headers (### Title) to section your response when covering multiple topics.
-- For player questions: full profile with a stats table (batting + bowling), division-by-division breakdown, milestones (50s, 100s, 5-fers), team's standing, recent team results, and a genuine qualitative assessment of their season. Be comprehensive.
-- For leaderboard/standings questions: a ranked table of ALL players/teams with all key columns, plus analysis of the race, streaks, and what the numbers mean.
-- For division questions: a standings table (all teams with P/W/L/Pts/NRR), top batters table, top bowlers table, recent results, and what's at stake.
-- For season overview: all divisions with leaders, overall stat leaders, key storylines and milestones.
-- For improvement/coaching questions: structured tips with bullet points, drills, and examples. Suggest https://play.cricket.com.au or specific YouTube search terms.
-- Always end with a sharp insight or observation that goes beyond the numbers.
-- When a player is discussed, remind them to check the full Season Insight profile for match-by-match breakdown.`;
+RESPONSE STYLE — concise, complete, and well-structured. Your entire response MUST fit within 600 tokens. Never cut off mid-sentence or mid-table — plan your answer to finish cleanly within the limit.
+- Use markdown tables for stats (standings, leaderboards). Keep tables to the most useful columns only.
+- Use bold (**text**) for player names, team names, and key numbers.
+- For leaderboard questions: show top 8–10 rows max with 4–5 key columns, then one sharp insight sentence.
+- For player questions: one stats table (batting + bowling combined), team standing, one qualitative sentence.
+- For division/standings questions: standings table + top 3 batters + top 3 bowlers, nothing more.
+- For schedule/fixture questions: list the matches, then end with "→ [Full schedule](${portalBase}#tab=schedule)"
+- For improvement questions: 3–4 bullet tips max, each one sentence.
+- Always end with a relevant portal link when it adds value (e.g. after stats → link to that tab, after schedule → link to schedule tab).
+- End every response cleanly — no trailing "..." or incomplete sentences.`;
 
     // ── Messages (keep last 2 exchanges = 4 messages for context) ─
     const chatMessages = [
@@ -130,7 +141,7 @@ RESPONSE STYLE — be thorough, detailed, and visually structured:
       },
       body: JSON.stringify({
         model:      'deepseek-chat',
-        max_tokens: 1000,
+        max_tokens: 700,
         messages:   [{ role: 'system', content: SYSTEM }, ...chatMessages],
       }),
     });
@@ -189,10 +200,10 @@ function buildContext(question, data) {
   const leaderBat  = combinedStats(data.batting);
   const leaderBowl = combinedStats(data.bowling);
 
-  // Find mentioned player (first-name fuzzy match)
+  // Find mentioned player (first-name fuzzy match — search both batting AND bowling)
   const mentionedPlayers = [];
   const seen = new Set();
-  for (const p of allBat) {
+  for (const p of [...allBat, ...allBowl]) {
     const name  = (p.player || '').trim();
     const first = name.toLowerCase().split(' ')[0];
     if (first.length > 2 && q.includes(first) && !seen.has(name)) {
@@ -299,8 +310,8 @@ function buildContext(question, data) {
     return lines.join('\n');
   }
 
-  // Results
-  if (/result|match|game|played|won|lost|last week|recent|score/.test(q)) {
+  // Results (exclude "scorer/scorers" which belongs to batting)
+  if (/result|match|game|played|won|lost|last week|recent|\bscore\b/.test(q) && !/scorer/.test(q)) {
     const results = (data.results?.matches || []).slice(-8);
     lines.push('RECENT RESULTS:');
     results.forEach(r => lines.push(`  [${r.division}] ${r.result || `${r.team1} vs ${r.team2}`}`));
