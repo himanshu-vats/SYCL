@@ -3376,6 +3376,7 @@
   --cs-live:         #1f8a5b;
   --cs-upcoming:     #b88200;
   --cs-concluded:    #8a9990;
+  --cs-shadow-card:  0 1px 3px rgba(0,0,0,0.08), 0 4px 20px rgba(0,0,0,0.07);
 }
 
 .cs-wrap { max-width: 1320px; margin: 0 auto; padding: 0 24px; }
@@ -3673,16 +3674,16 @@
 .lp-league-col {
   flex:1 1 400px; min-width:320px; max-width:700px;
   display:flex; flex-direction:column;
-  background:var(--cs-bg); border:2px solid var(--cs-border-strong);
-  border-radius:18px; overflow:hidden;
+  background:var(--cs-card);
+  border-radius:20px;
+  box-shadow:var(--cs-shadow-card, 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06));
 }
 
-/* Column header — visually distinct league label */
+/* Column header */
 .lp-col-header {
   display:flex; align-items:center; gap:10px;
-  padding:14px 20px 12px;
-  border-bottom:2px solid var(--cs-border-strong);
-  background:var(--cs-card);
+  padding:16px 20px 14px;
+  border-bottom:1px solid var(--cs-border);
 }
 .lp-col-code {
   font-family:var(--cs-font-mono); font-size:20px; font-weight:700;
@@ -3699,19 +3700,20 @@
 /* Seasons wrap horizontally inside the league card */
 .lp-col-seasons {
   display:flex; flex-direction:row; flex-wrap:wrap;
-  gap:12px; padding:14px;
+  align-items:flex-start;
+  gap:10px; padding:14px;
 }
 
-/* One season card */
+/* One season card — fixed width, height driven by content */
 .lp-season-row {
-  flex:1 1 200px; min-width:180px;
+  flex:0 0 calc(50% - 5px); max-width:calc(50% - 5px);
   display:block; text-decoration:none; color:inherit;
-  padding:14px 14px 0;
-  background:var(--cs-card); border:1px solid var(--cs-border);
+  padding:12px 12px 0;
+  background:var(--cs-bg); border:1px solid var(--cs-border);
   border-radius:12px; overflow:hidden;
   transition:border-color 0.15s, box-shadow 0.15s;
 }
-.lp-season-row:hover { border-color:var(--cs-border-strong); box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+.lp-season-row:hover { border-color:var(--cs-border-strong); box-shadow:0 2px 8px rgba(0,0,0,0.06); }
 .lp-row-active { border-left:3px solid var(--cs-live); }
 
 .lp-row-main { margin-bottom:8px; }
