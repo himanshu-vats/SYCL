@@ -61,10 +61,10 @@ function MessageFeedback({ slug, sessionId, messageIndex, question, answer }) {
 
   const saveFeedback = useCallback(async (v, reasons) => {
     try {
-      await fetch('/api/chat-feedback', {
+      await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug, sessionId, messageIndex, question, answer, vote: v, reasons }),
+        body: JSON.stringify({ kind: 'ai', slug, sessionId, messageIndex, question, answer, vote: v, reasons }),
       });
     } catch {}
   }, [slug, sessionId, messageIndex, question, answer]);
