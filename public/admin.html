@@ -3146,7 +3146,7 @@ async function deleteLeague(slugs, name) {
   const pwd = getPassword();
   let errors = [];
   for (const slug of slugs) {
-    const r = await fetch('/api/manage-data', {
+    const r = await fetch('/api/standings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Admin-Password': pwd },
       body: JSON.stringify({ action: 'delete-season', slug })
@@ -3160,7 +3160,7 @@ async function deleteLeague(slugs, name) {
 
 async function deleteSeason(slug, name) {
   if (!confirm(`Delete season "${name}" (${slug})?\n\nAll fixtures, results, standings, batting, bowling, rankings and innings will be permanently removed.`)) return;
-  const r = await fetch('/api/manage-data', {
+  const r = await fetch('/api/standings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Admin-Password': getPassword() },
     body: JSON.stringify({ action: 'delete-season', slug })
@@ -3172,7 +3172,7 @@ async function deleteSeason(slug, name) {
 
 async function deleteDataType(slug, type) {
   if (!confirm(`Delete ${type} data for ${slug}?\n\nThis only removes the ${type} stats — other data is kept.`)) return;
-  const r = await fetch('/api/manage-data', {
+  const r = await fetch('/api/standings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Admin-Password': getPassword() },
     body: JSON.stringify({ action: 'delete-field', slug, field: type })

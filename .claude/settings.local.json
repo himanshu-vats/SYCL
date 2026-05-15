@@ -34,7 +34,12 @@
       "WebFetch(domain:www.saasui.design)",
       "WebFetch(domain:uxpatterns.dev)",
       "WebFetch(domain:bricxlabs.com)",
-      "WebFetch(domain:www.cricvision.ai)"
+      "WebFetch(domain:www.cricvision.ai)",
+      "Bash(npx vite *)",
+      "Bash(node scripts/query-aditya.js)",
+      "Bash(git merge *)",
+      "Bash(git push *)",
+      "Bash(vercel --prod)"
     ]
   }
 }

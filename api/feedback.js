@@ -11,6 +11,21 @@ module.exports = async function(req, res) {
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
+  // AI message feedback (thumbs up/down) — kind: 'ai'
+  const { kind } = req.body || {};
+  if (kind === 'ai') {
+    const { slug, sessionId, messageIndex, question, answer, vote, reasons = [] } = req.body;
+    if (!slug || !vote) { res.status(400).json({ error: 'slug and vote required' }); return; }
+    try {
+      await db.collection('aiFeedback').add({
+        slug, sessionId: sessionId || null, messageIndex: messageIndex ?? null,
+        question: question || '', answer: answer ? answer.slice(0, 500) : '',
+        vote, reasons, createdAt: new Date().toISOString(),
+      });
+      return res.json({ ok: true });
+    } catch (e) { return res.status(500).json({ error: e.message }); }
+  }
+
   const { message, type, page, league, name } = req.body || {};
 
   if (!message || !message.trim()) {

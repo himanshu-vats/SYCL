@@ -14,6 +14,31 @@ module.exports = async function(req, res) {
     return;
   }
 
+  // Manage-data actions (delete-season, delete-field) merged here to stay within Vercel function limit
+  const { action } = req.body || {};
+  if (action === 'delete-season' || action === 'delete-field') {
+    const { slug, field } = req.body || {};
+    if (!slug) { res.status(400).json({ error: 'slug required' }); return; }
+    try {
+      if (action === 'delete-season') {
+        const docRef = db.collection('leagues').doc(slug);
+        const matchesSnap = await docRef.collection('matches').get();
+        const b1 = db.batch(); matchesSnap.docs.forEach(d => b1.delete(d.ref)); if (matchesSnap.docs.length) await b1.commit();
+        const aiSnap = await docRef.collection('aiSummary').get();
+        const b2 = db.batch(); aiSnap.docs.forEach(d => b2.delete(d.ref)); if (aiSnap.docs.length) await b2.commit();
+        await docRef.delete();
+        await db.collection('meta').doc('leagues-index').update({ [slug]: require('firebase-admin').firestore.FieldValue.delete() });
+        return res.json({ message: `Season "${slug}" deleted.` });
+      }
+      if (action === 'delete-field') {
+        const allowed = ['standings', 'batting', 'bowling', 'rankings', 'results', 'matches'];
+        if (!allowed.includes(field)) { res.status(400).json({ error: `Invalid field. Allowed: ${allowed.join(', ')}` }); return; }
+        await db.collection('leagues').doc(slug).update({ [field]: require('firebase-admin').firestore.FieldValue.delete() });
+        return res.json({ message: `${field} deleted from "${slug}".` });
+      }
+    } catch(e) { return res.status(500).json({ error: e.message }); }
+  }
+
   const slug = req.body?.league || 'default';
   const { division, rows, divisions } = req.body || {};
 
