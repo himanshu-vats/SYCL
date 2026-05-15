@@ -3650,101 +3650,93 @@
   100% { box-shadow:0 0 0 0 transparent; }
 }
 
-/* ── Landing Page: vertical league sections ───────────────────── */
-.lp-leagues { display:flex; flex-direction:column; gap:40px; padding:8px 0 48px; }
+/* ── Landing Page: kanban column layout ───────────────────────── */
 
-.lp-league-section { }
-
-.lp-league-header {
-  display:flex; align-items:center; justify-content:space-between;
-  padding-bottom:14px; border-bottom:1px solid var(--cs-border); margin-bottom:16px;
-}
-.lp-league-header-left { display:flex; align-items:center; gap:12px; }
-.lp-league-code {
-  font-family:var(--cs-font-mono); font-size:22px; font-weight:600;
-  letter-spacing:-0.02em; color:var(--cs-text);
-}
-.lp-league-name { font-size:14px; color:var(--cs-text-dim); }
-.lp-live-badge {
-  font-family:var(--cs-font-mono); font-size:9px; font-weight:700;
-  letter-spacing:0.12em; color:var(--cs-live); background:color-mix(in srgb,var(--cs-live) 12%,transparent);
-  padding:2px 7px; border-radius:99px; border:1px solid color-mix(in srgb,var(--cs-live) 30%,transparent);
-}
-.lp-league-count { font-family:var(--cs-font-mono); font-size:11px; color:var(--cs-muted); }
-
-/* Tab nav: live dot */
+/* Tab nav live dot */
 .cs-tab-live {
   width:6px; height:6px; border-radius:50%; background:var(--cs-live);
   display:inline-block; margin-left:6px; flex-shrink:0;
   animation:cs-live-pulse 2s ease-in-out infinite;
 }
-@keyframes cs-live-pulse {
-  0%,100% { opacity:1; } 50% { opacity:0.35; }
+@keyframes cs-live-pulse { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
+
+/* Columns wrapper — horizontal, scrollable */
+.lp-columns {
+  display:flex; flex-direction:row; align-items:flex-start;
+  gap:16px; padding:8px 0 48px; overflow-x:auto;
 }
 
-/* Season cards — horizontal row, each card is tall/vertical */
-.lp-season-grid {
-  display:flex;
-  flex-direction:row;
-  gap:12px;
-  flex-wrap:wrap;
-}
-.lp-season-card { flex:0 0 260px; min-width:220px; }
-
-/* Season card */
-.lp-season-card {
+/* One league column */
+.lp-league-col {
+  flex:0 0 280px; min-width:240px;
   display:flex; flex-direction:column;
   background:var(--cs-card); border:1px solid var(--cs-border);
-  border-radius:14px; overflow:hidden;
-  transition:border-color 0.15s, box-shadow 0.15s;
+  border-radius:16px; overflow:hidden;
 }
-.lp-season-card:hover { border-color:var(--cs-border-strong); box-shadow:0 2px 12px color-mix(in srgb,var(--cs-accent) 8%,transparent); }
-.lp-season-active { border-color:color-mix(in srgb,var(--cs-live) 35%,var(--cs-border)); }
 
-/* Card header — clickable area to overview */
-.lp-season-head {
-  display:block; padding:16px 16px 12px; text-decoration:none; color:inherit;
+/* Column header */
+.lp-col-header {
+  display:flex; align-items:center; gap:10px;
+  padding:14px 16px 12px;
+  border-bottom:2px solid var(--cs-border);
+  background:var(--cs-bg);
+}
+.lp-col-code {
+  font-family:var(--cs-font-mono); font-size:18px; font-weight:700;
+  letter-spacing:-0.02em; color:var(--cs-text);
+}
+.lp-live-badge {
+  font-family:var(--cs-font-mono); font-size:9px; font-weight:700;
+  letter-spacing:0.1em; color:var(--cs-live);
+  background:color-mix(in srgb,var(--cs-live) 12%,transparent);
+  padding:2px 7px; border-radius:99px;
+  border:1px solid color-mix(in srgb,var(--cs-live) 30%,transparent);
+}
+
+/* Seasons stacked vertically inside column */
+.lp-col-seasons { display:flex; flex-direction:column; }
+
+/* One season row */
+.lp-season-row {
+  display:block; text-decoration:none; color:inherit;
+  padding:14px 16px 0;
   border-bottom:1px solid var(--cs-border);
+  transition:background 0.12s;
 }
-.lp-season-head:hover { background:var(--cs-card-hover); }
+.lp-season-row:last-child { border-bottom:none; }
+.lp-season-row:hover { background:var(--cs-card-hover); }
+.lp-row-active { border-left:3px solid var(--cs-live); }
 
-.lp-season-head-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
-.lp-season-ago { font-family:var(--cs-font-mono); font-size:10px; color:var(--cs-muted); }
-
-.lp-season-name { font-size:15px; font-weight:600; color:var(--cs-text); margin-bottom:10px; line-height:1.3; }
-
-.lp-season-status {
+.lp-row-main { margin-bottom:8px; }
+.lp-row-name { font-size:13px; font-weight:600; color:var(--cs-text); margin-bottom:4px; line-height:1.3; }
+.lp-row-status {
   display:inline-flex; align-items:center; gap:5px;
-  font-family:var(--cs-font-mono); font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase;
+  font-family:var(--cs-font-mono); font-size:10px; font-weight:600;
+  letter-spacing:0.06em; text-transform:uppercase; margin-bottom:6px;
 }
-.lp-dot { width:6px; height:6px; border-radius:50%; background:var(--cs-muted); flex-shrink:0; }
-.lp-status-active .lp-dot { background:var(--cs-live); animation:cs-live-pulse 2s ease-in-out infinite; }
+.lp-dot { width:5px; height:5px; border-radius:50%; background:var(--cs-muted); flex-shrink:0; }
 .lp-status-active { color:var(--cs-live); }
+.lp-status-active .lp-dot { background:var(--cs-live); animation:cs-live-pulse 2s ease-in-out infinite; }
 .lp-status-concluded { color:var(--cs-muted); }
 .lp-status-upcoming { color:var(--cs-upcoming); }
 .lp-status-upcoming .lp-dot { background:var(--cs-upcoming); }
 
-.lp-season-bar { height:3px; background:var(--cs-border); border-radius:2px; margin-bottom:10px; overflow:hidden; }
-.lp-season-bar-fill { height:100%; background:var(--cs-live); border-radius:2px; transition:width 0.3s; }
-.lp-season-active .lp-season-bar-fill { background:var(--cs-live); }
+.lp-row-bar { height:2px; background:var(--cs-border); border-radius:2px; overflow:hidden; }
+.lp-row-bar-fill { height:100%; background:var(--cs-live); border-radius:2px; }
 
-.lp-season-meta { display:flex; gap:10px; flex-wrap:wrap; }
-.lp-season-meta span { font-family:var(--cs-font-mono); font-size:10px; color:var(--cs-muted); }
-
-/* Quick links inside card */
-.lp-season-links { display:flex; flex-direction:column; }
-
-.lp-season-link {
-  display:flex; align-items:center; justify-content:space-between;
-  padding:9px 16px; font-size:13px; color:var(--cs-text-dim);
-  text-decoration:none; border-top:1px solid var(--cs-border);
-  transition:background 0.1s, color 0.1s;
+/* Quick-link chips */
+.lp-row-links { display:flex; flex-wrap:wrap; gap:4px; padding:8px 0 12px; }
+.lp-row-link {
+  display:inline-block; padding:3px 9px;
+  font-family:var(--cs-font-mono); font-size:10px; font-weight:600;
+  letter-spacing:0.04em; text-transform:uppercase;
+  color:var(--cs-text-dim); text-decoration:none;
+  background:var(--cs-bg); border:1px solid var(--cs-border);
+  border-radius:99px; transition:background 0.12s, color 0.12s, border-color 0.12s;
 }
-.lp-season-link:hover { background:var(--cs-card-hover); color:var(--cs-accent); }
-.lp-link-arrow { font-size:16px; color:var(--cs-muted); transition:color 0.1s, transform 0.1s; }
-.lp-season-link:hover .lp-link-arrow { color:var(--cs-accent); transform:translateX(2px); }
+.lp-row-link:hover { background:var(--cs-accent-soft); color:var(--cs-accent); border-color:var(--cs-accent); }
 
-@media (max-width:640px) {
-  .lp-season-grid { grid-template-columns:1fr; }
-  .lp-leagues { gap:28px; }
+@media (max-width:768px) {
+  .lp-columns { flex-direction:column; overflow-x:visible; }
+  .lp-league-col { flex:none; width:100%; }
 }

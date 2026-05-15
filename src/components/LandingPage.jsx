@@ -18,18 +18,6 @@ function useTheme() {
   return [theme, setTheme];
 }
 
-function formatAgo(updatedAt) {
-  if (!updatedAt) return '—';
-  const ms = Date.now() - new Date(updatedAt).getTime();
-  const h = Math.floor(ms / 3600000);
-  const d = Math.floor(ms / 86400000);
-  if (h < 1) return 'just now';
-  if (h < 24) return `${h}h ago`;
-  if (d === 1) return 'yesterday';
-  if (d < 7) return `${d}d ago`;
-  return `${Math.floor(d / 7)}w ago`;
-}
-
 function getState(league) {
   const pct = league.matchCount ? Math.round((league.completedCount || 0) / league.matchCount * 100) : null;
   if (pct !== null && pct >= 98) return 'concluded';
@@ -37,7 +25,7 @@ function getState(league) {
   return 'upcoming';
 }
 
-function SeasonCard({ league }) {
+function SeasonRow({ league }) {
   const state = getState(league);
   const completion = league.matchCount
     ? Math.round((league.completedCount || 0) / league.matchCount * 100)
@@ -59,82 +47,63 @@ function SeasonCard({ league }) {
   };
 
   const quickLinks = [
-    { label: 'Overview',  tab: 'overview'  },
-    { label: 'Schedule',  tab: 'schedule'  },
     { label: 'Standings', tab: 'standings' },
     { label: 'Batting',   tab: 'batting'   },
     { label: 'Bowling',   tab: 'bowling'   },
+    { label: 'Schedule',  tab: 'schedule'  },
     { label: 'Ask AI',    tab: 'chat'      },
   ];
 
   return (
-    <div className={`lp-season-card${state === 'active' ? ' lp-season-active' : ''}`}>
-      {/* Card header — click goes to overview */}
-      <a
-        className="lp-season-head"
-        href={`/${league.slug}`}
-        onClick={prefetch}
-      >
-        <div className="lp-season-head-top">
-          <span className={`lp-season-status lp-status-${state}`}>
-            <span className="lp-dot" />
-            {stateLabel}{state === 'active' && completion !== null ? ` · ${completion}%` : ''}
-          </span>
-          <span className="lp-season-ago">{formatAgo(league.updatedAt)}</span>
+    <a
+      className={`lp-season-row${state === 'active' ? ' lp-row-active' : ''}`}
+      href={`/${league.slug}`}
+      onClick={prefetch}
+    >
+      <div className="lp-row-main">
+        <div className="lp-row-name">{league.season || 'Season'}</div>
+        <div className={`lp-row-status lp-status-${state}`}>
+          <span className="lp-dot" />
+          {stateLabel}{state === 'active' && completion !== null ? ` · ${completion}%` : ''}
         </div>
-        <div className="lp-season-name">{league.season || 'Season'}</div>
         {completion !== null && (
-          <div className="lp-season-bar">
-            <div className="lp-season-bar-fill" style={{width: `${Math.min(completion, 100)}%`}} />
+          <div className="lp-row-bar">
+            <div className="lp-row-bar-fill" style={{width:`${Math.min(completion,100)}%`}} />
           </div>
         )}
-        <div className="lp-season-meta">
-          {league.divisionCount ? <span>{league.divisionCount} div</span> : null}
-          {league.teamCount ? <span>{league.teamCount} teams</span> : null}
-          {league.matchCount ? <span>{league.completedCount || 0}/{league.matchCount} matches</span> : null}
-        </div>
-      </a>
-
-      {/* Quick-link rows — each is one click to that tab */}
-      <div className="lp-season-links">
+      </div>
+      <div className="lp-row-links" onClick={e => e.stopPropagation()}>
         {quickLinks.map(({ label, tab }) => (
           <a
             key={tab}
-            className="lp-season-link"
+            className="lp-row-link"
             href={`/${league.slug}#tab=${tab}`}
-            onClick={prefetch}
+            onClick={e => { e.stopPropagation(); prefetch(); }}
           >
-            <span>{label}</span>
-            <span className="lp-link-arrow">›</span>
+            {label}
           </a>
         ))}
       </div>
-    </div>
+    </a>
   );
 }
 
-function LeagueSection({ leagueName, seasons }) {
+function LeagueColumn({ leagueName, seasons }) {
   const code = leagueName.length <= 6
     ? leagueName.toUpperCase()
     : leagueName.split(' ').map(w => w[0]).join('').slice(0, 5).toUpperCase();
-
   const activeSeason = seasons.find(l => getState(l) === 'active');
-  const sectionId = code.toLowerCase();
 
   return (
-    <section className="lp-league-section" id={sectionId}>
-      <div className="lp-league-header">
-        <div className="lp-league-header-left">
-          <span className="lp-league-code">{code}</span>
-          <span className="lp-league-name">{leagueName}</span>
-          {activeSeason && <span className="lp-live-badge">LIVE</span>}
-        </div>
-        <span className="lp-league-count">{seasons.length} season{seasons.length !== 1 ? 's' : ''}</span>
+    <div className="lp-league-col">
+      <div className="lp-col-header">
+        <span className="lp-col-code">{code}</span>
+        {activeSeason && <span className="lp-live-badge">LIVE</span>}
       </div>
-      <div className="lp-season-grid">
-        {seasons.map(l => <SeasonCard key={l.slug} league={l} />)}
+      <div className="lp-col-seasons">
+        {seasons.map(l => <SeasonRow key={l.slug} league={l} />)}
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -328,9 +297,9 @@ export default function LandingPage() {
               <a href="/admin" className="cs-empty-btn">Open Admin →</a>
             </div>
           ) : (
-            <div className="lp-leagues">
+            <div className="lp-columns">
               {filteredLeagueNames.map(name => (
-                <LeagueSection
+                <LeagueColumn
                   key={name}
                   leagueName={name}
                   seasons={grouped[name] || []}
