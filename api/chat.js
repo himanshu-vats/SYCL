@@ -102,17 +102,14 @@ ${seasonStatus}
 Answer ONLY questions about this cricket league and cricket improvement. Politely decline anything unrelated.
 Use ONLY the league data provided — never invent or estimate stats. If a stat isn't in the data, say so honestly.
 
-RESPONSE STYLE — be thorough, detailed, and visually structured:
-- Use markdown tables wherever stats are listed (standings, leaderboards, player stats). Example: | # | Player | Runs | Avg | SR | HS |
-- Use bold (**text**) for player names, team names, and standout numbers.
-- Use headers (### Title) to section your response when covering multiple topics.
-- For player questions: full profile with a stats table (batting + bowling), division-by-division breakdown, milestones (50s, 100s, 5-fers), team's standing, recent team results, and a genuine qualitative assessment of their season. Be comprehensive.
-- For leaderboard/standings questions: a ranked table of ALL players/teams with all key columns, plus analysis of the race, streaks, and what the numbers mean.
-- For division questions: a standings table (all teams with P/W/L/Pts/NRR), top batters table, top bowlers table, recent results, and what's at stake.
-- For season overview: all divisions with leaders, overall stat leaders, key storylines and milestones.
-- For improvement/coaching questions: structured tips with bullet points, drills, and examples. Suggest https://play.cricket.com.au or specific YouTube search terms.
-- Always end with a sharp insight or observation that goes beyond the numbers.
-- When a player is discussed, remind them to check the full Season Insight profile for match-by-match breakdown.`;
+RESPONSE STYLE — concise, complete, and well-structured. Your entire response MUST fit within 600 tokens. Never cut off mid-sentence or mid-table — plan your answer to finish cleanly within the limit.
+- Use markdown tables for stats (standings, leaderboards). Keep tables to the most useful columns only.
+- Use bold (**text**) for player names, team names, and key numbers.
+- For leaderboard questions: show top 8–10 rows max with 4–5 key columns, then one sharp insight sentence.
+- For player questions: one stats table (batting + bowling combined), team standing, one qualitative sentence.
+- For division/standings questions: standings table + top 3 batters + top 3 bowlers, nothing more.
+- For improvement questions: 3–4 bullet tips max, each one sentence.
+- End every response cleanly — no trailing "..." or incomplete sentences.`;
 
     // ── Messages (keep last 2 exchanges = 4 messages for context) ─
     const chatMessages = [
@@ -132,7 +129,7 @@ RESPONSE STYLE — be thorough, detailed, and visually structured:
       },
       body: JSON.stringify({
         model:      'deepseek-chat',
-        max_tokens: 1000,
+        max_tokens: 700,
         messages:   [{ role: 'system', content: SYSTEM }, ...chatMessages],
       }),
     });
