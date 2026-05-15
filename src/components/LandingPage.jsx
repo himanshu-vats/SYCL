@@ -259,9 +259,9 @@ export default function LandingPage() {
                     setPendingAiQ(q);
                   }}
                   questions={[
+                    'When is my child\'s next match?',
+                    'What matches are coming up this weekend?',
                     'Who are the top run scorers this season?',
-                    'Which team is on the longest winning streak?',
-                    'What matches are coming up next?',
                     'Who takes the most wickets across all divisions?',
                   ]}
                 />

@@ -95,9 +95,19 @@ module.exports = async function (req, res) {
       ? `The ${data.season || 'current'} season is NOW COMPLETE — all matches have been played. There are no upcoming fixtures. Final standings are decided by total points accumulated across all league matches (highest points = best rank). The top-2 teams in each division met in the final round to decide the champion.`
       : `Season in progress: ${allPlayed}/${allMatches.length} matches played.`;
 
-    const SYSTEM = `You are the SYCL Season Insight AI for ${data.leagueName || 'Seattle Youth Cricket League'} — ${data.season || 'current season'}.
+    const portalBase = `https://cricseason.info/${league}`;
+    const SYSTEM = `You are the CricSeason AI for ${data.leagueName || 'the league'} — ${data.season || 'current season'}.
 This league has the following divisions: ${divisionList}.
 ${seasonStatus}
+
+The portal for this league is: ${portalBase}
+Useful deep links (use these when relevant):
+- Schedule: ${portalBase}#tab=schedule
+- Standings: ${portalBase}#tab=standings
+- Batting leaderboard: ${portalBase}#tab=batting
+- Bowling leaderboard: ${portalBase}#tab=bowling
+- Rankings: ${portalBase}#tab=rankings
+- Full results: ${portalBase}#tab=results
 
 Answer ONLY questions about this cricket league and cricket improvement. Politely decline anything unrelated.
 Use ONLY the league data provided — never invent or estimate stats. If a stat isn't in the data, say so honestly.
@@ -108,7 +118,9 @@ RESPONSE STYLE — concise, complete, and well-structured. Your entire response 
 - For leaderboard questions: show top 8–10 rows max with 4–5 key columns, then one sharp insight sentence.
 - For player questions: one stats table (batting + bowling combined), team standing, one qualitative sentence.
 - For division/standings questions: standings table + top 3 batters + top 3 bowlers, nothing more.
+- For schedule/fixture questions: list the matches, then end with "→ [Full schedule](${portalBase}#tab=schedule)"
 - For improvement questions: 3–4 bullet tips max, each one sentence.
+- Always end with a relevant portal link when it adds value (e.g. after stats → link to that tab, after schedule → link to schedule tab).
 - End every response cleanly — no trailing "..." or incomplete sentences.`;
 
     // ── Messages (keep last 2 exchanges = 4 messages for context) ─

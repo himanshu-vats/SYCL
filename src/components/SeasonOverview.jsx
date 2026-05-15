@@ -119,9 +119,9 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
         <AiQuestionTeaser
           onAsk={onAskQuestion}
           questions={[
+            upcoming.length > 0 ? 'When is the next match and where?' : 'How did the season end — who were the top performers?',
             topBatter ? `How is ${topBatter.player || topBatter.Player} performing this season?` : 'Who leads the batting charts?',
             'Which division has the tightest standings?',
-            upcoming.length > 0 ? 'What matches are coming up this weekend?' : 'Who improved the most this season?',
             topBowler ? `Tell me about ${topBowler.player || topBowler.Player}'s bowling this season` : 'Who are the best bowlers this season?',
           ]}
         />
