@@ -47,10 +47,10 @@ function SeasonRow({ league }) {
   };
 
   const quickLinks = [
+    { label: 'Schedule',  tab: 'schedule'  },
     { label: 'Standings', tab: 'standings' },
     { label: 'Batting',   tab: 'batting'   },
     { label: 'Bowling',   tab: 'bowling'   },
-    { label: 'Schedule',  tab: 'schedule'  },
     { label: 'Ask AI',    tab: 'chat'      },
   ];
 
