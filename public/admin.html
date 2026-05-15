@@ -1150,7 +1150,7 @@ function showSection(id, btn) {
 
 // ── Bookmarklet ───────────────────────────────────────────────
 function buildBookmarklet() {
-  const origin = window.location.origin;
+  const origin = window.location.hostname === 'localhost' ? 'https://cricseason.info' : window.location.origin;
   const password = getPassword();
   const confirmMsg = 'This will replace ALL schedule data, including any edits you made in the fixture editor.\\n\\nContinue?';
 
@@ -1259,7 +1259,7 @@ alert(lines.join('\\n'));
 
 // ── Auto-fill bookmarklet builder ─────────────────────────────
 function buildAutoFillBookmarklet() {
-  const origin = window.location.origin;
+  const origin = window.location.hostname === 'localhost' ? 'https://cricseason.info' : window.location.origin;
 
   // This bookmarklet runs ON the CricClubs update fixture page.
   // It fetches our schedule, finds the match by fixtureId, and fills the form.
@@ -1401,7 +1401,8 @@ fetch('${origin}/api/schedule?_t='+Date.now())
 
 // ── Sync All bookmarklet ──────────────────────────────────────
 function buildSyncAllBookmarklet() {
-  const origin = window.location.origin;
+  // Always use production URL — bookmarklet runs on external sites (cricclubs.com)
+  const origin = window.location.hostname === 'localhost' ? 'https://cricseason.info' : window.location.origin;
   const password = getPassword();
 
   const code = `(function(){
