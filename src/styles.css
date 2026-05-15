@@ -3669,23 +3669,23 @@
   gap:16px; padding:8px 0 48px; overflow-x:auto;
 }
 
-/* One league column */
+/* One league column — expands to fit seasons */
 .lp-league-col {
-  flex:0 0 280px; min-width:240px;
+  flex:1 1 400px; min-width:320px; max-width:700px;
   display:flex; flex-direction:column;
-  background:var(--cs-card); border:1px solid var(--cs-border);
-  border-radius:16px; overflow:hidden;
+  background:var(--cs-bg); border:2px solid var(--cs-border-strong);
+  border-radius:18px; overflow:hidden;
 }
 
-/* Column header */
+/* Column header — visually distinct league label */
 .lp-col-header {
   display:flex; align-items:center; gap:10px;
-  padding:14px 16px 12px;
-  border-bottom:2px solid var(--cs-border);
-  background:var(--cs-bg);
+  padding:14px 20px 12px;
+  border-bottom:2px solid var(--cs-border-strong);
+  background:var(--cs-card);
 }
 .lp-col-code {
-  font-family:var(--cs-font-mono); font-size:18px; font-weight:700;
+  font-family:var(--cs-font-mono); font-size:20px; font-weight:700;
   letter-spacing:-0.02em; color:var(--cs-text);
 }
 .lp-live-badge {
@@ -3696,18 +3696,22 @@
   border:1px solid color-mix(in srgb,var(--cs-live) 30%,transparent);
 }
 
-/* Seasons stacked vertically inside column */
-.lp-col-seasons { display:flex; flex-direction:column; }
-
-/* One season row */
-.lp-season-row {
-  display:block; text-decoration:none; color:inherit;
-  padding:14px 16px 0;
-  border-bottom:1px solid var(--cs-border);
-  transition:background 0.12s;
+/* Seasons wrap horizontally inside the league card */
+.lp-col-seasons {
+  display:flex; flex-direction:row; flex-wrap:wrap;
+  gap:12px; padding:14px;
 }
-.lp-season-row:last-child { border-bottom:none; }
-.lp-season-row:hover { background:var(--cs-card-hover); }
+
+/* One season card */
+.lp-season-row {
+  flex:1 1 200px; min-width:180px;
+  display:block; text-decoration:none; color:inherit;
+  padding:14px 14px 0;
+  background:var(--cs-card); border:1px solid var(--cs-border);
+  border-radius:12px; overflow:hidden;
+  transition:border-color 0.15s, box-shadow 0.15s;
+}
+.lp-season-row:hover { border-color:var(--cs-border-strong); box-shadow:0 2px 8px rgba(0,0,0,0.08); }
 .lp-row-active { border-left:3px solid var(--cs-live); }
 
 .lp-row-main { margin-bottom:8px; }
@@ -3728,7 +3732,7 @@
 .lp-row-bar-fill { height:100%; background:var(--cs-live); border-radius:2px; }
 
 /* Quick-link chips */
-.lp-row-links { display:flex; flex-wrap:wrap; gap:4px; padding:8px 0 12px; }
+.lp-row-links { display:flex; flex-wrap:wrap; gap:4px; padding:8px 0 10px; margin-top:6px; }
 .lp-row-link {
   display:inline-block; padding:3px 9px;
   font-family:var(--cs-font-mono); font-size:10px; font-weight:600;
@@ -3741,7 +3745,8 @@
 
 @media (max-width:768px) {
   .lp-columns { flex-direction:column; overflow-x:visible; }
-  .lp-league-col { flex:none; width:100%; }
+  .lp-league-col { flex:none; width:100%; min-width:0; }
+  .lp-season-row { flex:1 1 160px; min-width:150px; }
 }
 
 /* ── AI Slide-over Panel ──────────────────────────────────────── */
