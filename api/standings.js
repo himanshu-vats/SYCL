@@ -27,7 +27,13 @@ module.exports = async function(req, res) {
         const aiSnap = await docRef.collection('aiSummary').get();
         const b2 = db.batch(); aiSnap.docs.forEach(d => b2.delete(d.ref)); if (aiSnap.docs.length) await b2.commit();
         await docRef.delete();
-        await db.collection('meta').doc('leagues-index').update({ [slug]: require('firebase-admin').firestore.FieldValue.delete() });
+        // Remove from leagues-index — use FieldPath to handle slugs with special chars
+        try {
+          const admin = require('firebase-admin');
+          await db.collection('meta').doc('leagues-index').update(
+            new admin.firestore.FieldPath(slug), admin.firestore.FieldValue.delete()
+          );
+        } catch(e) { /* not in index, that's fine */ }
         return res.json({ message: `Season "${slug}" deleted.` });
       }
       if (action === 'delete-field') {
