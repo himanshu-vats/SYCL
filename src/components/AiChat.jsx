@@ -64,9 +64,12 @@ export default function AiChat({ slug, pendingQuestion, onPendingConsumed }) {
     if (pendingFiredRef.current) return;
     pendingFiredRef.current = true;
     const fire = (q) => {
-      if (q) { send(q); }
-      else { setTimeout(() => inputRef.current?.focus(), 150); }
-      onPendingConsumed?.();
+      if (q) {
+        send(q, onPendingConsumed);
+      } else {
+        setTimeout(() => inputRef.current?.focus(), 150);
+        onPendingConsumed?.();
+      }
     };
     if (phase !== 'chat') {
       const defaultName = name.trim() || 'Cricket Fan';
@@ -112,7 +115,7 @@ export default function AiChat({ slug, pendingQuestion, onPendingConsumed }) {
     setTimeout(() => inputRef.current?.focus(), 100);
   };
 
-  const send = async (text) => {
+  const send = async (text, afterSend) => {
     const q = (text || input).trim();
     if (!q || loading || questionsLeft === 0) return;
     setInput('');
@@ -121,6 +124,7 @@ export default function AiChat({ slug, pendingQuestion, onPendingConsumed }) {
     // Capture history before state update (slice sends previous exchanges as context)
     const historySnap = messages.slice(-10);
     setMessages(prev => [...prev, userMsg]);
+    afterSend?.();
     setLoading(true);
 
     try {
