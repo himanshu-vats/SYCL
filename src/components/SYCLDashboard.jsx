@@ -56,7 +56,12 @@ export default function SYCLDashboard() {
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(null);
   const [drilldown, setDrilldown] = useState(null);
-  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [aiPanelOpen, setAiPanelOpen] = useState(() => {
+    try {
+      const p = getHashParams();
+      return p.tab === 'chat' || !!(p.q && p.q.trim());
+    } catch { return false; }
+  });
   const [pendingQuestion, setPendingQuestion] = useState(() => {
     // Read ?q= from URL hash on first load (from landing page AI chip)
     try {
@@ -182,10 +187,9 @@ export default function SYCLDashboard() {
     loadData(false, slug);
   }, [slug, loadData]);
 
-  // Open AI panel if arriving via #tab=chat or with a pending question
+  // Open AI panel if there's a pending question from landing page
   useEffect(() => {
-    const p = getHashParams();
-    if (pendingQuestion !== null || p.tab === 'chat' || p.q) setAiPanelOpen(true);
+    if (pendingQuestion !== null) setAiPanelOpen(true);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const divOrder = ["Emerging Stars","U11A","U11B","U13A","U13B","U15A","U15B"];
