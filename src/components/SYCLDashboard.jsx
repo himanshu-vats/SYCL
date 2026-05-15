@@ -46,7 +46,8 @@ export default function SYCLDashboard() {
   const [selectedDivision, setSelectedDivision] = useState(() => getHashParams().division || null);
   const [activeTab, setActiveTab] = useState(() => {
     const p = getHashParams();
-    if (p.q && p.q.trim()) return 'overview'; // AI panel opens as overlay, keep main tab
+    if (p.q && p.q.trim()) return 'overview'; // AI panel opens as overlay
+    if (p.tab === 'chat') return 'overview';   // AI panel opens as overlay
     return p.tab || 'overview';
   });
   const [theme, setTheme] = useState(() => {
@@ -181,9 +182,10 @@ export default function SYCLDashboard() {
     loadData(false, slug);
   }, [slug, loadData]);
 
-  // Open AI panel if a question arrived from the landing page
+  // Open AI panel if arriving via #tab=chat or with a pending question
   useEffect(() => {
-    if (pendingQuestion !== null) setAiPanelOpen(true);
+    const p = getHashParams();
+    if (pendingQuestion !== null || p.tab === 'chat' || p.q) setAiPanelOpen(true);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const divOrder = ["Emerging Stars","U11A","U11B","U13A","U13B","U15A","U15B"];
