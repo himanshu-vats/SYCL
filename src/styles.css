@@ -3635,12 +3635,15 @@
 .aqt-open-link:hover { text-decoration:underline; }
 
 /* Landing page teaser overrides */
-.cs-root .aqt-wrap { margin:20px 0 24px; background:var(--cs-card); border:1px solid var(--cs-border); border-left:3px solid var(--cs-accent); border-radius:14px; }
-.cs-root .aqt-chip { background:var(--cs-bg); border:1px solid var(--cs-border); color:var(--cs-text); font-family:var(--cs-font-mono); font-size:12px; }
-.cs-root .aqt-chip:hover { background:var(--cs-accent-soft); border-color:var(--cs-accent); color:var(--cs-accent); }
-.cs-root .aqt-label { color:var(--cs-muted); }
-.cs-root .aqt-icon { color:var(--cs-accent); }
-.cs-root .aqt-open-link { color:var(--cs-accent); }
+.cs-root .aqt-wrap {
+  margin:16px 0 20px; padding:0;
+  background:none; border:none; border-radius:0;
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+}
+.cs-root .aqt-wrap .aqt-icon { color:var(--cs-accent); font-size:12px; flex-shrink:0; margin-right:2px; }
+.cs-root .aqt-wrap .aqt-chips { margin:0; }
+.cs-root .aqt-chip { background:var(--cs-card); border:1px solid var(--cs-border); color:var(--cs-text-dim); font-family:var(--cs-font-mono); font-size:11px; padding:5px 12px; }
+.cs-root .aqt-chip:hover { background:var(--cs-accent-soft); border-color:var(--cs-accent); color:var(--cs-accent); transform:none; }
 
 /* ── SideNav pulse dot ── */
 .side-nav-pulse { width:7px; height:7px; border-radius:50%; background:var(--accent); margin-left:auto; flex-shrink:0; animation:sidenav-pulse 2s infinite; }
