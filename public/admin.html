@@ -1405,8 +1405,10 @@ function buildSyncAllBookmarklet() {
   const password = getPassword();
 
   const code = `(function(){
-if(!window.location.href.includes('listMatches.do')){
-  alert('Run this from the CricClubs Match Results page\\n(Results → Match Results)');return;
+var onFixturesPage=window.location.href.includes('fixtures.do');
+var onResultsPage=window.location.href.includes('listMatches.do');
+if(!onResultsPage&&!onFixturesPage){
+  alert('Run this from either:\\n• CricClubs Fixtures page (fixtures.do)\\n• CricClubs Match Results page (listMatches.do)');return;
 }
 
 // ── Parse schedule from fixtures page document ───────────────
@@ -1939,11 +1941,21 @@ function fetchScorecardsThrottled(matches, concurrency, onProgress){
 }
 
 // ── Main ──────────────────────────────────────────────────────
-var results=parseResults();
+// On fixtures.do page: parse schedule directly from current page, skip results/stats
+var results=onFixturesPage?[]:parseResults();
 var divOptions=getDivisionOptions();
-console.log('[SYCL] parseResults:',results.length,'results | divOptions:',divOptions.length,'divisions');
+console.log('[SYCL] onFixturesPage:',onFixturesPage,'| results:',results.length,'| divOptions:',divOptions.length);
 
-if(!results.length&&!divOptions.length){
+// On fixtures page, parse schedule directly from the current page DOM
+var fixturesPageSchedule=null;
+if(onFixturesPage){
+  fixturesPageSchedule=parseScheduleFromDoc(document);
+  if(!fixturesPageSchedule||!fixturesPageSchedule.length){
+    alert('No fixtures table found on this page.\\nMake sure the schedule is visible.');return;
+  }
+}
+
+if(!onFixturesPage&&!results.length&&!divOptions.length){
   alert('No match results or division links found.\\nMake sure you are on the CricClubs Match Results page (listMatches.do).');return;
 }
 
@@ -1956,14 +1968,15 @@ var detectedClubId=clubIdMatch?clubIdMatch[1]:'';
 // ── Auto-suggest slug from series title + URL ──
 var stopWords=/Youth|Cricket|League|Club|Official|Association|Community|Junior|Pathway/gi;
 var leagueId=currentPath.replace(stopWords,'').replace(/[^A-Za-z0-9]+/g,'').trim().toUpperCase()||currentPath.toUpperCase();
-var allDates=(results.length?results:[]).map(function(r){return new Date(r.date);}).filter(function(d){return!isNaN(d);});
+var allDateSrc=onFixturesPage?(fixturesPageSchedule||[]):results;
+var allDates=allDateSrc.map(function(r){return new Date(r.date);}).filter(function(d){return!isNaN(d);});
 var year=allDates.length?Math.max.apply(null,allDates.map(function(d){return d.getFullYear();})):new Date().getFullYear();
 var avgMonth=allDates.length?allDates.reduce(function(a,b){return a+b.getMonth();},0)/allDates.length:6;
 var season=avgMonth<6?'Spring':'Fall';
 
-// Read series title from page heading (e.g. "Match Results: USAC 2026 - Seattle HUB - Phase1 - U15")
+// Read series title from page heading (e.g. "Schedule: USAC 2026 - Seattle HUB - Phase1 - U13")
 var pageTitleEl=document.querySelector('h2,h3,.panel-title,.page-title');
-var pageTitle=pageTitleEl?pageTitleEl.textContent.replace(/Match Results[:\\s]*/i,'').trim():'';
+var pageTitle=pageTitleEl?pageTitleEl.textContent.replace(/Match Results[:\\s]*/i,'').replace(/Schedule[:\\s]*/i,'').trim():'';
 // Also try the series dropdown selected option
 var seriesSelect=Array.from(document.querySelectorAll('select option[selected],select')).find(function(el){return el.tagName==='SELECT'&&el.value&&el.options[el.selectedIndex];});
 var seriesTitle=seriesSelect?seriesSelect.options[seriesSelect.selectedIndex].text.trim():pageTitle;
@@ -1991,7 +2004,7 @@ var dlg=document.createElement('div');
 dlg.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,sans-serif';
 dlg.innerHTML='<div style="background:#fff;border-radius:12px;padding:28px 32px;min-width:380px;max-width:480px;color:#09090b;box-shadow:0 20px 60px rgba(0,0,0,0.3)">'
   +'<div style="font-size:16px;font-weight:700;margin-bottom:4px">Confirm Sync</div>'
-  +'<div style="font-size:12px;color:#71717a;margin-bottom:20px">Syncing from: <strong>'+currentPath+'</strong> · '+results.length+' results · '+divOptions.length+' divisions</div>'
+  +'<div style="font-size:12px;color:#71717a;margin-bottom:20px">Syncing from: <strong>'+currentPath+'</strong> · '+(onFixturesPage?(fixturesPageSchedule.length+' fixtures (schedule only)'):results.length+' results · '+divOptions.length+' divisions')+'</div>'
   +'<div style="margin-bottom:14px">'
   +'<label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px">League Name <span style="color:#71717a;font-weight:400">(groups seasons together on landing page)</span></label>'
   +'<input id="_csLeagueName" type="text" value="'+leagueNameSuggestion+'" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;outline:none">'
@@ -2025,10 +2038,23 @@ function runSync(confirmedSlug,confirmedLeagueName,confirmedSeason){
 
 var ov=document.createElement('div');
 ov.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;font-family:sans-serif';
-ov.innerHTML='<div style="background:#fff;border-radius:10px;padding:24px 32px;min-width:320px;text-align:center;font-size:14px;color:#09090b">Syncing '+confirmedLeagueName+'<br><span id="_syclMsg" style="font-size:12px;color:#71717a">Fetching schedule + '+divOptions.length+' divisions × 4 data types…</span></div>';
+ov.innerHTML='<div style="background:#fff;border-radius:10px;padding:24px 32px;min-width:320px;text-align:center;font-size:14px;color:#09090b">Syncing '+confirmedLeagueName+'<br><span id="_syclMsg" style="font-size:12px;color:#71717a">'+(onFixturesPage?'Saving '+fixturesPageSchedule.length+' fixtures…':'Fetching schedule + '+divOptions.length+' divisions × 4 data types…')+'</span></div>';
 document.body.appendChild(ov);
 function setMsg(m){var el=document.getElementById('_syclMsg');if(el)el.textContent=m;}
-// Fetch fixtures page for schedule (in parallel with everything else)
+
+// On fixtures page: we already have the schedule, skip all stat fetches
+if(onFixturesPage){
+  ov.remove();
+  var fxSummary='Schedule: '+fixturesPageSchedule.length+' fixtures\\nResults: none yet\\nStandings/Batting/Bowling: none yet';
+  if(!confirm('Sync schedule to CricSeason dashboard?\\n\\n'+fxSummary)){return;}
+  document.body.appendChild(ov);setMsg('Saving schedule to dashboard…');
+  var fxPayload={league:confirmedSlug,leagueName:confirmedLeagueName,season:confirmedSeason,matches:fixturesPageSchedule};
+  fetch('${origin}/api/sync-all',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Password':'${password}'},body:JSON.stringify(fxPayload)})
+    .then(function(r){return r.json();}).then(function(d){ov.remove();alert(d.message||'Schedule synced!');}).catch(function(e){ov.remove();alert('Error: '+e.message);});
+  return;
+}
+
+// On results page: fetch fixtures + all stats in parallel
 var scheduleFetch=fetch(base+'fixtures.do?'+detectedClubId+'',{credentials:'include'}).then(function(r){return r.text();}).then(function(h){return parseScheduleFromDoc(new DOMParser().parseFromString(h,'text/html'));}).catch(function(){return null;});
 
 var fetchAll=[scheduleFetch];
