@@ -12,7 +12,7 @@ const TABS = [
   ["chat",      Bot,       "Ask AI"],
 ];
 
-export default function SideNav({ activeTab, onTabClick }) {
+export default function SideNav({ activeTab, onTabClick, collapsed = false }) {
   const isActive = (key) => activeTab === key;
   const [chatVisited, setChatVisited] = useState(() => {
     try { return !!localStorage.getItem('cs_chat_visited'); } catch { return false; }
@@ -26,17 +26,18 @@ export default function SideNav({ activeTab, onTabClick }) {
   }, [activeTab, chatVisited]);
 
   return (
-    <nav className="side-nav">
+    <nav className={`side-nav${collapsed ? ' side-nav-collapsed' : ''}`}>
       <ul className="side-nav-list">
         {TABS.map(([key, Icon, label]) => (
           <li key={key}>
             <button
               className={`side-nav-item${isActive(key) ? ' active' : ''}`}
               onClick={() => onTabClick(key)}
+              title={collapsed ? label : undefined}
             >
               <Icon size={15} strokeWidth={1.8} className="side-nav-icon" />
-              <span className="side-nav-label">{label}</span>
-              {key === 'chat' && !chatVisited && !isActive(key) && (
+              {!collapsed && <span className="side-nav-label">{label}</span>}
+              {!collapsed && key === 'chat' && !chatVisited && !isActive(key) && (
                 <span className="side-nav-pulse" />
               )}
             </button>
@@ -46,9 +47,10 @@ export default function SideNav({ activeTab, onTabClick }) {
           <button
             className={`side-nav-item${isActive('feedback') ? ' active' : ''}`}
             onClick={() => onTabClick('feedback')}
+            title={collapsed ? 'Feedback' : undefined}
           >
             <Send size={15} strokeWidth={1.8} className="side-nav-icon" />
-            <span className="side-nav-label">Feedback</span>
+            {!collapsed && <span className="side-nav-label">Feedback</span>}
           </button>
         </li>
       </ul>

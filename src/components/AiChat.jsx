@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Bot, Plus } from 'lucide-react';
 import { marked } from 'marked';
 
@@ -30,6 +30,79 @@ function saveSession(slug, data) {
   try {
     localStorage.setItem(storageKey(slug), JSON.stringify(data));
   } catch {}
+}
+
+const FB_OPTIONS = [
+  { id: 'inaccurate',  label: 'Stats are wrong' },
+  { id: 'irrelevant',  label: 'Not relevant to my question' },
+  { id: 'incomplete',  label: 'Answer is incomplete' },
+  { id: 'other',       label: 'Something else' },
+];
+
+function MessageFeedback({ slug, sessionId, messageIndex, question, answer }) {
+  const [vote, setVote]         = useState(null); // 'up' | 'down' | null
+  const [showForm, setShowForm] = useState(false);
+  const [checks, setChecks]     = useState({});
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleUp = () => {
+    setVote('up');
+    setShowForm(false);
+    saveFeedback('up', []);
+  };
+
+  const handleDown = () => {
+    if (vote === 'down' && showForm) { setShowForm(false); return; }
+    setVote('down');
+    setShowForm(true);
+  };
+
+  const toggle = (id) => setChecks(c => ({ ...c, [id]: !c[id] }));
+
+  const saveFeedback = useCallback(async (v, reasons) => {
+    try {
+      await fetch('/api/chat-feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug, sessionId, messageIndex, question, answer, vote: v, reasons }),
+      });
+    } catch {}
+  }, [slug, sessionId, messageIndex, question, answer]);
+
+  const handleSubmit = () => {
+    const reasons = Object.entries(checks).filter(([,v])=>v).map(([k])=>k);
+    saveFeedback('down', reasons);
+    setShowForm(false);
+    setSubmitted(true);
+  };
+
+  if (submitted) return <div className="chat-msg-feedback" style={{fontSize:11,color:'var(--text-muted)'}}>Thanks for the feedback</div>;
+
+  return (
+    <div>
+      <div className="chat-msg-feedback">
+        <button className={`chat-fb-btn${vote==='up'?' active-up':''}`} onClick={handleUp} title="Good answer">👍</button>
+        <button className={`chat-fb-btn${vote==='down'?' active-down':''}`} onClick={handleDown} title="Bad answer">👎</button>
+      </div>
+      {showForm && (
+        <div className="chat-fb-form">
+          <div className="chat-fb-form-title">What was wrong? (optional)</div>
+          <div className="chat-fb-options">
+            {FB_OPTIONS.map(o => (
+              <label key={o.id} className="chat-fb-option">
+                <input type="checkbox" checked={!!checks[o.id]} onChange={() => toggle(o.id)} />
+                {o.label}
+              </label>
+            ))}
+          </div>
+          <div className="chat-fb-form-actions">
+            <button className="chat-fb-dismiss" onClick={() => { setShowForm(false); saveFeedback('down', []); setSubmitted(true); }}>Dismiss</button>
+            <button className="chat-fb-submit" onClick={handleSubmit}>Submit</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function AiChat({ slug, pendingQuestion, onPendingConsumed }) {
@@ -239,12 +312,26 @@ export default function AiChat({ slug, pendingQuestion, onPendingConsumed }) {
         <>
           <div className="chat-page-messages">
             <div className="chat-page-messages-inner">
-              {messages.map((m, i) => (
-                <div key={i} className={`chat-msg chat-msg-${m.role}`}>
-                  {m.role === 'ai' && <span className="chat-msg-avatar">🏏</span>}
-                  <div className="chat-msg-bubble">{renderMessage(m.content)}</div>
-                </div>
-              ))}
+              {messages.map((m, i) => {
+                const prevUserMsg = m.role === 'ai' ? messages.slice(0, i).reverse().find(x => x.role === 'user') : null;
+                return (
+                  <div key={i} className={`chat-msg chat-msg-${m.role}`}>
+                    {m.role === 'ai' && <span className="chat-msg-avatar">🏏</span>}
+                    <div>
+                      <div className="chat-msg-bubble">{renderMessage(m.content)}</div>
+                      {m.role === 'ai' && i > 0 && (
+                        <MessageFeedback
+                          slug={slug}
+                          sessionId={sessionId}
+                          messageIndex={i}
+                          question={prevUserMsg?.content || ''}
+                          answer={m.content}
+                        />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
 
               {messages.length === 1 && (
                 <div className="chat-suggestions">

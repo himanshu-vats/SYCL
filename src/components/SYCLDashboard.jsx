@@ -46,8 +46,7 @@ export default function SYCLDashboard() {
   const [selectedDivision, setSelectedDivision] = useState(() => getHashParams().division || null);
   const [activeTab, setActiveTab] = useState(() => {
     const p = getHashParams();
-    // If there's a q param, we're going to chat — even if hash gets cleared before tab is read
-    if (p.q && p.q.trim()) return 'chat';
+    if (p.q && p.q.trim()) return 'overview'; // AI panel opens as overlay, keep main tab
     return p.tab || 'overview';
   });
   const [theme, setTheme] = useState(() => {
@@ -56,12 +55,13 @@ export default function SYCLDashboard() {
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(null);
   const [drilldown, setDrilldown] = useState(null);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const [pendingQuestion, setPendingQuestion] = useState(() => {
     // Read ?q= from URL hash on first load (from landing page AI chip)
     try {
       const p = getHashParams();
       if (p.q && p.q.trim()) {
-        history.replaceState(null, '', window.location.pathname + '#tab=chat');
+        history.replaceState(null, '', window.location.pathname);
         return p.q.trim();
       }
     } catch {}
@@ -181,6 +181,11 @@ export default function SYCLDashboard() {
     loadData(false, slug);
   }, [slug, loadData]);
 
+  // Open AI panel if a question arrived from the landing page
+  useEffect(() => {
+    if (pendingQuestion !== null) setAiPanelOpen(true);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const divOrder = ["Emerging Stars","U11A","U11B","U13A","U13B","U15A","U15B"];
   const sortedDivs = useMemo(() => {
     if (!data) return [];
@@ -191,6 +196,7 @@ export default function SYCLDashboard() {
   }, [data]);
 
   const handleTabClick = useCallback((tab) => {
+    if (tab === 'chat') { setAiPanelOpen(true); return; }
     setActiveTab(tab);
     // Standings doesn't support "All Divisions" — auto-select first division
     if (tab === 'standings' && (!selectedDivision || selectedDivision === 'combined') && sortedDivs.length > 0) {
@@ -205,7 +211,7 @@ export default function SYCLDashboard() {
 
   const handleAskQuestion = useCallback((question) => {
     setPendingQuestion(question || '');
-    setActiveTab('chat');
+    setAiPanelOpen(true);
   }, []);
 
   if (!slug) return (
@@ -270,11 +276,10 @@ export default function SYCLDashboard() {
   );
 
   return (
-    <div className="app">
+    <div className={`app${aiPanelOpen ? ' ai-panel-open' : ''}`}>
       <NavBar slug={slug} leagueName={data?.leagueName || prefetch?.leagueName} season={data?.season || prefetch?.season}
               activeTab={activeTab} onTabClick={handleTabClick}
               loading={loading} onRefresh={() => loadData(true, slug)}
-              
               />
 
       <div className="app-body">
@@ -282,14 +287,12 @@ export default function SYCLDashboard() {
           <SideNav
             activeTab={activeTab}
             onTabClick={handleTabClick}
-           
+            collapsed={aiPanelOpen}
           />
         )}
 
         <main className="app-main">
-          {activeTab === 'chat' ? (
-            <AiChat slug={slug} pendingQuestion={pendingQuestion} onPendingConsumed={() => setPendingQuestion(null)} />
-          ) : activeTab === 'feedback' ? (
+          {activeTab === 'feedback' ? (
             <FeedbackPage slug={slug} />
           ) : !data ? (
             <div className="content-wrap">
@@ -335,6 +338,23 @@ export default function SYCLDashboard() {
           )}
         </main>
       </div>
+
+      {/* AI slide-over panel */}
+      <div className={`ai-panel${aiPanelOpen ? ' ai-panel-visible' : ''}`}>
+        <div className="ai-panel-header">
+          <div className="ai-panel-title">
+            <span className="ai-panel-icon">✦</span>
+            Ask AI
+          </div>
+          <button className="ai-panel-close" onClick={() => setAiPanelOpen(false)} aria-label="Close AI panel">✕</button>
+        </div>
+        <div className="ai-panel-body">
+          {aiPanelOpen && (
+            <AiChat slug={slug} pendingQuestion={pendingQuestion} onPendingConsumed={() => setPendingQuestion(null)} />
+          )}
+        </div>
+      </div>
+      {aiPanelOpen && <div className="ai-panel-backdrop" onClick={() => setAiPanelOpen(false)} />}
 
       {data && <DrilldownPanel drilldown={drilldown} data={data} slug={slug} onClose={closeDrilldown} onDrilldown={handleDrilldown}/>}
     </div>
