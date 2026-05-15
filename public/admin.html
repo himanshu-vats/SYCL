@@ -1412,7 +1412,38 @@ if(!onResultsPage&&!onFixturesPage){
 }
 
 // ── Parse schedule from fixtures page document ───────────────
+// fixtures.do uses the same card layout as listMatches.do
 function parseScheduleFromDoc(doc){
+  var cards=doc.querySelectorAll('.row.team-data[id^="deleteRow"]');
+  if(cards.length){
+    var ms=[];
+    cards.forEach(function(row){
+      var matchId=row.id.replace('deleteRow','');
+      var timeEl=row.querySelector('.sch-time');
+      var day=timeEl?timeEl.querySelector('h2'):null;
+      var h5s=timeEl?timeEl.querySelectorAll('h5'):[];
+      var monthYear=h5s.length?h5s[h5s.length-1]:null;
+      var dateStr=[(day?day.textContent.trim():''),(monthYear?monthYear.textContent.trim():'')].filter(Boolean).join(' ');
+      var textEl=row.querySelector('.schedule-text');
+      var h4s=textEl?textEl.querySelectorAll('h4'):[];
+      var h3=textEl?textEl.querySelector('h3'):null;
+      var divisionFull=h4s[0]?h4s[0].textContent.trim():'';
+      var divParts=divisionFull.split(' - ');
+      var division=divParts.length>1?divParts[divParts.length-1].trim():divisionFull;
+      var teamsText=h3?h3.textContent.trim():'';
+      var teamParts=teamsText.split(/\\s+v\\s+/i);
+      var team1=teamParts[0]?teamParts[0].trim():'';
+      var team2=teamParts[1]?teamParts[1].trim():'';
+      // ground/time from the text after teams
+      var groundEl=textEl?textEl.querySelector('p,small,.ground'):null;
+      var groundText=groundEl?groundEl.textContent.trim():'';
+      // time from the date block
+      var timeText=h5s.length>1?h5s[0].textContent.trim():'';
+      if(team1&&team2) ms.push({matchId:matchId,date:dateStr,time:timeText,division:division,team1:team1,team2:team2,ground:groundText,result:'',winner:''});
+    });
+    return ms.length?ms:null;
+  }
+  // Fallback: table-based layout (used when fetching fixtures.do as HTML string)
   var t=doc.getElementById('attTable');if(!t)return null;
   var fixtureIds=[];var seen={};
   Array.from(doc.querySelectorAll('div[id^="deleteRow"]')).forEach(function(el){
@@ -1422,7 +1453,7 @@ function parseScheduleFromDoc(doc){
   if(!ths.length)ths=t.querySelectorAll('tr:first-child td,tr:first-child th');
   var h=Array.from(ths).map(function(c){return c.textContent.trim().toLowerCase().replace(/[*()\\/\\\\0-9.]/g,'').trim();});
   function fc(al){for(var i=0;i<h.length;i++)for(var j=0;j<al.length;j++)if(h[i]===al[j]||h[i].indexOf(al[j])>-1)return i;return -1;}
-  var c={id:fc(['#','no','number']),dv:fc(['division']),mt:fc(['match type','matchtype','type']),dt:fc(['date']),tm:fc(['time']),t1:fc(['team one','team 1','team1','teamone']),t2:fc(['team two','team 2','team2','teamtwo']),gr:fc(['ground','venue']),u1:fc(['umpire one','umpire 1','umpire1']),u2:fc(['umpire two','umpire 2','umpire2']),rs:fc(['result','match result']),wn:fc(['winner']),st:fc(['status'])};
+  var c={id:fc(['#','no','number']),dv:fc(['division']),mt:fc(['match type','matchtype','type']),dt:fc(['date']),tm:fc(['time']),t1:fc(['team one','team 1','team1','teamone']),t2:fc(['team two','team 2','team2','teamtwo']),gr:fc(['ground','venue']),rs:fc(['result','match result']),wn:fc(['winner'])};
   if(c.dv<0||c.t1<0||c.t2<0)return null;
   var ms=[];
   Array.from(t.querySelectorAll('tbody tr')).forEach(function(r){
@@ -1431,7 +1462,7 @@ function parseScheduleFromDoc(doc){
     var dv=c.dv>=0?cs[c.dv]||'':'',a=c.t1>=0?cs[c.t1]||'':'',b=c.t2>=0?cs[c.t2]||'':'';
     if(!dv||!a||!b)return;
     var fid=fixtureIds[ms.length]||'';
-    ms.push({id:c.id>=0?cs[c.id]||'':'',division:dv,matchType:c.mt>=0?cs[c.mt]||'':'',date:c.dt>=0?cs[c.dt]||'':'',time:c.tm>=0?cs[c.tm]||'':'',team1:a,team2:b,ground:c.gr>=0?cs[c.gr]||'':'',umpire1:c.u1>=0?cs[c.u1]||'':'',umpire2:c.u2>=0?cs[c.u2]||'':'',result:c.rs>=0?cs[c.rs]||'':'',winner:c.wn>=0?cs[c.wn]||'':'',status:c.st>=0?cs[c.st]||'':'',fixtureId:fid,fixtureUpdateUrl:fid?'https://cricclubs.com/'+currentPath+'/updateFixture.do?fixtureId='+fid+'&clubId='+detectedClubId:''});
+    ms.push({id:c.id>=0?cs[c.id]||'':'',division:dv,date:c.dt>=0?cs[c.dt]||'':'',time:c.tm>=0?cs[c.tm]||'':'',team1:a,team2:b,ground:c.gr>=0?cs[c.gr]||'':'',result:c.rs>=0?cs[c.rs]||'':'',winner:c.wn>=0?cs[c.wn]||'':'',fixtureId:fid});
   });
   return ms.length?ms:null;
 }
@@ -2047,10 +2078,10 @@ if(onFixturesPage){
   ov.remove();
   var fxSummary='Schedule: '+fixturesPageSchedule.length+' fixtures\\nResults: none yet\\nStandings/Batting/Bowling: none yet';
   if(!confirm('Sync schedule to CricSeason dashboard?\\n\\n'+fxSummary)){return;}
-  document.body.appendChild(ov);setMsg('Saving schedule to dashboard…');
+  document.body.appendChild(ov); setMsg('Saving schedule to dashboard…');
   var fxPayload={league:confirmedSlug,leagueName:confirmedLeagueName,season:confirmedSeason,matches:fixturesPageSchedule};
-  fetch('${origin}/api/sync-all',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Password':'${password}'},body:JSON.stringify(fxPayload)})
-    .then(function(r){return r.json();}).then(function(d){ov.remove();alert(d.message||'Schedule synced!');}).catch(function(e){ov.remove();alert('Error: '+e.message);});
+  fetch('${origin}/api/sync-all',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Password':'${password}'},body:JSON.stringify(fxPayload),credentials:'omit'})
+    .then(function(r){return r.json();}).then(function(d){ov.remove();alert(d.message||('Schedule synced! '+fixturesPageSchedule.length+' fixtures saved.'));}).catch(function(e){ov.remove();alert('Error: '+e.message);});
   return;
 }
 

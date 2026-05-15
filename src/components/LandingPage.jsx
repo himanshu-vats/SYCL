@@ -247,12 +247,17 @@ export default function LandingPage() {
               {pendingAiQ === null ? (
                 <AiQuestionTeaser
                   onAsk={(q) => {
+                    const activeSeasonsOnly = leagueList.filter(l => getState(l) !== 'concluded');
                     if (!q) {
-                      const target = leagueList.find(l => getState(l) === 'active') || leagueList[0];
+                      const target = activeSeasonsOnly.find(l => getState(l) === 'active') || activeSeasonsOnly[0] || leagueList[0];
                       window.location.href = `/${target.slug}#tab=chat`;
                       return;
                     }
-                    if (leagueList.length === 1) {
+                    if (activeSeasonsOnly.length === 1) {
+                      window.location.href = `/${activeSeasonsOnly[0].slug}#tab=chat&q=${encodeURIComponent(q)}`;
+                      return;
+                    }
+                    if (activeSeasonsOnly.length === 0) {
                       window.location.href = `/${leagueList[0].slug}#tab=chat&q=${encodeURIComponent(q)}`;
                       return;
                     }
@@ -273,12 +278,16 @@ export default function LandingPage() {
                   </div>
                   <p className="aqt-context-q">"{pendingAiQ}"</p>
                   <div className="aqt-chips">
-                    {leagueList.slice(0, 6).map(l => (
-                      <button key={l.slug} className="aqt-chip"
-                        onClick={() => { window.location.href = `/${l.slug}#tab=chat&q=${encodeURIComponent(pendingAiQ)}`; }}>
-                        {l.name} · {l.season}
-                      </button>
-                    ))}
+                    {leagueList
+                      .filter(l => getState(l) !== 'concluded')
+                      .slice(0, 6)
+                      .map(l => (
+                        <button key={l.slug} className="aqt-chip"
+                          onClick={() => { window.location.href = `/${l.slug}#tab=chat&q=${encodeURIComponent(pendingAiQ)}`; }}>
+                          {l.name} · {l.season}
+                        </button>
+                      ))
+                    }
                   </div>
                   <button className="aqt-open-link" onClick={() => setPendingAiQ(null)}>← Back</button>
                 </div>
