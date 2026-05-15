@@ -57,6 +57,7 @@ export default function AiScoutReport({ type, summaryKey, shareUrl }) {
   const [insight, setInsight] = useState('');
   const [generatedAt, setGeneratedAt] = useState('');
   const [expandedSections, setExpandedSections] = useState({});
+  const [blockCollapsed, setBlockCollapsed] = useState(true);
   const league = getLeagueSlug();
 
   // Check for cached summary on mount
@@ -148,7 +149,7 @@ export default function AiScoutReport({ type, summaryKey, shareUrl }) {
 
     return (
       <div className="scout-report">
-        <div className="scout-report-header">
+        <div className="scout-report-header" style={{cursor:'pointer'}} onClick={() => setBlockCollapsed(c => !c)}>
           <div className="scout-report-title-row">
             <span className="scout-report-badge">{titleLabels[type] || 'AI Report'}</span>
             <div className="scout-report-meta">
@@ -158,7 +159,8 @@ export default function AiScoutReport({ type, summaryKey, shareUrl }) {
                 </span>
               )}
               {shareUrl && (
-                <button className="scout-report-share-btn" onClick={() => {
+                <button className="scout-report-share-btn" onClick={e => {
+                  e.stopPropagation();
                   const plain = stripMarkdown(insight);
                   const preview = truncateText(plain, 300);
                   shareToWhatsApp(preview, shareUrl);
@@ -167,12 +169,13 @@ export default function AiScoutReport({ type, summaryKey, shareUrl }) {
                   Share
                 </button>
               )}
-              <button className="scout-report-regen-btn" onClick={() => generate(true)} title="Regenerate">↻</button>
+              <button className="scout-report-regen-btn" onClick={e => { e.stopPropagation(); generate(true); }} title="Regenerate">↻</button>
+              <span style={{fontSize:11,color:'var(--text-muted)',marginLeft:2}}>{blockCollapsed ? '▼' : '▲'}</span>
             </div>
           </div>
         </div>
 
-        {sections.length > 0 ? (
+        {!blockCollapsed && sections.length > 0 ? (
           <div className="scout-report-sections">
             {sections.map((section) => (
               <div key={section.title} className={`scout-section${expandedSections[section.title] ? ' open' : ''}`}>
@@ -192,9 +195,9 @@ export default function AiScoutReport({ type, summaryKey, shareUrl }) {
               </div>
             ))}
           </div>
-        ) : (
+        ) : !blockCollapsed ? (
           <div className="scout-report-plain" dangerouslySetInnerHTML={{ __html: marked.parse(insight, { breaks: true, gfm: true }) }} />
-        )}
+        ) : null}
       </div>
     );
   }

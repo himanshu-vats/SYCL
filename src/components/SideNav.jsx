@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Home, Calendar, Trophy, BarChart2, Activity, Wind, Star, Bot, Send } from 'lucide-react';
+import { Home, Calendar, Trophy, BarChart2, Activity, Wind, Star, Bot, Send, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 const TABS = [
   ["overview",  Home,      "Home"],
@@ -14,6 +14,7 @@ const TABS = [
 
 export default function SideNav({ activeTab, onTabClick, collapsed = false }) {
   const isActive = (key) => activeTab === key;
+  const [manualCollapsed, setManualCollapsed] = useState(false);
   const [chatVisited, setChatVisited] = useState(() => {
     try { return !!localStorage.getItem('cs_chat_visited'); } catch { return false; }
   });
@@ -25,19 +26,21 @@ export default function SideNav({ activeTab, onTabClick, collapsed = false }) {
     }
   }, [activeTab, chatVisited]);
 
+  const isCollapsed = collapsed || manualCollapsed;
+
   return (
-    <nav className={`side-nav${collapsed ? ' side-nav-collapsed' : ''}`}>
+    <nav className={`side-nav${isCollapsed ? ' side-nav-collapsed' : ''}`}>
       <ul className="side-nav-list">
         {TABS.map(([key, Icon, label]) => (
           <li key={key}>
             <button
               className={`side-nav-item${isActive(key) ? ' active' : ''}`}
               onClick={() => onTabClick(key)}
-              title={collapsed ? label : undefined}
+              title={isCollapsed ? label : undefined}
             >
               <Icon size={15} strokeWidth={1.8} className="side-nav-icon" />
-              {!collapsed && <span className="side-nav-label">{label}</span>}
-              {!collapsed && key === 'chat' && !chatVisited && !isActive(key) && (
+              {!isCollapsed && <span className="side-nav-label">{label}</span>}
+              {!isCollapsed && key === 'chat' && !chatVisited && !isActive(key) && (
                 <span className="side-nav-pulse" />
               )}
             </button>
@@ -47,13 +50,26 @@ export default function SideNav({ activeTab, onTabClick, collapsed = false }) {
           <button
             className={`side-nav-item${isActive('feedback') ? ' active' : ''}`}
             onClick={() => onTabClick('feedback')}
-            title={collapsed ? 'Feedback' : undefined}
+            title={isCollapsed ? 'Feedback' : undefined}
           >
             <Send size={15} strokeWidth={1.8} className="side-nav-icon" />
-            {!collapsed && <span className="side-nav-label">Feedback</span>}
+            {!isCollapsed && <span className="side-nav-label">Feedback</span>}
           </button>
         </li>
       </ul>
+      {/* Toggle button at bottom */}
+      <button
+        className="side-nav-item side-nav-toggle-btn"
+        onClick={() => setManualCollapsed(c => !c)}
+        title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        style={{marginTop:'auto'}}
+      >
+        {isCollapsed
+          ? <PanelLeftOpen size={15} strokeWidth={1.8} className="side-nav-icon" />
+          : <PanelLeftClose size={15} strokeWidth={1.8} className="side-nav-icon" />
+        }
+        {!isCollapsed && <span className="side-nav-label">Collapse</span>}
+      </button>
     </nav>
   );
 }

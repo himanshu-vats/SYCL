@@ -3844,19 +3844,22 @@
 
 /* Collapsed side nav — icons only */
 @media (min-width: 769px) {
+  .side-nav { transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1); }
   .side-nav-collapsed {
     width: 48px !important;
-    transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
-  }
-  .side-nav {
-    transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .side-nav-collapsed .side-nav-item {
     justify-content: center;
     padding: 10px 0;
   }
 }
+.side-nav-toggle-btn {
+  border-top: 1px solid var(--border);
+  margin-top: auto !important;
+  color: var(--text-muted);
+}
+.side-nav-toggle-btn:hover { color: var(--text-primary); }
 
 /* Mobile: full screen overlay */
 @media (max-width: 768px) {
