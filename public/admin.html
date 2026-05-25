@@ -1426,6 +1426,8 @@ function parseScheduleFromDoc(doc){
     var headingText=headingEl?headingEl.textContent.replace(/Schedule[:\\s]*/i,'').trim():'';
     var headingParts=headingText.split(/\\s*-\\s*/);
     var divFromHeading=headingParts.length>1?headingParts[headingParts.length-1].trim():'';
+    // If heading has no dashes, use full heading as fallback division (e.g. "SYCL Memorial Day Weekend")
+    var divFallback=divFromHeading||headingText||'Open';
 
     var ms=[];
     cards.forEach(function(row){
@@ -1443,15 +1445,16 @@ function parseScheduleFromDoc(doc){
       var h4s=textEl?textEl.querySelectorAll('h4'):[];
       var h3=textEl?textEl.querySelector('h3'):null;
 
-      // h4[0] = "USAC 2026 - Seattle HUB - Phase1 - U11\nLeague @ Perrigo 2\nUmpires:"
+      // h4[0] = "USAC 2026 - Seattle HUB - Phase1 - U11\nLeague @ Perrigo 2\nUmpires: Name"
       var h4Text=h4s[0]?h4s[0].textContent:'';
-      // Extract ground: text after "League @" or "@"
-      var groundMatch=h4Text.match(/(?:League\\s*@|@)\\s*([^\\n\\r]+)/i);
-      var ground=groundMatch?groundMatch[1].trim():'';
-      // Division: last segment of series title in h4, or from page heading
-      var seriesParts=h4Text.split('\\n')[0].trim().split(/\\s*-\\s*/);
-      var division=seriesParts.length>1?seriesParts[seriesParts.length-1].trim():divFromHeading;
-      if(!division) division=divFromHeading;
+      // Extract ground: text after "League @" or "@", stop before "Umpires" or end of line
+      var groundMatch=h4Text.match(/(?:League\\s*@|@)\\s*([^\\n\\r]*?)(?:\\s*Umpires.*)?$/im);
+      var ground=groundMatch?groundMatch[1].replace(/Umpires.*/i,'').trim():'';
+      // Division: first line of h4 = series title, strip any "@ Ground" suffix, take last dash-segment
+      var h4FirstLine=h4Text.split('\\n')[0].trim().replace(/\\s*(?:League\\s*@|@)\\s*[^\\n\\r]*/i,'').trim();
+      var seriesParts=h4FirstLine.split(/\\s*-\\s*/);
+      var division=seriesParts.length>1?seriesParts[seriesParts.length-1].trim():divFallback;
+      if(!division) division=divFallback;
 
       var teamsText=h3?h3.textContent.trim():'';
       var teamParts=teamsText.split(/\\s+v\\s+/i);
@@ -1489,6 +1492,11 @@ function parseScheduleFromDoc(doc){
 // ── Parse match results from current page ────────────────────
 function parseResults(){
   var out=[];
+  // Fallback division from page heading when series title has no dashes
+  var pgHeading=document.querySelector('h2,h3,.panel-heading,.page-heading,[class*="heading"]');
+  var pgHeadingText=pgHeading?pgHeading.textContent.replace(/Results[:\\s]*/i,'').trim():'';
+  var pgParts=pgHeadingText.split(/\\s*-\\s*/);
+  var divPageFallback=pgParts.length>1?pgParts[pgParts.length-1].trim():(pgHeadingText||'Open');
   document.querySelectorAll('.row.team-data[id^="deleteRow"]').forEach(function(row){
     var matchId=row.id.replace('deleteRow','');
     var timeEl=row.querySelector('.sch-time');
@@ -1499,9 +1507,15 @@ function parseResults(){
     var textEl=row.querySelector('.schedule-text');
     var h4s=textEl?textEl.querySelectorAll('h4'):[];
     var h3=textEl?textEl.querySelector('h3'):null;
-    var divisionFull=h4s[0]?h4s[0].textContent.trim():'';
-    var divParts=divisionFull.split(' - ');
-    var division=divParts.length>1?divParts[divParts.length-1].trim():divisionFull;
+    // h4[0] text: "Series Title - U13\nLeague @ Ground\nUmpires: Name" (USAC style)
+    // or just "League @ Ground\nUmpires: Name" (SYCL style with no division in title)
+    var h4Raw=h4s[0]?h4s[0].textContent:'';
+    // Use only the first line of h4 (series title), ignore "League @..." and "Umpires:..." lines
+    var h4FirstLine=h4Raw.split(/[\n\r]/)[0].trim();
+    // Strip any "League @ ..." or "@ ..." suffix from the first line
+    h4FirstLine=h4FirstLine.replace(/\s*(?:League\s*@|@)\s*[^\n\r]*/i,'').trim();
+    var divParts=h4FirstLine.split(/\s*-\s*/);
+    var division=divParts.length>1?divParts[divParts.length-1].trim():divPageFallback;
     var teamsText=h3?h3.textContent.trim():'';
     var teamParts=teamsText.split(/\\s+v\\s+/);
     var team1=teamParts[0]?teamParts[0].trim():'';
