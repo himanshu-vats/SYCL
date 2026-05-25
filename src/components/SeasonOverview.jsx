@@ -118,6 +118,7 @@ export default function SeasonOverview({ data, lastRefresh, onDrilldown, onGoToD
       {onAskQuestion && (
         <AiQuestionTeaser
           onAsk={onAskQuestion}
+          compact
           questions={[
             upcoming.length > 0 ? 'When is the next match and where?' : 'How did the season end — who were the top performers?',
             topBatter ? `How is ${topBatter.player || topBatter.Player} performing this season?` : 'Who leads the batting charts?',

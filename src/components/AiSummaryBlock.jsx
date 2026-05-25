@@ -80,7 +80,7 @@ export default function AiSummaryBlock({ type, summaryKey, shareUrl }) {
 
     return (
       <div className="ai-summary-block">
-        <div className="ai-summary-header">
+        <div className="ai-summary-header" style={{cursor:'pointer'}} onClick={() => setExpanded(e => !e)}>
           <span className="prematch-insight-badge">✦ AI Analysis</span>
           <div style={{display:'flex', alignItems:'center', gap:8}}>
             {generatedAt && (
@@ -89,33 +89,28 @@ export default function AiSummaryBlock({ type, summaryKey, shareUrl }) {
               </span>
             )}
             {shareUrl && (
-              <button className="scout-report-share-btn" onClick={() => {
+              <button className="scout-report-share-btn" onClick={e => {
+                e.stopPropagation();
                 const plain = stripMarkdown(insight);
-                const preview = truncateText(plain, 300);
-                shareToWhatsApp(preview, shareUrl);
+                const prev = truncateText(plain, 300);
+                shareToWhatsApp(prev, shareUrl);
               }} title="Share on WhatsApp">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                 Share
               </button>
             )}
-            <button className="ai-summary-regen-btn" onClick={() => generate(true)} title="Regenerate">↻</button>
+            <button className="ai-summary-regen-btn" onClick={e => { e.stopPropagation(); generate(true); }} title="Regenerate">↻</button>
+            <span style={{fontSize:11,color:'var(--text-muted)',marginLeft:2}}>{expanded ? '▲' : '▼'}</span>
           </div>
         </div>
-        <p className="prematch-insight-text">
-          {preview}
-          {!expanded && hasMore && (
-            <button className="ai-summary-more-btn" onClick={() => setExpanded(true)}>
-              {' '}Read more →
-            </button>
-          )}
-          {expanded && hasMore && (
-            <>{' '}{rest}{' '}
-              <button className="ai-summary-more-btn" onClick={() => setExpanded(false)}>
-                ← Less
-              </button>
-            </>
-          )}
-        </p>
+        {expanded && (
+          <p className="prematch-insight-text">
+            {preview}
+            {hasMore && (
+              <>{' '}{rest}</>
+            )}
+          </p>
+        )}
       </div>
     );
   }

@@ -46,7 +46,8 @@ export default function SYCLDashboard() {
   const [selectedDivision, setSelectedDivision] = useState(() => getHashParams().division || null);
   const [activeTab, setActiveTab] = useState(() => {
     const p = getHashParams();
-    if (p.q && p.q.trim()) return 'overview'; // AI panel opens as overlay, keep main tab
+    if (p.q && p.q.trim()) return 'overview'; // AI panel opens as overlay
+    if (p.tab === 'chat') return 'overview';   // AI panel opens as overlay
     return p.tab || 'overview';
   });
   const [theme, setTheme] = useState(() => {
@@ -55,7 +56,12 @@ export default function SYCLDashboard() {
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(null);
   const [drilldown, setDrilldown] = useState(null);
-  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [aiPanelOpen, setAiPanelOpen] = useState(() => {
+    try {
+      const p = getHashParams();
+      return p.tab === 'chat' || !!(p.q && p.q.trim());
+    } catch { return false; }
+  });
   const [pendingQuestion, setPendingQuestion] = useState(() => {
     // Read ?q= from URL hash on first load (from landing page AI chip)
     try {
@@ -181,7 +187,7 @@ export default function SYCLDashboard() {
     loadData(false, slug);
   }, [slug, loadData]);
 
-  // Open AI panel if a question arrived from the landing page
+  // Open AI panel if there's a pending question from landing page
   useEffect(() => {
     if (pendingQuestion !== null) setAiPanelOpen(true);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -198,11 +204,17 @@ export default function SYCLDashboard() {
   const handleTabClick = useCallback((tab) => {
     if (tab === 'chat') { setAiPanelOpen(true); return; }
     setActiveTab(tab);
-    // Standings doesn't support "All Divisions" — auto-select first division
     if (tab === 'standings' && (!selectedDivision || selectedDivision === 'combined') && sortedDivs.length > 0) {
       setSelectedDivision(sortedDivs[0]);
     }
   }, [selectedDivision, sortedDivs]);
+
+  // Auto-select first division when landing directly on standings tab with data
+  useEffect(() => {
+    if (activeTab === 'standings' && (!selectedDivision || selectedDivision === 'combined') && sortedDivs.length > 0) {
+      setSelectedDivision(sortedDivs[0]);
+    }
+  }, [activeTab, sortedDivs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleGoToDivision = useCallback((division, tab) => {
     setSelectedDivision(division);
@@ -329,7 +341,16 @@ export default function SYCLDashboard() {
               {activeTab==="overview" && selectedDivision && selectedDivision !== 'combined' && <DivisionOverview data={data} division={selectedDivision} onTabClick={handleTabClick} onDrilldown={handleDrilldown} onAllDivisions={() => setSelectedDivision('combined')} />}
               {activeTab==="overview" && (!selectedDivision || selectedDivision === 'combined') && <SeasonOverview  data={data} lastRefresh={lastRefresh} onDrilldown={handleDrilldown} onGoToDivision={handleGoToDivision} onAskQuestion={handleAskQuestion} />}
               {selectedDivision && activeTab==="schedule"  && <ScheduleView  matches={data.matches} results={data.results} division={selectedDivision} onDrilldown={handleDrilldown}/>}
-              {selectedDivision && activeTab==="standings" && <StandingsView matches={data.matches} division={selectedDivision} standings={data.standings} results={data.results} onDrilldown={handleDrilldown}/>}
+              {activeTab==="standings" && selectedDivision && selectedDivision !== 'combined' && <StandingsView matches={data.matches} division={selectedDivision} standings={data.standings} results={data.results} onDrilldown={handleDrilldown}/>}
+              {activeTab==="standings" && (!selectedDivision || selectedDivision === 'combined') && sortedDivs.length > 0 && (
+                <div>
+                  {sortedDivs.map(div => (
+                    <div key={div} style={{marginBottom:24}}>
+                      <StandingsView matches={data.matches} division={div} standings={data.standings} results={data.results} onDrilldown={handleDrilldown}/>
+                    </div>
+                  ))}
+                </div>
+              )}
               {activeTab==="results"   && <ResultsView  results={data.results}   division={selectedDivision} onDrilldown={handleDrilldown}/>}
               {activeTab==="batting"   && <BattingView  batting={data.batting}   division={selectedDivision} onDrilldown={handleDrilldown}/>}
               {activeTab==="bowling"   && <BowlingView  bowling={data.bowling}   division={selectedDivision} onDrilldown={handleDrilldown}/>}
