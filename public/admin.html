@@ -1749,8 +1749,8 @@ function parseScorecard(doc, matchMeta){
       var vidEl=playerCell.querySelector('a[href*="openVideoHTMLvs"]');
       var player='';
       if(vidEl){
-        var vh=(vidEl.getAttribute('href')||'').replace(/\\);?\\s*$/,'');
-        var vp=vh.replace(/^javascript:openVideoHTMLvs\\(/,'').split(',');
+        var vh=(vidEl.getAttribute('href')||'').replace(/[);\\s]+$/,'');
+        var vp=vh.replace(/^javascript:openVideoHTMLvs[(]/,'').split(',');
         player=(vp[2]||'').replace(/['"]/g,'').trim();
       }
       if(!player){
@@ -1761,7 +1761,7 @@ function parseScorecard(doc, matchMeta){
         .replace(/\\s*\\(c\\)/gi,'')
         .replace(/\\s*\\(wk\\)/gi,'')
         .replace(/\\u2020/g,'')
-        .replace(/\\*+\\s*$/,'')
+        .replace(/[*]+\\s*$/,'')
         .replace(/\\s+/g,' ')
         .trim();
       if(!player) return;
@@ -1910,7 +1910,7 @@ function parseBallByBall(doc, matchId){
     var bowlerMap={};
     Array.from(doc.querySelectorAll('a[href*="openVideoHTMLvs"]')).forEach(function(a){
       var h=a.getAttribute('href')||'';
-      var parts=h.replace(/^javascript:openVideoHTMLvs\\(/,'').replace(/\\);?\\s*$/,'').split(',');
+      var parts=h.replace(/^javascript:openVideoHTMLvs[(]/,'').replace(/[);\\s]+$/,'').split(',');
       if(parts.length>=3){
         var bid=(parts[0]||'').replace(/['"]/g,'').trim();
         var bname=(parts[2]||'').replace(/['"]/g,'').trim();
@@ -1919,7 +1919,7 @@ function parseBallByBall(doc, matchId){
     });
     Array.from(doc.querySelectorAll('a[href*="updateBall("]')).forEach(function(a){
       var h=a.getAttribute('href')||'';
-      var argsStr=h.replace(/^javascript:updateBall\\(/,'').replace(/\\);?\\s*$/,'');
+      var argsStr=h.replace(/^javascript:updateBall[(]/,'').replace(/[);\\s]+$/,'');
       var args=[],cur='',inQ=false,qc='';
       for(var ci=0;ci<argsStr.length;ci++){
         var ch=argsStr[ci];
