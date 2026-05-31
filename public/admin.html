@@ -2026,7 +2026,7 @@ if(!onFixturesPage&&!results.length&&!divOptions.length){
 // ── Detect base URL and clubId dynamically from current page ──
 var currentPath=window.location.pathname.split('/').filter(Boolean)[0]||'';
 var base='https://cricclubs.com/'+currentPath+'/';
-var clubIdMatch=window.location.search.match(/clubId=(\d+)/)||window.location.href.match(/clubId=(\d+)/);
+var clubIdMatch=window.location.search.match(/clubId=(\\d+)/)||window.location.href.match(/clubId=(\\d+)/);
 var detectedClubId=clubIdMatch?clubIdMatch[1]:'';
 
 // ── Auto-suggest slug from series title + URL ──
