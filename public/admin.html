@@ -1511,10 +1511,10 @@ function parseResults(){
     // or just "League @ Ground\nUmpires: Name" (SYCL style with no division in title)
     var h4Raw=h4s[0]?h4s[0].textContent:'';
     // Use only the first line of h4 (series title), ignore "League @..." and "Umpires:..." lines
-    var h4FirstLine=h4Raw.split(/[\n\r]/)[0].trim();
+    var h4FirstLine=h4Raw.split(/[\\n\\r]/)[0].trim();
     // Strip any "League @ ..." or "@ ..." suffix from the first line
-    h4FirstLine=h4FirstLine.replace(/\s*(?:League\s*@|@)\s*[^\n\r]*/i,'').trim();
-    var divParts=h4FirstLine.split(/\s*-\s*/);
+    h4FirstLine=h4FirstLine.replace(/\\s*(?:League\\s*@|@)\\s*[^\\n\\r]*/i,'').trim();
+    var divParts=h4FirstLine.split(/\\s*-\\s*/);
     var division=divParts.length>1?divParts[divParts.length-1].trim():divPageFallback;
     var teamsText=h3?h3.textContent.trim():'';
     var teamParts=teamsText.split(/\\s+v\\s+/);
